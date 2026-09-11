@@ -74,18 +74,18 @@ describe('hamming', () => {
 });
 
 describe('rankByDistance', () => {
-  // distance = 2×art + phash (0..192); dhash is not scored (imported dataset rows have none)
+  // distance = 2×phash + art (0..192); dhash is not scored (imported dataset rows have none)
   const index = [
     { id: 'far', phash: 'ffffffffffffffff', dhash: null, artHash: 'ffffffffffffffff' },
     { id: 'near', phash: '0000000000000003', dhash: null, artHash: '0000000000000001' },
     { id: 'exact', phash: '0000000000000000', dhash: null, artHash: '0000000000000000' },
   ];
 
-  it('orders candidates by 2×art + whole-card distance, best first', () => {
+  it('orders candidates by 2×whole-card + art distance, best first', () => {
     const ranked = rankByDistance({ phash: '0000000000000000', dhash: '0000000000000000', artHash: '0000000000000000' }, index, 3);
     expect(ranked.map(r => r.id)).toEqual(['exact', 'near', 'far']);
     expect(ranked[0].distance).toBe(0);
-    expect(ranked[1].distance).toBe(2 * 1 + 2);
+    expect(ranked[1].distance).toBe(2 * 2 + 1);
     expect(ranked[2].distance).toBe(2 * 64 + 64);
   });
 

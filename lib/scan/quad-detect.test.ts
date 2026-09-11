@@ -105,4 +105,14 @@ describe('detectCardQuad', () => {
     expect(found).not.toBeNull();
     for (let i = 0; i < 4; i++) expect(near(found!.quad[i], truth[i], 7)).toBe(true);
   });
+
+  it('a single card is not mistaken for a block of cards because of weak skewed sub-quads through its art', () => {
+    // a card with a strong diagonal feature inside (a busy art) — the diagonal creates junk quads with the edges
+    const W = 400, H = 520; const truth = rot(200, 260, 260, 364, 0);
+    const px = scene(W, H, truth, { noise: 6 });
+    for (let y = 100; y < 420; y++) { const x = Math.round(80 + (y - 100) * 0.7); for (let d = -2; d <= 2; d++) px[y * W + Math.min(W - 1, Math.max(0, x + d))] = 30; }
+    const found = detectCardQuads(px, W, H);
+    expect(found).toHaveLength(1);
+    for (let i = 0; i < 4; i++) expect(near(found[0].quad[i], truth[i], 7)).toBe(true);
+  });
 });

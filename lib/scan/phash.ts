@@ -119,7 +119,8 @@ export interface HashIndexEntry extends HashPair {
 
 export interface RankedMatch {
   id: string;
-  /** 0..192: 2×art + whole-card (3×whole-card when either side lacks an art hash). */
+  /** 0..192: 2×whole-card + art (3×whole-card when either side lacks an art hash). The whole-card
+   *  hash is the robust arm on real photos — the art rect is far more sensitive to crop offset. */
   distance: number;
   phashDistance: number;
   dhashDistance: number | null;
@@ -129,7 +130,7 @@ export interface RankedMatch {
 /** Max combined distance (see RankedMatch.distance). */
 export const MAX_DISTANCE = 192;
 
-/** Rank an index by combined Hamming distance to `query` — art hash weighted double, whole card as tie-break. */
+/** Rank an index by combined Hamming distance to `query` — whole card weighted double, art as tie-break. */
 export function rankByDistance(query: HashPair, index: readonly HashIndexEntry[], limit: number): RankedMatch[] {
   const qp = BigInt('0x' + query.phash);
   const qd = query.dhash ? BigInt('0x' + query.dhash) : null;
@@ -138,7 +139,7 @@ export function rankByDistance(query: HashPair, index: readonly HashIndexEntry[]
     const phashDistance = popcount64(qp ^ BigInt('0x' + e.phash));
     const dhashDistance = qd !== null && e.dhash ? popcount64(qd ^ BigInt('0x' + e.dhash)) : null;
     const artDistance = qa !== null && e.artHash ? popcount64(qa ^ BigInt('0x' + e.artHash)) : null;
-    const distance = artDistance !== null ? 2 * artDistance + phashDistance : 3 * phashDistance;
+    const distance = artDistance !== null ? 2 * phashDistance + artDistance : 3 * phashDistance;
     return { id: e.id, distance, phashDistance, dhashDistance, artDistance };
   });
   scored.sort((a, b) => a.distance - b.distance || a.phashDistance - b.phashDistance);

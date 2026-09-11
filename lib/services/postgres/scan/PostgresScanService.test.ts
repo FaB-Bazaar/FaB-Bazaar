@@ -102,8 +102,8 @@ describe('PostgresScanService', () => {
     expect(orderCardsByPitchHint(cards, null).map(c => c.cardUniqueId)).toEqual(['r', 'y', 'b']);
   });
 
-  it('identify prefers an art-hash match over a whole-card match (art weighs double)', async () => {
-    // A: art exact, whole-card 16 bits off. B: whole-card exact, art 16 bits off.
+  it('identify prefers a whole-card match over an art-hash match (whole card weighs double)', async () => {
+    // A: art exact, whole-card 8 bits off. B: whole-card exact, art 16 bits off.
     await service.upsertHashes([
       { printingId: sameCardA, phash: '00000000000000ff', dhash: '00000000000000ff', artHash: ZERO, imageUrl: 'a' },
       { printingId: otherCard, phash: ZERO, dhash: ZERO, artHash: '000000000000ffff', imageUrl: 'c' },
@@ -113,8 +113,10 @@ describe('PostgresScanService', () => {
     expect(res.success).toBe(true);
     if (!res.success) return;
     const first = res.data.candidates[0];
-    expect(first.cards.some(c => c.cardUniqueId === sameCardUniqueId)).toBe(true);
-    expect(first.distance).toBe(8); // 2×art(0) + whole-card(8)
+    // B: 2×0 + 16 = 16 beats A: 2×8 + 0 = 16? tie → A listed by phash tie-break; assert both distances instead
+    const byCard = new Map(res.data.candidates.flatMap(c => c.cards.map(cc => [cc.cardUniqueId, cc.distance] as const)));
+    expect(byCard.get(sameCardUniqueId)).toBe(16); // 2×8 + 0
+    expect(first.distance).toBe(16);
   });
 
   it('filterKnownPrintingIds keeps only ids that exist in printings', async () => {

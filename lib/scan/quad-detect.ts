@@ -242,23 +242,33 @@ export function enumerateCandidates(gray: Uint8Array | Uint8ClampedArray, width:
  * one; among near-equal support the LARGER quad wins (the outline
  * encloses the inner frame). Coordinates are in the input image's pixels.
  */
-export function detectCardQuads(gray: Uint8Array | Uint8ClampedArray, width: number, height: number, opts: { maxCards?: number } = {}, debug?: DetectDebug): DetectedQuad[] {
+export interface SelectTrace { stage: 'composite' | 'inner' | 'nms'; quad: Quad; score: number; area: number; aspect: number; by?: Quad }
+
+export function detectCardQuads(gray: Uint8Array | Uint8ClampedArray, width: number, height: number, opts: { maxCards?: number; trace?: SelectTrace[] } = {}, debug?: DetectDebug): DetectedQuad[] {
+  const trace = opts.trace;
   const { cands: all, scale, reject } = enumerateCandidates(gray, width, height, debug);
   if (all.length === 0) { if (debug) debug.reject = reject; return []; }
   // 0) a rectangle made of several cards (a 2×2 block has a card-like aspect) is not a card:
   //    drop any candidate that fully contains two mutually non-overlapping smaller candidates.
   const contains = (outer: Quad, inner: Quad) => { const O = bbox(outer), I = bbox(inner); return I.x0 >= O.x0 - 2 && I.y0 >= O.y0 - 2 && I.x1 <= O.x1 + 2 && I.y1 <= O.y1 + 2; };
+  //    Only contained candidates that are substantial (≥15% of the container) and supported nearly as
+  //    well as it (≥0.85×) count — real cards inside a block are; skewed junk quads through the art are not.
   const cands = all.filter(c => {
-    const inside = all.filter(o => o !== c && o.area < c.area * 0.6 && contains(c.quad, o.quad));
+    const inside = all.filter(o => o !== c && o.area < c.area * 0.6 && o.area >= c.area * 0.15 && o.score >= c.score * 0.85 && contains(c.quad, o.quad));
     const picked: Candidate[] = [];
     for (const o of inside) { if (picked.every(p => overlapRatio(p.quad, o.quad) < OVERLAP_SUPPRESS)) picked.push(o); if (picked.length >= 2) break; }
+    if (picked.length >= 2) trace?.push({ stage: 'composite', quad: c.quad, score: c.score, area: c.area, aspect: c.aspect, by: picked[0].quad });
     return picked.length < 2;
   });
   // 0b) a candidate fully inside a much larger, reasonably supported candidate is an inner
   //     feature (text box, art frame) — the enclosing outline is the card. Card+gap spans are
   //     only ~1.35× a card, so the 1.5× floor keeps them from swallowing real cards.
   //     The enclosing quad must itself be card-shaped (aspect ≈ 1.4): a card+gap+partial span is not.
-  const candsInner = cands.filter(c => !cands.some(o => o !== c && o.area >= c.area * 1.5 && o.score >= c.score * 0.85 && Math.abs(o.aspect - CARD_ASPECT) <= 0.2 && contains(o.quad, c.quad)));
+  const candsInner = cands.filter(c => {
+    const by = cands.find(o => o !== c && o.area >= c.area * 1.5 && o.score >= c.score * 0.85 && Math.abs(o.aspect - CARD_ASPECT) <= 0.2 && contains(o.quad, c.quad));
+    if (by) trace?.push({ stage: 'inner', quad: c.quad, score: c.score, area: c.area, aspect: c.aspect, by: by.quad });
+    return !by;
+  });
   // 1) greedy non-max suppression by score; within the winner's overlap cluster prefer the
   //    LARGER border variant (outer vs inner edge differ by ~1.16× in area) when its support is close.
   const kept: Candidate[] = [];
@@ -273,7 +283,7 @@ export function detectCardQuads(gray: Uint8Array | Uint8ClampedArray, width: num
       if (pool[j].score >= pool[i].score * 0.85 && pool[j].area > winner.area * 1.05) winner = pool[j];
     }
     kept.push(winner);
-    for (let j = i; j < pool.length; j++) if (alive[j] && overlapRatio(winner.quad, pool[j].quad) >= OVERLAP_SUPPRESS) alive[j] = false;
+    for (let j = i; j < pool.length; j++) if (alive[j] && overlapRatio(winner.quad, pool[j].quad) >= OVERLAP_SUPPRESS) { if (pool[j] !== winner) trace?.push({ stage: 'nms', quad: pool[j].quad, score: pool[j].score, area: pool[j].area, aspect: pool[j].aspect, by: winner.quad }); alive[j] = false; }
     if (kept.length >= (opts.maxCards ?? 12)) break;
   }
   const confidenceOf = (c: Candidate) => c.support;
