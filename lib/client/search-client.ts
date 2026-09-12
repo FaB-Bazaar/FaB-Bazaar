@@ -540,6 +540,7 @@ export interface BulkSearchCard {
   foiling?: string;
   set?: string;
   edition?: string;
+  collectorNumber?: string; // "WTR001" — resolves by set printing instead of name
 }
 
 export interface BulkSearchResult {

@@ -47,3 +47,69 @@ describe('parseBulkInput — cardlist loose color handling', () => {
     expect(card.fallbackName).toBe('deep blue');
   });
 });
+
+describe('parseBulkInput — cardlist collector numbers', () => {
+  it('reads "2 WTR001" as quantity 2 of collector number WTR001', () => {
+    const [card] = parseBulkInput('2 WTR001', 'cardlist');
+
+    expect(card.quantity).toBe(2);
+    expect(card.collectorNumber).toBe('WTR001');
+    expect(card.color).toBe('');
+    expect(card.fallbackName).toBeUndefined();
+  });
+
+  it('uppercases a lowercase collector number and accepts the "4x" quantity form', () => {
+    const [card] = parseBulkInput('4x arc057', 'cardlist');
+
+    expect(card.quantity).toBe(4);
+    expect(card.collectorNumber).toBe('ARC057');
+  });
+
+  it('keeps a bare digit-leading collector number (1HP001) intact instead of eating the 1 as a quantity', () => {
+    const [card] = parseBulkInput('1HP001', 'cardlist');
+
+    expect(card.quantity).toBe(1);
+    expect(card.collectorNumber).toBe('1HP001');
+  });
+
+  it('still honours parenthesised foiling/edition tags after a collector number', () => {
+    const [card] = parseBulkInput('3 WTR001 (RF, 1st)', 'cardlist');
+
+    expect(card.quantity).toBe(3);
+    expect(card.collectorNumber).toBe('WTR001');
+    expect(card.foiling).toBe('r');
+    expect(card.edition).toBe('f');
+  });
+
+  it('does not treat ordinary names as collector numbers', () => {
+    const cards = parseBulkInput('Command and Conquer\nSnatch\n2 Sink Below red', 'cardlist');
+
+    expect(cards.map(c => c.collectorNumber)).toEqual([undefined, undefined, undefined]);
+    expect(cards[2].name).toBe('sink below');
+  });
+});
+
+describe('parseBulkInput — bare tags after a collector number', () => {
+  it('reads "1 WTR123 RF" as collector WTR123 with rainbow foiling', () => {
+    const [card] = parseBulkInput('1 WTR123 RF', 'cardlist');
+
+    expect(card.quantity).toBe(1);
+    expect(card.collectorNumber).toBe('WTR123');
+    expect(card.foiling).toBe('r');
+  });
+
+  it('accepts several bare tags, including two-word ones and editions', () => {
+    const [card] = parseBulkInput('2 arc057 cold foil 1st', 'cardlist');
+
+    expect(card.collectorNumber).toBe('ARC057');
+    expect(card.foiling).toBe('c');
+    expect(card.edition).toBe('f');
+  });
+
+  it('declines the collector reading when a trailing token is not a known tag', () => {
+    const [card] = parseBulkInput('WTR123 something', 'cardlist');
+
+    expect(card.collectorNumber).toBeUndefined();
+    expect(card.name).toBe('wtr123 something');
+  });
+});

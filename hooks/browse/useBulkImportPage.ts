@@ -5,23 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
 import { buildColorFallbackRetries, mergeColorFallbackResults } from '@/lib/browse/bulk-search-fallback';
-import { selectDefaultPrinting } from '@/lib/browse/utils';
+import { buildBulkCardInstances, mergeBulkInstances } from '@/lib/browse/group-bulk-results';
 import { getSetName } from "@/lib/fab-formatters";
 import { bindersClient, wantsClient, searchClient } from "@/lib/client";
 import type { BulkSearchCard } from "@/lib/client/search-client";
-
-const groupPrintingsByCard = (printings: any[], key: string) => {
-  if (!printings || printings.length === 0) return new Map();
-  const cardMap = new Map<string, any[]>();
-  printings.forEach(p => {
-    const groupKey = p[key];
-    if (groupKey) {
-      if (!cardMap.has(groupKey)) cardMap.set(groupKey, []);
-      cardMap.get(groupKey)!.push(p);
-    }
-  });
-  return cardMap;
-};
 
 export function useBulkImportPage() {
   const { toast } = useToast();
@@ -76,6 +63,7 @@ export function useBulkImportPage() {
         foiling: card.foiling || undefined,
         set: card.set || undefined,
         edition: card.edition || undefined,
+        collectorNumber: card.collectorNumber || undefined,
       }));
 
       const bulkResponse = await searchClient.bulkSearchByNames(bulkCards);
@@ -94,75 +82,14 @@ export function useBulkImportPage() {
         }
       }
 
-      const allPrintings: any[] = [];
-      results.forEach((result, index) => {
-        if (result.printings.length > 0) {
-          const originalCard = parsedCards[index];
-          const printingsWithQuantity = result.printings.map((p: any) => ({ ...p, importQuantity: originalCard.quantity }));
-          allPrintings.push(...printingsWithQuantity);
-        }
-      });
-      
-      if (allPrintings.length === 0) throw new Error("No cards found for your query.");
+      // Collector-number lines key by card + set number so "2 WTR001" and
+      // "1 1HP001" (same card) stay separate rows; name lines key by card.
+      const newCardInstances = buildBulkCardInstances(parsedCards, results, { stageAll: opts.stageAll });
+      if (newCardInstances.length === 0) throw new Error("No cards found for your query.");
 
-      const groupedByCard = groupPrintingsByCard(allPrintings, 'card_unique_id');
-      
-      const newCardInstances = Array.from(groupedByCard.entries()).map(([cardUniqueId, printings]) => ({
-        instanceId: `${cardUniqueId}-${Date.now()}-${Math.random()}`,
-        card_unique_id: cardUniqueId,
-        selectedPrinting: selectDefaultPrinting({ printings }),
-        quantity: printings[0].importQuantity,
-        forTrade: false,
-        allPrintings: printings,
-        isStaged: opts.stageAll ?? false, // URL prefill stages directly; form searches don't
-      }));
-
-      let addedCount = 0;
-      let updatedCount = 0;
-
-      setBulkResults(currentResults => {
-        const newCardUniqueIds = new Set(newCardInstances.map(c => c.card_unique_id));
-        
-        // Keep all existing staged cards
-        const existingStagedCards = currentResults.filter(card => card.isStaged);
-
-        // Filter out non-staged cards that will be explicitly replaced/updated by new search results
-        // Also keep non-staged cards if their card_unique_id is not present in the new search
-        const nonStagedKeepers = currentResults.filter(card => 
-          !card.isStaged && !newCardUniqueIds.has(card.card_unique_id)
-        );
-        
-        const nextBulkResults = [...existingStagedCards, ...nonStagedKeepers];
-        
-        newCardInstances.forEach(newCard => {
-            // Check if we have an existing *non-staged* card with the same card_unique_id
-            const existingNonStagedCardIndex = nextBulkResults.findIndex(
-                card => !card.isStaged && card.card_unique_id === newCard.card_unique_id
-            );
-
-            if (existingNonStagedCardIndex !== -1) {
-                // If a non-staged card with the same unique ID exists, update its quantity and printing
-                nextBulkResults[existingNonStagedCardIndex] = {
-                    ...nextBulkResults[existingNonStagedCardIndex],
-                    quantity: nextBulkResults[existingNonStagedCardIndex].quantity + newCard.quantity,
-                    selectedPrinting: newCard.selectedPrinting,
-                    allPrintings: newCard.allPrintings,
-                };
-                updatedCount++;
-            } else {
-                // Otherwise, add it as a new distinct card
-                nextBulkResults.push(newCard);
-                addedCount++;
-            }
-        });
-        
-        // Sort the results: staged cards first, then non-staged, by display name
-        return nextBulkResults.sort((a, b) => {
-            if (a.isStaged && !b.isStaged) return -1;
-            if (!a.isStaged && b.isStaged) return 1;
-            return (a.selectedPrinting?.display_name || '').localeCompare(b.selectedPrinting?.display_name || '');
-        });
-      });
+      const merged = mergeBulkInstances(bulkResults, newCardInstances);
+      const { addedCount, updatedCount } = merged;
+      setBulkResults(merged.results);
 
       if (!opts.quiet) {
         toast({ title: "Search Complete", description: `${addedCount} new card(s) added, ${updatedCount} existing card(s) updated.` });

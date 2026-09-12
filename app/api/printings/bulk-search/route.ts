@@ -20,6 +20,7 @@ export interface BulkSearchCard {
   foiling?: string;     // post-filter
   set?: string;         // post-filter
   edition?: string;     // post-filter
+  collectorNumber?: string; // "WTR001" — resolves by set printing instead of name
 }
 
 export interface BulkSearchResult {
@@ -47,18 +48,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'cards array is required' }, { status: 400 });
     }
 
-    // Split: exact-name cards → one bulkResolveByName query
+    // Split: collector-number cards → one bulkResolveByCollectorNumber query
+    //        exact-name cards → one bulkResolveByName query
     //        partial-match cards → individual fuzzy queries (rare)
+    const collectorIndices: number[] = [];
     const exactIndices: number[] = [];
     const partialIndices: number[] = [];
 
     cards.forEach((c, i) => {
-      if (c.isPartialMatch) {
+      if (c.collectorNumber) {
+        collectorIndices.push(i);
+      } else if (c.isPartialMatch) {
         partialIndices.push(i);
       } else {
         exactIndices.push(i);
       }
     });
+
+    // ── Collector-number cards: one query ─────────────────────────────────────
+    const collectorResult = collectorIndices.length > 0
+      ? await printingsService.bulkResolveByCollectorNumber(
+          collectorIndices.map(i => cards[i].collectorNumber!),
+          sharedFilters
+        )
+      : { success: true as const, data: [] };
+
+    if (!collectorResult.success) {
+      return NextResponse.json({ error: collectorResult.error }, { status: 500 });
+    }
 
     // ── Exact-name cards: one query with shared AND constraints ───────────────
     const exactInputs = exactIndices.map(i => ({
@@ -91,28 +108,34 @@ export async function POST(request: NextRequest) {
     // ── Assemble output indexed to original card positions ────────────────────
     const results: BulkSearchResult[] = cards.map((_, i) => ({ index: i, printings: [] }));
 
-    exactIndices.forEach((originalIdx, bulkIdx) => {
-      const card = cards[originalIdx];
-      let printings = bulkResult.data[bulkIdx]?.printings ?? [];
-
-      // Post-filter by set / edition / foiling if specified per-card
+    // Post-filter by set / edition / foiling if specified per-card
+    const applyCardFilters = (card: BulkSearchCard, printings: PrintingDTO[]) => {
       if (card.set)     printings = printings.filter(p => p.set === card.set!.toLowerCase());
       if (card.edition) printings = printings.filter(p => p.edition === card.edition);
       if (card.foiling) printings = printings.filter(p => p.foiling === card.foiling);
+      return printings;
+    };
 
-      results[originalIdx].printings = printings;
+    collectorIndices.forEach((originalIdx, collectorIdx) => {
+      results[originalIdx].printings = applyCardFilters(
+        cards[originalIdx],
+        collectorResult.data[collectorIdx]?.printings ?? []
+      );
+    });
+
+    exactIndices.forEach((originalIdx, bulkIdx) => {
+      results[originalIdx].printings = applyCardFilters(
+        cards[originalIdx],
+        bulkResult.data[bulkIdx]?.printings ?? []
+      );
     });
 
     partialIndices.forEach((originalIdx, partialIdx) => {
       const res = partialResults[partialIdx];
-      let printings: PrintingDTO[] = res.success ? (res.data?.printings ?? []) : [];
-      const card = cards[originalIdx];
-
-      if (card.set)     printings = printings.filter(p => p.set === card.set!.toLowerCase());
-      if (card.edition) printings = printings.filter(p => p.edition === card.edition);
-      if (card.foiling) printings = printings.filter(p => p.foiling === card.foiling);
-
-      results[originalIdx].printings = printings;
+      results[originalIdx].printings = applyCardFilters(
+        cards[originalIdx],
+        res.success ? (res.data?.printings ?? []) : []
+      );
     });
 
     return NextResponse.json({ success: true, data: { results } });

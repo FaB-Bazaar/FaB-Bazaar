@@ -82,6 +82,13 @@ export default function BulkImportForm({ bulkInput, onInputChange, onSearch, loa
                     <code className="bg-purple-200 dark:bg-purple-800/50 p-1 rounded text-xs">2x Art of War (ARC, Unlimited)</code>
                   </li>
                   <li>
+                    <strong>Collector Number:</strong> Type the set number instead of a name. Defaults to the Unlimited non-foil printing when one exists; switch printings from the card tile.
+                    <br />
+                    <code className="bg-purple-200 dark:bg-purple-800/50 p-1 rounded text-xs">2 WTR001</code>
+                    <br />
+                    <code className="bg-purple-200 dark:bg-purple-800/50 p-1 rounded text-xs">4x ARC057 (RF)</code>
+                  </li>
+                  <li>
                     <strong>Partial Search:</strong> Start with an asterisk `*` for a "contains" search.
                     <br />
                     <code className="bg-purple-200 dark:bg-purple-800/50 p-1 rounded text-xs">*channel</code>
@@ -106,7 +113,7 @@ export default function BulkImportForm({ bulkInput, onInputChange, onSearch, loa
         <form onSubmit={onSearch}>
           <textarea
             className="w-full h-64 p-3 border rounded-md font-mono text-sm bg-white text-gray-900 placeholder-gray-500 border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-600"
-            placeholder={`Paste your list here...\n\nExample:\n3x Command and Conquer\nred Sink Below\n2 Zipper Hit (blue)\nClamp Press (Cold Foil)\nEnlightened Strike (WTR, 1st)\n*channel red`}
+            placeholder={`Paste your list here...\n\nExample:\n3x Command and Conquer\nred Sink Below\n2 Zipper Hit (blue)\n2 WTR001\n4x ARC057\nClamp Press (Cold Foil)\nEnlightened Strike (WTR, 1st)\n*channel red`}
             value={bulkInput}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}

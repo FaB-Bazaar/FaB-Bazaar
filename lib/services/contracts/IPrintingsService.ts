@@ -692,6 +692,19 @@ export interface IPrintingsService {
   ): AsyncResult<Array<{ name: string; pitch?: number; printings: PrintingDTO[] }>>;
 
   /**
+   * Resolve multiple collector numbers (e.g. "WTR001", "ARC057") to ALL of their
+   * printings in a single DB query — every edition/foiling of that set printing.
+   * Input is case-insensitive; the returned `collectorNumber` is the canonical
+   * uppercase form. Entries that match nothing return an empty printings array.
+   * Used by the /browse bulk import ("2 WTR001") so the page can pick a default
+   * printing and let the user switch.
+   */
+  bulkResolveByCollectorNumber(
+    collectorNumbers: string[],
+    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format'>
+  ): AsyncResult<Array<{ collectorNumber: string; printings: PrintingDTO[] }>>;
+
+  /**
    * Get single printing by printing_id
    *
    * @param printingId - The printing unique ID

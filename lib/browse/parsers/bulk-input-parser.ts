@@ -13,6 +13,10 @@ export interface ParsedCard {
   // color-filtered query returns nothing. Undefined when no loose strip happened
   // or when the color came from explicit "(blue)" parenthesis syntax.
   fallbackName?: string;
+  // Set when the line is a collector number (e.g. "2 WTR001", "4x arc057",
+  // "1HP001") instead of a card name. Uppercased to match printings storage.
+  // `name` still holds the raw token so the empty-name filter keeps the line.
+  collectorNumber?: string;
 }
 
 // --- NORMALIZATION MAPS (for converting user input to system codes) ---
@@ -39,6 +43,37 @@ const EDITION_MAP: Record<string, string> = {
 // A simple regex to validate 3-letter set codes.
 const SET_CODE_PATTERN = /^[A-Z]{3}$/i;
 
+// A collector number: set prefix (letters, optionally digit-leading like 1HP)
+// followed by a 3–4 digit number. Mirrors the DB's own detection regex.
+const COLLECTOR_NUMBER_PATTERN = /^(?=.*[a-z])[a-z0-9]{2,5}\d{3,4}$/i;
+
+// Two-word tags collapse to their short form before token splitting.
+const MULTI_WORD_TAGS: Array<[RegExp, string]> = [
+  [/\brainbow foil\b/g, 'rf'],
+  [/\bcold foil\b/g, 'cf'],
+  [/\bgold foil\b/g, 'gf'],
+  [/\bfirst edition\b/g, '1st'],
+];
+
+// Apply one tag (color / foiling / edition / set) to the result. Returns false
+// when the token isn't a known tag so callers can decline the reading.
+function applyTag(tag: string, result: ParsedCard): boolean {
+  if (COLOR_MAP[tag]) {
+      result.color = COLOR_MAP[tag];
+  } else if (FOILING_MAP[tag]) {
+      result.foiling = FOILING_MAP[tag];
+  } else if (EDITION_MAP[tag]) {
+      // ✅ CHECK EDITION FIRST (before set check)
+      result.edition = EDITION_MAP[tag];
+  } else if (SET_CODE_PATTERN.test(tag)) {
+      // Only treat as set code if it's NOT an edition
+      result.set = tag.toUpperCase();
+  } else {
+      return false;
+  }
+  return true;
+}
+
 // --- THE PRIMARY PARSING FUNCTION (REWRITTEN FOR SAFETY) ---
 export function parseCardListFormat(lines: string[]): ParsedCard[] {
   return lines.map(line => {
@@ -54,8 +89,11 @@ export function parseCardListFormat(lines: string[]): ParsedCard[] {
           edition: '',
       };
 
-      // 1. Handle Quantity
-      const quantityMatch = currentLine.match(/^(\d+)(x)?\s*(.+)/i);
+      // 1. Handle Quantity. A bare digit-leading collector number ("1HP001")
+      // must not have its first digit read as a quantity.
+      const quantityMatch = COLLECTOR_NUMBER_PATTERN.test(currentLine)
+          ? null
+          : currentLine.match(/^(\d+)(x)?\s*(.+)/i);
       if (quantityMatch) {
           result.quantity = parseInt(quantityMatch[1], 10);
           currentLine = quantityMatch[3].trim();
@@ -72,19 +110,20 @@ export function parseCardListFormat(lines: string[]): ParsedCard[] {
       if (parenthesisMatch) {
           currentLine = parenthesisMatch[1].trim();
           const tags = parenthesisMatch[2].split(',').map(tag => tag.trim().toLowerCase());
-          
-          for (const tag of tags) {
-              if (COLOR_MAP[tag]) {
-                  result.color = COLOR_MAP[tag];
-              } else if (FOILING_MAP[tag]) {
-                  result.foiling = FOILING_MAP[tag];
-              } else if (EDITION_MAP[tag]) {
-                  // ✅ CHECK EDITION FIRST (before set check)
-                  result.edition = EDITION_MAP[tag];
-              } else if (SET_CODE_PATTERN.test(tag)) {
-                  // Only treat as set code if it's NOT an edition
-                  result.set = tag.toUpperCase();
-              }
+          for (const tag of tags) applyTag(tag, result);
+      }
+
+      // 3b. Bare tags after a collector number: "1 WTR123 RF", "ARC057 cold foil 1st".
+      // Every trailing token must be a known tag, otherwise this is a name.
+      const bareTagMatch = currentLine.match(/^(\S+)\s+(.+)$/);
+      if (bareTagMatch && COLLECTOR_NUMBER_PATTERN.test(bareTagMatch[1])) {
+          let rest = bareTagMatch[2].toLowerCase();
+          for (const [pattern, short] of MULTI_WORD_TAGS) rest = rest.replace(pattern, short);
+          const tokens = rest.split(/[\s,]+/).filter(Boolean);
+          const trial: ParsedCard = { ...result };
+          if (tokens.every(token => applyTag(token, trial))) {
+              Object.assign(result, trial);
+              currentLine = bareTagMatch[1];
           }
       }
 
@@ -109,8 +148,11 @@ export function parseCardListFormat(lines: string[]): ParsedCard[] {
           }
       }
       
-      // The remainder is the card name
+      // The remainder is the card name — or a collector number
       result.name = currentLine.toLowerCase();
+      if (COLLECTOR_NUMBER_PATTERN.test(currentLine)) {
+          result.collectorNumber = currentLine.toUpperCase();
+      }
 
       return result;
   });

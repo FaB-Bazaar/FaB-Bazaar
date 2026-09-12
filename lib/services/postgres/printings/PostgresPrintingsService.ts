@@ -514,6 +514,59 @@ export class PostgresPrintingsService implements IPrintingsService {
   }
 
   /**
+   * Resolve collector numbers ("WTR001") to every printing that carries them,
+   * in one query. See IPrintingsService.bulkResolveByCollectorNumber.
+   */
+  async bulkResolveByCollectorNumber(
+    collectorNumbers: string[],
+    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format'>
+  ): AsyncResult<Array<{ collectorNumber: string; printings: PrintingDTO[] }>> {
+    try {
+      const normalized = collectorNumbers.map(n => n.trim().toUpperCase()).filter(Boolean);
+      if (normalized.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      const sharedConditions = sharedFilters ? this.buildWhereConditions(sharedFilters) : [];
+      const collectorCondition = inArray(printings.collectorNumber, [...new Set(normalized)]);
+      const whereClause = sharedConditions.length > 0
+        ? and(...sharedConditions, collectorCondition)
+        : collectorCondition;
+
+      const results = await db
+        .select(this.buildSelectFields())
+        .from(printings)
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(sets, eq(sets.code, printings.set))
+        .leftJoin(tcgGroups, eq(tcgGroups.groupId, printings.tcgGroupId))
+        .leftJoin(
+          cardTranslations,
+          and(
+            eq(cardTranslations.cardUniqueId, cards.cardUniqueId),
+            eq(cardTranslations.language, printings.language)
+          )
+        )
+        .where(whereClause)
+        .orderBy(...this.buildOrderBy(undefined, undefined, {}));
+
+      const dtos = results.map(row => this.mapToPrintingDTO(row));
+
+      return {
+        success: true,
+        data: normalized.map(collectorNumber => ({
+          collectorNumber,
+          printings: dtos.filter(p => (p.collector_number ?? '').toUpperCase() === collectorNumber),
+        })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to bulk resolve collector numbers',
+      };
+    }
+  }
+
+  /**
    * Get single printing by printing_id
    */
   async getPrintingById(printingId: string): AsyncResult<PrintingDTO | null> {

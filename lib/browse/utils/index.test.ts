@@ -36,3 +36,17 @@ describe('selectDefaultPrinting — language preference', () => {
     expect(result?.printing_id).toBe('p1');
   });
 });
+
+describe('selectDefaultPrinting — alpha edition ranks below unlimited', () => {
+  it('picks the Unlimited non-foil over an Alpha non-foil even when Alpha is listed first', () => {
+    // WTR001 comes back from the DB as [alpha, unlimited]. Alpha had no entry in
+    // the edition priority table, so the comparator returned NaN and the sort
+    // left Alpha in front.
+    const printings = [
+      { printing_id: 'alpha', edition: 'a', foiling: 's', tcg_low: 900 },
+      { printing_id: 'unl',   edition: 'u', foiling: 's', tcg_low: 5 },
+    ];
+
+    expect(selectDefaultPrinting({ printings })?.printing_id).toBe('unl');
+  });
+});

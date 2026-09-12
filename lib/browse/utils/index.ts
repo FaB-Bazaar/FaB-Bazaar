@@ -5,7 +5,7 @@ import { SET_MAP, FOILING_MAP, RARITY_MAP, EDITION_MAP } from "@/lib/fab-constan
 /**
  * Selects the best printing for a card based on language, edition, foiling, and price priority
  * Language: English always wins when an English printing exists (missing language = English)
- * Priority: Normal edition > Unlimited > First edition
+ * Priority: Normal edition > Unlimited > First edition > Alpha
  * Foiling: Standard > Rainbow > Cold foil
  * Within same tier, highest tcg_low price wins
  */
@@ -38,8 +38,10 @@ export function selectDefaultPrinting(card: any): any | null {
   
   // Sort by edition priority, then foiling priority
   candidates.sort((a: any, b: any) => {
-    const editionPriority = { 'n': 0, 'u': 1, 'f': 2 };
-    const foilingPriority = { 's': 0, 'r': 1, 'c': 2 };
+    // Alpha must be listed: a missing key made the subtraction NaN and the
+    // sort left an Alpha printing in front of Unlimited (WTR001).
+    const editionPriority: Record<string, number> = { 'n': 0, 'u': 1, 'f': 2, 'a': 3 };
+    const foilingPriority: Record<string, number> = { 's': 0, 'r': 1, 'c': 2 };
     
     const editionDiff = editionPriority[a.edition] - editionPriority[b.edition];
     if (editionDiff !== 0) return editionDiff;
