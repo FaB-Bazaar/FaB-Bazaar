@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
 import { buildColorFallbackRetries, mergeColorFallbackResults } from '@/lib/browse/bulk-search-fallback';
-import { buildBulkCardInstances, mergeBulkInstances } from '@/lib/browse/group-bulk-results';
+import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance } from '@/lib/browse/group-bulk-results';
 import { getSetName } from "@/lib/fab-formatters";
 import { bindersClient, wantsClient, searchClient } from "@/lib/client";
 import type { BulkSearchCard } from "@/lib/client/search-client";
@@ -87,12 +87,13 @@ export function useBulkImportPage() {
       const newCardInstances = buildBulkCardInstances(parsedCards, results, { stageAll: opts.stageAll });
       if (newCardInstances.length === 0) throw new Error("No cards found for your query.");
 
-      const merged = mergeBulkInstances(bulkResults, newCardInstances);
-      const { addedCount, updatedCount } = merged;
-      setBulkResults(merged.results);
+      // Always appends — a repeated search adds a new row so the second pass
+      // can pick a different foiling; same-printing rows fold together on stage.
+      const { results: nextResults, addedCount } = mergeBulkInstances(bulkResults, newCardInstances);
+      setBulkResults(nextResults);
 
       if (!opts.quiet) {
-        toast({ title: "Search Complete", description: `${addedCount} new card(s) added, ${updatedCount} existing card(s) updated.` });
+        toast({ title: "Search Complete", description: `${addedCount} card(s) added to the results.` });
       }
       return true;
 
@@ -203,10 +204,9 @@ export function useBulkImportPage() {
     }
   };
 
+  // Staging a row whose printing is already staged folds the quantities together.
   const toggleStagedStatus = (instanceId: string) => {
-    setBulkResults(current => current.map(card => 
-      card.instanceId === instanceId ? { ...card, isStaged: !card.isStaged } : card
-    ));
+    setBulkResults(current => stageBulkInstance(current, instanceId));
   };
   
   const clearStaged = () => {

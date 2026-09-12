@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildBulkCardInstances, mergeBulkInstances } from './group-bulk-results';
+import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance } from './group-bulk-results';
 import type { ParsedCard } from './parsers/bulk-input-parser';
 
 const parsed = (over: Partial<ParsedCard>): ParsedCard => ({
@@ -55,24 +55,22 @@ describe('mergeBulkInstances', () => {
     const existing = [{ instanceId: 'e1', mergeKey: 'rhinar|WTR001', card_unique_id: 'rhinar', quantity: 2, isStaged: false, forTrade: false, selectedPrinting: p({ printing_id: 'wtr-u' }), allPrintings: [] }];
     const incoming = [{ instanceId: 'n1', mergeKey: 'rhinar|1HP001', card_unique_id: 'rhinar', quantity: 1, isStaged: false, forTrade: false, selectedPrinting: p({ printing_id: 'hp-n' }), allPrintings: [] }];
 
-    const { results, addedCount, updatedCount } = mergeBulkInstances(existing, incoming);
+    const { results, addedCount } = mergeBulkInstances(existing, incoming);
 
     expect(results).toHaveLength(2);
     expect(addedCount).toBe(1);
-    expect(updatedCount).toBe(0);
   });
 
-  it('adds quantity into an existing unstaged row with the same mergeKey', () => {
+  it('appends a second row for a repeated search instead of merging into the unstaged row', () => {
+    // A second pass may want a different foiling on the new row.
     const existing = [{ instanceId: 'e1', mergeKey: 'snatch|', card_unique_id: 'snatch', quantity: 2, isStaged: false, forTrade: false, selectedPrinting: p({ printing_id: 's1' }), allPrintings: [] }];
     const incoming = [{ instanceId: 'n1', mergeKey: 'snatch|', card_unique_id: 'snatch', quantity: 1, isStaged: false, forTrade: false, selectedPrinting: p({ printing_id: 's2' }), allPrintings: [] }];
 
-    const { results, addedCount, updatedCount } = mergeBulkInstances(existing, incoming);
+    const { results, addedCount } = mergeBulkInstances(existing, incoming);
 
-    expect(results).toHaveLength(1);
-    expect(results[0].quantity).toBe(3);
-    expect(results[0].selectedPrinting.printing_id).toBe('s2');
-    expect(addedCount).toBe(0);
-    expect(updatedCount).toBe(1);
+    expect(results.map(r => r.instanceId).sort()).toEqual(['e1', 'n1']);
+    expect(results.find(r => r.instanceId === 'e1')!.quantity).toBe(2);
+    expect(addedCount).toBe(1);
   });
 
   it('keeps staged rows untouched and sorts them first', () => {
@@ -83,5 +81,42 @@ describe('mergeBulkInstances', () => {
 
     expect(results.map(r => r.instanceId)).toEqual(['e1', 'n1']);
     expect(results[0].quantity).toBe(2);
+  });
+});
+
+describe('stageBulkInstance', () => {
+  const row = (over: Record<string, unknown>) => ({
+    instanceId: 'x', mergeKey: 'snatch|', card_unique_id: 'snatch', quantity: 1, isStaged: false, forTrade: false,
+    selectedPrinting: p({ printing_id: 's1' }), allPrintings: [], ...over,
+  });
+
+  it('folds a row into an already-staged row with the SAME printing, adding quantities', () => {
+    const current = [row({ instanceId: 'staged', quantity: 2, isStaged: true }), row({ instanceId: 'new', quantity: 3 })];
+
+    const results = stageBulkInstance(current, 'new');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].instanceId).toBe('staged');
+    expect(results[0].quantity).toBe(5);
+    expect(results[0].isStaged).toBe(true);
+  });
+
+  it('stages a row as its own entry when the staged rows hold a different printing', () => {
+    const current = [row({ instanceId: 'staged', isStaged: true, selectedPrinting: p({ printing_id: 's1' }) }), row({ instanceId: 'new', selectedPrinting: p({ printing_id: 's2' }) })];
+
+    const results = stageBulkInstance(current, 'new');
+
+    expect(results).toHaveLength(2);
+    expect(results.find(r => r.instanceId === 'new')!.isStaged).toBe(true);
+  });
+
+  it('unstages a staged row without touching anything else', () => {
+    const current = [row({ instanceId: 'a', isStaged: true }), row({ instanceId: 'b', isStaged: true, selectedPrinting: p({ printing_id: 's2' }) })];
+
+    const results = stageBulkInstance(current, 'a');
+
+    expect(results).toHaveLength(2);
+    expect(results.find(r => r.instanceId === 'a')!.isStaged).toBe(false);
+    expect(results.find(r => r.instanceId === 'b')!.isStaged).toBe(true);
   });
 });

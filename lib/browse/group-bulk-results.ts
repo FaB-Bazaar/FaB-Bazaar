@@ -66,40 +66,46 @@ export function buildBulkCardInstances(
 }
 
 /**
- * Merge a fresh search into the current result list: staged rows are kept as
- * they are, an unstaged row with the same mergeKey absorbs the new quantity and
- * printing, everything else is appended. Staged rows sort first, then by name.
+ * Append a fresh search to the current result list. A repeated search for a
+ * card already listed adds a NEW row (the user may want a different foiling on
+ * the second pass); rows are only folded together when staged, by printing
+ * (see stageBulkInstance). Staged rows sort first, then by name.
  */
 export function mergeBulkInstances<T extends BulkCardInstance>(
   current: T[],
   incoming: T[],
-): { results: T[]; addedCount: number; updatedCount: number } {
-  const results: T[] = [...current];
-
-  let addedCount = 0;
-  let updatedCount = 0;
-
-  for (const card of incoming) {
-    const idx = results.findIndex(c => !c.isStaged && c.mergeKey === card.mergeKey);
-    if (idx !== -1) {
-      results[idx] = {
-        ...results[idx],
-        quantity: results[idx].quantity + card.quantity,
-        selectedPrinting: card.selectedPrinting,
-        allPrintings: card.allPrintings,
-      };
-      updatedCount++;
-    } else {
-      results.push(card);
-      addedCount++;
-    }
-  }
-
+): { results: T[]; addedCount: number } {
+  const results = [...current, ...incoming];
   results.sort((a, b) => {
     if (a.isStaged && !b.isStaged) return -1;
     if (!a.isStaged && b.isStaged) return 1;
     return (a.selectedPrinting?.display_name || '').localeCompare(b.selectedPrinting?.display_name || '');
   });
+  return { results, addedCount: incoming.length };
+}
 
-  return { results, addedCount, updatedCount };
+/**
+ * Toggle a row's staged state. Staging a row whose selected printing is already
+ * staged folds it into that row (quantities add) so the import never carries
+ * the same printing twice; unstaging just flips the flag.
+ */
+export function stageBulkInstance<T extends BulkCardInstance>(current: T[], instanceId: string): T[] {
+  const row = current.find(c => c.instanceId === instanceId);
+  if (!row) return current;
+
+  if (row.isStaged) {
+    return current.map(c => (c.instanceId === instanceId ? { ...c, isStaged: false } : c));
+  }
+
+  const printingId = row.selectedPrinting?.printing_id;
+  const target = current.find(
+    c => c.isStaged && c.instanceId !== instanceId && printingId && c.selectedPrinting?.printing_id === printingId,
+  );
+  if (!target) {
+    return current.map(c => (c.instanceId === instanceId ? { ...c, isStaged: true } : c));
+  }
+
+  return current
+    .filter(c => c.instanceId !== instanceId)
+    .map(c => (c.instanceId === target.instanceId ? { ...c, quantity: c.quantity + row.quantity } : c));
 }
