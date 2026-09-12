@@ -6,7 +6,7 @@
  * the `buildFilterFacets` descriptor array both pages render — /opt as a
  * desktop popover row + mobile accordion sheet, /tags as a popover row.
  *
- * Extracted from app/opt/page.tsx so the two pages cannot drift (the
+ * Extracted from app/opt/OptSearchPage.tsx so the two pages cannot drift (the
  * two-shorthand-parsers lesson). State flows through OptUiState + the
  * opt-search-reducer dispatch — no local state in the descriptors.
  */
