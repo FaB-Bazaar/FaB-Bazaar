@@ -106,3 +106,19 @@ describe('Future Classic Constructed deck', () => {
     expect(f.format).toBe('future_cc');
   });
 });
+
+describe('buildDeckAddFilters — equipment slots', () => {
+  it('equipment zone keeps the equipment/weapon type guard AND adds the slot subtypes', () => {
+    // off-hand is also carried by two companion allies (Polly Cranka, Sticky
+    // Fingers) — the zone's type guard must stay in place so a slot never
+    // widens the picker beyond equipment + weapons.
+    const f = buildDeckAddFilters(state({ selectedSlots: ['off-hand', 'head'] }), '', ctx({ targetCategory: 'equipment' }));
+    expect(f.types).toEqual(['equipment', 'weapon']);
+    expect(f.subtypes).toEqual(['off-hand', 'head']);
+  });
+
+  it('hero zone ignores slots (heroes have none)', () => {
+    const f = buildDeckAddFilters(state({ selectedSlots: ['arms'] }), '', ctx({ targetCategory: 'hero' }));
+    expect(f).not.toHaveProperty('subtypes');
+  });
+});

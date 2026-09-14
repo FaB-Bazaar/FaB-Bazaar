@@ -24,6 +24,7 @@ export type OptArrayKey =
   | 'selectedFoilings'
   | 'selectedEditions'
   | 'selectedSets'
+  | 'selectedSlots'
   | 'selectedFacets';
 
 export type RangeKey = 'cost' | 'power' | 'defense' | 'arcane' | 'health' | 'price';

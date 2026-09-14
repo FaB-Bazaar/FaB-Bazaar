@@ -38,6 +38,7 @@ export function buildDeckAddFilters(
   if (ctx.targetCategory === 'hero') {
     // Hero picker: list heroes only, unrestricted by the current hero's pool.
     f.types = ['hero'];
+    delete f.subtypes;
     delete f.heroClasses;
     delete f.heroTalents;
     delete f.heroEssences;

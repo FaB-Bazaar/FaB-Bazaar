@@ -17,6 +17,7 @@ import { setGroupLabel } from '@/lib/fab-constants/sets';
 import {
   TYPE_CHIPS, PITCH_CHIPS, KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS,
   EDITION_OPTIONS, FORMAT_OPTIONS, HERO_AGE_CHIPS,
+  SLOT_CHIPS,
 } from './card-filter-chips';
 import type { OptUiState } from './opt-url-state';
 import type { OptAction } from './opt-search-reducer';
@@ -65,6 +66,10 @@ export function optStateToChips(s: OptUiState, meta?: OptDescribeMeta): OptChip[
   if (s.selectedTalentless) {
     chips.push({ key: 'talentless', label: 'Talentless', removeAction: { type: 'TOGGLE_TALENTLESS' } });
   }
+  s.selectedSlots.forEach(slot => {
+    const def = SLOT_CHIPS.find(c => c.value === slot);
+    chips.push({ key: `slot:${slot}`, label: `Slot: ${def?.label ?? slot}`, removeAction: { type: 'TOGGLE_IN', key: 'selectedSlots', value: slot } });
+  });
   s.selectedKeywords.forEach(kw => {
     const def = KEYWORD_CHIPS.find(k => k.value === kw);
     chips.push({ key: `kw:${kw}`, label: def?.label ?? kw, removeAction: { type: 'TOGGLE_IN', key: 'selectedKeywords', value: kw } });

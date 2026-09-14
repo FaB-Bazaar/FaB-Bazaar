@@ -223,3 +223,21 @@ describe('RESET preserves gridCols (a view pref, not a filter)', () => {
     expect(s.gridCols).toBe(4);
   });
 });
+
+describe('equipment slots', () => {
+  it('TOGGLE_IN on selectedSlots adds and removes a slot (multi-select OR)', () => {
+    const on = reduce(DEFAULT_OPT_STATE,
+      { type: 'TOGGLE_IN', key: 'selectedSlots', value: 'arms' },
+      { type: 'TOGGLE_IN', key: 'selectedSlots', value: 'legs' });
+    expect(on.selectedSlots).toEqual(['arms', 'legs']);
+    const off = reduce(on, { type: 'TOGGLE_IN', key: 'selectedSlots', value: 'arms' });
+    expect(off.selectedSlots).toEqual(['legs']);
+  });
+
+  it('RESET clears slots', () => {
+    const s = reduce(DEFAULT_OPT_STATE,
+      { type: 'TOGGLE_IN', key: 'selectedSlots', value: 'arms' },
+      { type: 'RESET' });
+    expect(s.selectedSlots).toEqual([]);
+  });
+});

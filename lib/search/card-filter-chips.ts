@@ -46,6 +46,23 @@ export const TYPE_CHIPS: ChipDef[] = [
   { label: 'Invo­cation', value: 'invocation',       apiType: 'invocation',       active: 'bg-amber-900/50 border-amber-500',        dot: 'bg-amber-300',   iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/DYN212-CF/public', iconPosition: 'center 24%' },
 ];
 
+// Equipment slots + weapon handedness — the deck dialog's equipment zone.
+// Values are the literal cards.types tokens from the LSS subtype line
+// ("Generic Equipment - Off-hand" → 'off-hand', "Weapon - Sword (2H)" → '2h'),
+// sent through the `subtypes` filter so they AND with the zone's type guard.
+// Art: Arcanite Skullcap, Fyendal's Spring Tunic, Goliath Gauntlet, Snapdragon
+// Scalers, Arcane Lantern, Dawnblade, Titan's Fist (1H), Anothos (2H).
+export const SLOT_CHIPS: ChipDef[] = [
+  { label: 'Head',     value: 'head',     apiType: 'head',     active: 'bg-sky-900/50 border-sky-600',        dot: 'bg-sky-400',     iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/ARC150-CF-1E/public', iconPosition: 'center 24%' },
+  { label: 'Chest',    value: 'chest',    apiType: 'chest',    active: 'bg-emerald-900/50 border-emerald-600', dot: 'bg-emerald-400', iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP341/public',      iconPosition: 'center 24%' },
+  { label: 'Arms',     value: 'arms',     apiType: 'arms',     active: 'bg-orange-900/50 border-orange-600',   dot: 'bg-orange-400',  iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP352/public',      iconPosition: 'center 24%' },
+  { label: 'Legs',     value: 'legs',     apiType: 'legs',     active: 'bg-lime-900/50 border-lime-600',       dot: 'bg-lime-400',    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP353/public',      iconPosition: 'center 24%' },
+  { label: 'Off-hand', value: 'off-hand', apiType: 'off-hand', active: 'bg-teal-900/50 border-teal-600',       dot: 'bg-teal-400',    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/EVR155-1E/public',   iconPosition: 'center 24%' },
+  { label: 'Weapon',   value: 'weapon',   apiType: 'weapon',   active: 'bg-amber-900/50 border-amber-600',     dot: 'bg-amber-500',   iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP143/public',      iconPosition: 'center 24%' },
+  { label: '1H',       value: '1h',       apiType: '1h',       active: 'bg-rose-900/50 border-rose-600',       dot: 'bg-rose-400',    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/ELE202-1E/public',   iconPosition: 'center 24%' },
+  { label: '2H',       value: '2h',       apiType: '2h',       active: 'bg-violet-900/50 border-violet-600',   dot: 'bg-violet-400',  iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP045/public',      iconPosition: 'center 24%' },
+];
+
 export const GENERIC_CHIP: ChipDef = {
   label: 'Generic', value: 'generic', apiType: 'generic',
   active: 'bg-gray-700 border-gray-500', dot: 'bg-gray-400',

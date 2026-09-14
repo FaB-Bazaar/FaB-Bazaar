@@ -50,6 +50,8 @@ export interface SearchUiState {
   selectedFoilings: string[];
   selectedEditions: string[];
   selectedSets: string[];
+  /** Equipment slot / weapon handedness tokens (SLOT_CHIPS values). */
+  selectedSlots?: string[];
   // Curated facet tags. facetsMatchAll=false → ANY (overlap); true → ALL (contains).
   selectedFacets?: string[];
   facetsMatchAll?: boolean;
@@ -119,6 +121,9 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   // Talentless: cards any hero of the selected class(es) can play (no talent).
   if (s.selectedTalentless) f.talentless = true;
   if (s.selectedKeywords.length) f.keywords = s.selectedKeywords;
+  // Slots go to their own key so they AND with (rather than replace) the
+  // type filter — the deck dialog's equipment zone pins types itself.
+  if (s.selectedSlots?.length) f.subtypes = s.selectedSlots;
   if (s.selectedRarities.length) f.rarities = s.selectedRarities;
   if (s.selectedFoilings.length) f.foilings = s.selectedFoilings;
   if (s.selectedEditions.length) f.editions = s.selectedEditions;

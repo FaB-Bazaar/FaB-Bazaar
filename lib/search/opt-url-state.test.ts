@@ -29,6 +29,7 @@ describe('opt-url-state', () => {
       selectedClasses: ['runeblade'], selectedTalents: ['draconic'], selectedTalentless: true,
       selectedPitch: [1, 3], selectedKeywords: ['go again'], selectedRarities: ['L'],
       selectedFoilings: ['r'], selectedEditions: ['n'], selectedSets: ['gem'], selectedPacks: [24176, 24720],
+      selectedSlots: ['arms', '2h'],
       selectedFormat: 'cc', costMin: '0', costMax: '3', powerMin: '2', powerMax: '6',
       defenseMin: '1', defenseMax: '3', priceMin: '5', priceMax: '50',
       selectedLanguages: ['en', 'fr'], sortBy: 'price', sortOrder: 'desc',
@@ -160,5 +161,17 @@ describe('volzar scope', () => {
 
   it('is not restored from the URL either', () => {
     expect(paramsToUiState(new URLSearchParams('mode=volzar')).searchMode).toBeUndefined();
+  });
+});
+
+describe('equipment slots', () => {
+  it('serializes selectedSlots as a csv slots param and parses it back', () => {
+    const p = uiStateToParams({ ...DEFAULT_OPT_STATE, selectedSlots: ['head', 'off-hand'] });
+    expect(p.get('slots')).toBe('head,off-hand');
+    expect(paramsToUiState(new URLSearchParams('slots=head,off-hand')).selectedSlots).toEqual(['head', 'off-hand']);
+  });
+
+  it('omits the slots param when none are selected', () => {
+    expect(uiStateToParams(DEFAULT_OPT_STATE).has('slots')).toBe(false);
   });
 });

@@ -41,6 +41,8 @@ export interface QuickAddCommandBarProps {
   poolChips?: HeroPoolChip[];
   /** Type chips narrowed to the hero's pool (see lib/deck/available-type-chips). */
   typeChips?: ChipDef[];
+  /** Equipment zone: show the Slot facet (head / chest / arms / legs / off-hand / weapon / 1H / 2H). */
+  slotChips?: boolean;
   total: number;
   loading: boolean;
   error: string | null;
@@ -53,7 +55,7 @@ export interface QuickAddCommandBarProps {
 }
 
 export default function QuickAddCommandBar({
-  state, dispatch, facetDefs, excludeFacets, poolChips, typeChips, total, loading, error,
+  state, dispatch, facetDefs, excludeFacets, poolChips, typeChips, slotChips, total, loading, error,
   idle, matchBroad, onToggleMatchBroad, inputRef,
 }: QuickAddCommandBarProps) {
   const { query, searchMode, sortBy, sortOrder } = state;
@@ -66,7 +68,7 @@ export default function QuickAddCommandBar({
 
   const filterFacets = buildFilterFacets({
     state, dispatch, availablePacks: [], facetDefs,
-    exclude: excludeFacets, hideHeroAges: true, poolChips, typeChips,
+    exclude: excludeFacets, hideHeroAges: true, poolChips, typeChips, slotChips,
   });
 
   const activeChips = optStateToChips(state, { availablePacks: [], facetLabels }).map(c => ({

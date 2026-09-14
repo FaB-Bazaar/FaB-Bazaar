@@ -805,6 +805,7 @@ export default function QuickAddCardDialog({
               excludeFacets={excludeFacets}
               poolChips={poolChips}
               typeChips={typeChips}
+              slotChips={targetCategory === 'equipment'}
               total={search.total}
               loading={search.loading}
               error={search.error}

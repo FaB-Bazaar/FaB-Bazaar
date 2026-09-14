@@ -21,7 +21,7 @@ import {
   CARD_FILTER_SETS, PROMO_FILTER_SETS, OTHER_PRODUCT_FILTER_SETS, SET_FILTER_GROUPS,
 } from '@/lib/fab-constants/sets';
 import {
-  TYPE_CHIPS, CLASS_ICONS, type ChipDef, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
+  TYPE_CHIPS, SLOT_CHIPS, CLASS_ICONS, type ChipDef, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
   KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS,
 } from '@/lib/search/card-filter-chips';
 import { languageFlag } from '@/lib/utils/printing-language';
@@ -362,7 +362,7 @@ export interface FilterFacet {
 }
 
 export function buildFilterFacets({
-  state, dispatch, availablePacks, facetDefs, exclude, hideHeroAges, poolChips, typeChips = TYPE_CHIPS,
+  state, dispatch, availablePacks, facetDefs, exclude, hideHeroAges, poolChips, typeChips = TYPE_CHIPS, slotChips,
 }: {
   state: OptUiState;
   dispatch: Dispatch<OptAction>;
@@ -380,11 +380,14 @@ export function buildFilterFacets({
   /** Type chips to offer (default: the full TYPE_CHIPS list). The Add Card
    *  dialog passes the subset whose types exist in the hero's legal pool. */
   typeChips?: ChipDef[];
+  /** Deck-add dialog, equipment zone: offer the equipment slot / weapon
+   *  handedness facet (head, chest, arms, legs, off-hand, weapon, 1H, 2H). */
+  slotChips?: boolean;
 }): FilterFacet[] {
   const {
     selectedType, selectedHeroAges, selectedClasses, selectedTalents,
     selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
-    selectedEditions, selectedSets, selectedPacks, selectedFacets, facetsMatchAll, selectedFormat,
+    selectedEditions, selectedSets, selectedPacks, selectedSlots, selectedFacets, facetsMatchAll, selectedFormat,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, arcaneMin, arcaneMax, healthMin, healthMax, priceMin, priceMax,
     selectedLanguages,
   } = state;
@@ -460,6 +463,25 @@ export function buildFilterFacets({
         </>
       ),
     },
+    ...(slotChips ? [{
+      key: 'slot', label: 'Slot', count: selectedSlots.length, panelClassName: 'w-72',
+      body: (
+        <>
+          <p className={SECTION}>Slot</p>
+          {/* Multi-select OR: Arms + Legs = either. */}
+          <div className="grid grid-cols-4 gap-1">
+            {SLOT_CHIPS.map(chip => (
+              <ArtChip
+                key={chip.value}
+                label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
+                active={selectedSlots.includes(chip.value)} activeClass={chip.active}
+                onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSlots', value: chip.value })}
+              />
+            ))}
+          </div>
+        </>
+      ),
+    }] : []),
     ...(poolChips && poolChips.length > 0 ? [{
       key: 'pool', label: 'Class',
       count: poolChips.filter(c => (c.kind === 'class' ? selectedClasses : selectedTalents).includes(c.value)).length,

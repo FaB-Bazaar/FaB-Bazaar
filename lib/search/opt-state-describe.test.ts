@@ -166,3 +166,12 @@ describe('health chip', () => {
     expect(chip?.removeAction).toEqual({ type: 'CLEAR_RANGE', range: 'health' });
   });
 });
+
+describe('equipment slot chips', () => {
+  it('labels each slot with its display name and removes via TOGGLE_IN selectedSlots', () => {
+    const chips = optStateToChips(state({ selectedSlots: ['off-hand', '1h'] }));
+    expect(chips.map(c => c.label)).toEqual(['Slot: Off-hand', 'Slot: 1H']);
+    const s = optSearchReducer(state({ selectedSlots: ['off-hand', '1h'] }), chips[0].removeAction);
+    expect(s.selectedSlots).toEqual(['1h']);
+  });
+});

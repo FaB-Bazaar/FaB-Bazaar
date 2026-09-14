@@ -1473,6 +1473,11 @@ export class PostgresPrintingsService implements IPrintingsService {
     if (filters.types && filters.types.length > 0) {
       conditions.push(sql`${cards.types} && ARRAY[${sql.join(lc(filters.types).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
+    // Slot / handedness subtypes: a second overlap ANDed with the one above
+    // (equipment zone guard + 'off-hand' must not admit the off-hand companion allies).
+    if (filters.subtypes && filters.subtypes.length > 0) {
+      conditions.push(sql`${cards.types} && ARRAY[${sql.join(lc(filters.subtypes).map(t => sql`${t}`), sql`, `)}]::text[]`);
+    }
 
     // Hero ages, OR-combined. 'adult' = hero and NOT young; 'young' = young in types.
     // adult OR young covers every hero.

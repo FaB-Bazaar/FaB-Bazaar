@@ -353,3 +353,15 @@ describe('health range hero exclusion', () => {
     expect(buildServerFilters({ ...baseState, powerMin: '4' }).isHero).toBeUndefined();
   });
 });
+
+describe('buildServerFilters — equipment slots', () => {
+  it('maps selectedSlots to the subtypes filter (own key, never merged into types)', () => {
+    const f = buildServerFilters({ ...baseState, selectedSlots: ['arms', '1h'] });
+    expect(f.subtypes).toEqual(['arms', '1h']);
+    expect(f).not.toHaveProperty('types');
+  });
+
+  it('omits subtypes when no slot is selected', () => {
+    expect(buildServerFilters({ ...baseState, selectedSlots: [] })).not.toHaveProperty('subtypes');
+  });
+});

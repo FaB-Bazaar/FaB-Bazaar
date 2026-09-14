@@ -232,6 +232,10 @@ export interface PrintingsSearchFilters {
 
   // Card attributes
   types?: string[];
+  /** Second, independent overlap against cards.types — ANDed with `types`.
+   *  Lets a caller pin a type guard (equipment + weapon) AND a slot/handedness
+   *  token (arms, off-hand, 1h …) that `types` alone (one OR overlap) can't. */
+  subtypes?: string[];
   traits?: string[];
   keywords?: string[];
   textKeywords?: string[];

@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, KEYWORD_CHIPS, HERO_AGE_CHIPS,
+  TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, KEYWORD_CHIPS, HERO_AGE_CHIPS, SLOT_CHIPS,
 } from './card-filter-chips';
 
 // Deterministic ids: optional language prefix, print code (set + collector),
@@ -22,6 +22,7 @@ const allIconUrls = (): Array<[string, string]> => {
   Object.entries(CLASS_ICONS).forEach(([k, v]) => out.push([`class:${k}`, v.iconUrl]));
   KEYWORD_CHIPS.forEach((c) => c.iconUrl && out.push([`keyword:${c.value}`, c.iconUrl]));
   HERO_AGE_CHIPS.forEach((c) => out.push([`heroAge:${c.value}`, c.iconUrl]));
+  SLOT_CHIPS.forEach((c) => c.iconUrl && out.push([`slot:${c.value}`, c.iconUrl]));
   return out;
 };
 
@@ -55,5 +56,20 @@ describe('TYPE_CHIPS coverage', () => {
 
   it('fills the 4-wide grid evenly (no orphan row in the Type popover)', () => {
     expect(TYPE_CHIPS.length % 4).toBe(0);
+  });
+});
+
+describe('SLOT_CHIPS (equipment slots + weapon handedness)', () => {
+  it('covers every equipment zone and weapon handedness as stored in cards.types', () => {
+    // Values are the literal cards.types tokens (LSS subtype line, lowercased):
+    // "Generic Equipment - Off-hand" → 'off-hand', "Weapon - Sword (2H)" → '2h'.
+    expect(SLOT_CHIPS.map((c) => c.value)).toEqual([
+      'head', 'chest', 'arms', 'legs', 'off-hand', 'weapon', '1h', '2h',
+    ]);
+  });
+
+  it('fills the 4-wide grid evenly and every chip has card art', () => {
+    expect(SLOT_CHIPS.length % 4).toBe(0);
+    expect(SLOT_CHIPS.every((c) => c.iconUrl && c.label)).toBe(true);
   });
 });

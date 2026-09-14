@@ -8,7 +8,7 @@ import { buildFilterFacets } from './card-filter-facets';
 import { DEFAULT_OPT_STATE, type OptUiState } from '@/lib/search/opt-url-state';
 
 const state = (over: Partial<OptUiState> = {}): OptUiState => ({ ...DEFAULT_OPT_STATE, ...over });
-const build = (s: OptUiState, opts: { exclude?: string[]; hideHeroAges?: boolean } = {}) =>
+const build = (s: OptUiState, opts: { exclude?: string[]; hideHeroAges?: boolean; slotChips?: boolean } = {}) =>
   buildFilterFacets({ state: s, dispatch: vi.fn(), availablePacks: [], facetDefs: [], ...opts });
 
 describe('buildFilterFacets', () => {
@@ -59,5 +59,24 @@ describe('buildFilterFacets', () => {
   it('counts default language as zero (["en"] is the default)', () => {
     expect(build(state()).find((f) => f.key === 'language')!.count).toBe(0);
     expect(build(state({ selectedLanguages: ['en', 'fr'] })).find((f) => f.key === 'language')!.count).toBe(2);
+  });
+});
+
+describe('equipment Slot facet (deck-add dialog, equipment zone)', () => {
+  it('is absent by default (/opt and /tags keep their canonical facet list)', () => {
+    expect(build(state()).map((f) => f.key)).not.toContain('slot');
+  });
+
+  it('slotChips inserts a Slot facet right after Type and counts the selected slots', () => {
+    const keys = build(state({ selectedSlots: ['arms', '2h'] }), { slotChips: true }).map((f) => f.key);
+    expect(keys.indexOf('slot')).toBe(keys.indexOf('type') + 1);
+    const slot = build(state({ selectedSlots: ['arms', '2h'] }), { slotChips: true }).find((f) => f.key === 'slot')!;
+    expect(slot.label).toBe('Slot');
+    expect(slot.count).toBe(2);
+  });
+
+  it('the Slot facet survives the equipment zone excluding type + pitch', () => {
+    const keys = build(state(), { slotChips: true, exclude: ['type', 'pitch'] }).map((f) => f.key);
+    expect(keys[0]).toBe('slot');
   });
 });
