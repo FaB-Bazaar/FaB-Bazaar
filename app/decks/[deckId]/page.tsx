@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText, MoreHorizontal, Plus, Minus } from "lucide-react";
+import { type PackageSplit, defaultSplit, benchQty as splitBenchQty, addCopy, removeCopy, allToDeck, allToInventory, allToBench, splitToItems } from "@/lib/deck/package-split";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -58,11 +59,8 @@ interface PackageCard {
 
 function PackageCardItem({
   card,
-  defaultQty,
-  deckQty,
-  inventoryQty,
-  onDeckQtyChange,
-  onInventoryQtyChange,
+  split,
+  onSplitChange,
   adding,
   addingInventory,
   addingBench,
@@ -74,11 +72,9 @@ function PackageCardItem({
   onAddToBench,
 }: {
   card: PackageCard;
-  defaultQty: number;
-  deckQty: number;
-  inventoryQty: number;
-  onDeckQtyChange: (qty: number) => void;
-  onInventoryQtyChange: (qty: number) => void;
+  /** Deck / inventory allocation + the total to import (see lib/deck/package-split). */
+  split: PackageSplit;
+  onSplitChange: (next: PackageSplit) => void;
   adding: boolean;
   addingInventory: boolean;
   addingBench: boolean;
@@ -89,8 +85,11 @@ function PackageCardItem({
   onAddToInventory: (qty: number) => void;
   onAddToBench: (qty: number) => void;
 }) {
-  const benchQty = defaultQty - deckQty - inventoryQty;
+  const { deck: deckQty, inventory: inventoryQty, total } = split;
+  const benchQty = splitBenchQty(split);
   const busy = adding || addingInventory || addingBench;
+  const onDeckQtyChange = (deck: number, inventory = inventoryQty) => onSplitChange({ ...split, deck, inventory });
+  const onInventoryQtyChange = (inventory: number, deck = deckQty) => onSplitChange({ ...split, deck, inventory });
 
   const handleAdd = () => {
     if (deckQty > 0) onAdd(deckQty);
@@ -116,12 +115,32 @@ function PackageCardItem({
       )}
       {isOwner && (
         <div className="w-full flex flex-col gap-1 mt-auto">
+          {/* Qty row — change how many copies to import (list quantity is only the default).
+              + adds a copy to the deck; − takes from bench, then inventory, then deck. */}
+          <div className="w-full flex items-center gap-1 pb-1 mb-0.5 border-b border-gray-700/60">
+            <span className="text-[10px] text-gray-400 w-8 shrink-0">Qty</span>
+            <span className={cn("flex-1 text-center text-xs font-semibold tabular-nums", total > 0 ? "text-gray-200" : "text-gray-600")}>{total}</span>
+            <button
+              onClick={() => onSplitChange(removeCopy(split))}
+              disabled={total === 0 || busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Remove a copy"
+              aria-label="Remove a copy"
+            ><Minus className="h-3.5 w-3.5" /></button>
+            <button
+              onClick={() => onSplitChange(addCopy(split))}
+              disabled={busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Add a copy (to deck)"
+              aria-label="Add a copy"
+            ><Plus className="h-3.5 w-3.5" /></button>
+          </div>
           {/* Deck row — ↓ send one to inventory, ↓↓ send one straight to bench */}
           <div className="w-full flex items-center gap-1">
             <span className="text-[10px] text-gray-400 w-8 shrink-0">Deck</span>
             <span className={cn("flex-1 text-center text-xs font-semibold tabular-nums", deckQty > 0 ? "text-blue-400" : "text-gray-600")}>{deckQty}</span>
             <button
-              onClick={() => { onDeckQtyChange(deckQty - 1); onInventoryQtyChange(inventoryQty + 1); }}
+              onClick={() => onDeckQtyChange(deckQty - 1, inventoryQty + 1)}
               disabled={deckQty === 0 || busy}
               className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
               title="Move one to inventory"
@@ -138,7 +157,7 @@ function PackageCardItem({
             <span className="text-[10px] text-gray-400 w-8 shrink-0">Inv</span>
             <span className={cn("flex-1 text-center text-xs font-semibold tabular-nums", inventoryQty > 0 ? "text-amber-400" : "text-gray-600")}>{inventoryQty}</span>
             <button
-              onClick={() => { onInventoryQtyChange(inventoryQty - 1); onDeckQtyChange(deckQty + 1); }}
+              onClick={() => onInventoryQtyChange(inventoryQty - 1, deckQty + 1)}
               disabled={inventoryQty === 0 || busy}
               className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
               title="Move one to deck"
@@ -169,7 +188,7 @@ function PackageCardItem({
           </div>
           <button
             onClick={handleAdd}
-            disabled={busy}
+            disabled={busy || total === 0}
             className="w-full mt-0.5 text-xs px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium transition-colors flex items-center justify-center gap-1"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
@@ -1049,7 +1068,7 @@ export default function DeckEditorPage() {
   const [addingCard, setAddingCard] = useState<string | null>(null);
   const [addingBenchCard, setAddingBenchCard] = useState<string | null>(null);
   const [addingInventoryCard, setAddingInventoryCard] = useState<string | null>(null);
-  const [cardSplits, setCardSplits] = useState<Map<string, { deck: number; inventory: number }>>(new Map());
+  const [cardSplits, setCardSplits] = useState<Map<string, PackageSplit>>(new Map());
 
   // Deduplicated cards from the active preview build
   const seenCards = React.useMemo(() => {
@@ -1065,14 +1084,17 @@ export default function DeckEditorPage() {
 
   // Reset all splits to "all deck" when a new build is opened
   useEffect(() => {
-    const splits = new Map<string, { deck: number; inventory: number }>();
-    for (const { card, qty } of seenCards) splits.set(card.printingId, { deck: qty, inventory: 0 });
+    const splits = new Map<string, PackageSplit>();
+    for (const { card, qty } of seenCards) splits.set(card.printingId, defaultSplit(qty));
     setCardSplits(splits);
   }, [previewBuild]);
 
-  const markAllForDeck = () => setCardSplits(new Map(seenCards.map(({ card, qty }) => [card.printingId, { deck: qty, inventory: 0 }])));
-  const markAllForInventory = () => setCardSplits(new Map(seenCards.map(({ card, qty }) => [card.printingId, { deck: 0, inventory: qty }])));
-  const markAllForBench = () => setCardSplits(new Map(seenCards.map(({ card }) => [card.printingId, { deck: 0, inventory: 0 }])));
+  // Set-all keeps each card's chosen total (a "Qty" override survives a re-zone).
+  const remapSplits = (fn: (s: PackageSplit) => PackageSplit) =>
+    setCardSplits(prev => new Map(seenCards.map(({ card, qty }) => [card.printingId, fn(prev.get(card.printingId) ?? defaultSplit(qty))])));
+  const markAllForDeck = () => remapSplits(allToDeck);
+  const markAllForInventory = () => remapSplits(allToInventory);
+  const markAllForBench = () => remapSplits(allToBench);
 
   useEffect(() => {
     if (!previewBuild) return;
@@ -1137,15 +1159,10 @@ export default function DeckEditorPage() {
     if (!canEdit || !previewBuild) return;
     setAddingAll(true);
     try {
-      const items = seenCards.flatMap(({ card, qty }) => {
-        const split = cardSplits.get(card.printingId) ?? { deck: qty, inventory: 0 };
-        const benchQty = qty - split.deck - split.inventory;
-        const result = [];
-        if (split.deck > 0) result.push({ printingId: card.printingId, quantity: split.deck });
-        if (split.inventory > 0) result.push({ printingId: card.printingId, quantity: split.inventory, category: 'inventory' as DeckCategory });
-        if (benchQty > 0) result.push({ printingId: card.printingId, quantity: benchQty, category: 'benched' as DeckCategory });
-        return result;
-      });
+      const items = seenCards.flatMap(({ card, qty }) =>
+        splitToItems(card.printingId, cardSplits.get(card.printingId) ?? defaultSplit(qty))
+          .map(i => (i.category ? { ...i, category: i.category as DeckCategory } : { printingId: i.printingId, quantity: i.quantity })),
+      );
       if (items.length === 0) return;
       const result = await decksClient.addPrintings(deckId, items);
       if (result.success) {
@@ -2679,11 +2696,8 @@ export default function DeckEditorPage() {
                     <PackageCardItem
                       key={card.printingId}
                       card={card}
-                      defaultQty={qty}
-                      deckQty={cardSplits.get(card.printingId)?.deck ?? qty}
-                      inventoryQty={cardSplits.get(card.printingId)?.inventory ?? 0}
-                      onDeckQtyChange={q => setCardSplits(prev => new Map(prev).set(card.printingId, { deck: q, inventory: prev.get(card.printingId)?.inventory ?? 0 }))}
-                      onInventoryQtyChange={q => setCardSplits(prev => new Map(prev).set(card.printingId, { deck: prev.get(card.printingId)?.deck ?? qty, inventory: q }))}
+                      split={cardSplits.get(card.printingId) ?? defaultSplit(qty)}
+                      onSplitChange={next => setCardSplits(prev => new Map(prev).set(card.printingId, next))}
                       adding={addingCard === card.printingId}
                       addingInventory={addingInventoryCard === card.printingId}
                       addingBench={addingBenchCard === card.printingId}
