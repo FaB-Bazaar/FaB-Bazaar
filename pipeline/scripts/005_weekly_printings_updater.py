@@ -726,6 +726,28 @@ class WeeklyPrintingsUpdater:
             self.conn.rollback()
             print(f"   ❌ Stale card deletion failed: {e}")
 
+    def _apply_provisional_legality(self, dry_run: bool):
+        """Flip constructed-legality on provisional (CardVault-ingested) cards
+        whose set's legal date has passed — `apply_provisional_legality()` from
+        migration 0112. Legality columns are admin-owned (never upserted), so
+        without this a spoiler-season set stays illegal after release until
+        fab-cube adopts every row. A missing function (pipeline image rebuilt
+        before the migration applied) is a warning, not a step failure."""
+        if dry_run:
+            print("\n⚖️  Provisional legality: skipped (dry run)")
+            return
+        print("\n⚖️  Applying provisional legality (sets past legal_from / release_date)...")
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("SELECT apply_provisional_legality()")
+                flipped = cur.fetchone()[0]
+            self.conn.commit()
+            self.stats['legality_flipped'] = flipped
+            print(f"   {flipped:,} provisional cards made constructed-legal")
+        except Exception as e:
+            self.conn.rollback()
+            print(f"   ⚠️  Provisional legality skipped: {e}")
+
     # ── Main entry ────────────────────────────────────────────────────────────
 
     def process_updates(
@@ -775,6 +797,7 @@ class WeeklyPrintingsUpdater:
 
         self._upsert_cards(card_list, batch_size, dry_run)
         self._upsert_printings(printing_list, batch_size, dry_run)
+        self._apply_provisional_legality(dry_run)
 
         # ── Sync: remove rows no longer in the source ──────────────────────────
         self._delete_stale_printings(set(printings_map.keys()), dry_run)

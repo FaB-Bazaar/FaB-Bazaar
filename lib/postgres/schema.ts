@@ -1210,6 +1210,7 @@ export const sets = pgTable('sets', {
   displayCode: text('display_code').notNull(),        // e.g. 'WTR'
   name: text('name').notNull(),
   releaseDate: date('release_date'),                  // NULL = unannounced
+  legalFrom: date('legal_from'),                      // constructed-legal from; NULL = release_date (migration 0112)
   releaseOrder: integer('release_order').notNull().unique(),
   displayOrder: integer('display_order').notNull().unique(), // curated printing-display ranking (lower = earlier)
   category: text('category').notNull().default('non-standard'), // standard | armory | non-standard | excluded

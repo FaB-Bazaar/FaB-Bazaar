@@ -51,6 +51,7 @@ Runs in the `fabbazaar-pipeline` container. See root CLAUDE.md "Data Architectur
   (fallback: `MAX(price_updated_at)`, which only moves on price CHANGES and
   reads misleadingly fresh/stale). Non-fatal on failure; don't remove the write.
 
+- **005 flips provisional legality nightly** — after the upserts it calls `apply_provisional_legality()` (migration 0112): provisional (`fab_cube_card_id IS NULL`), never-flagged cards in sets past `COALESCE(sets.legal_from, release_date)` get derived `*_legal` flags. Legality columns are admin-owned, so this is the ONLY thing that makes a CardVault-ingested set playable after release. Missing function (image rebuilt before the migration applied) logs a warning and moves on. `test_provisional_legality.py`.
 - **Pipeline Python tests** — `python3 pipeline/scripts/test_*.py` (unittest).
   `010_compute_movers` reads `POSTGRES_URL` at import; set a dummy to import it for
   SQL-only tests. Filenames start with digits → load via importlib.
