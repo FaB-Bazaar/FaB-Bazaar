@@ -42,6 +42,8 @@ export interface OptUiState {
   /** Equipment slots / weapon handedness (SLOT_CHIPS values, multi-select OR).
    *  Matched against cards.types via the `subtypes` server filter. */
   selectedSlots: string[];
+  /** "Your collection": restrict to printings the signed-in user owns. */
+  ownedOnly: boolean;
   /** Curated facet tags (community + curator). Matched against cards.facet_tags. */
   selectedFacets: string[];
   /** false = ANY facet (overlap, default); true = ALL facets (contains). */
@@ -79,6 +81,7 @@ export const DEFAULT_OPT_STATE: OptUiState = {
   selectedSets: [],
   selectedPacks: [],
   selectedSlots: [],
+  ownedOnly: false,
   selectedFacets: [],
   facetsMatchAll: false,
   selectedFormat: null,
@@ -118,6 +121,7 @@ export function uiStateToParams(s: OptUiState): URLSearchParams {
   if (s.selectedSets.length) p.set('sets', csv(s.selectedSets));
   if (s.selectedPacks.length) p.set('pack', csv(s.selectedPacks.map(String)));
   if (s.selectedSlots.length) p.set('slots', csv(s.selectedSlots));
+  if (s.ownedOnly) p.set('owned', '1');
   // URL param is 'tags' (user-facing term). State key stays selectedFacets.
   if (s.selectedFacets.length) p.set('tags', csv(s.selectedFacets));
   // match-all only matters with tags selected; keep the URL clean otherwise.
@@ -169,6 +173,7 @@ export function paramsToUiState(p: URLSearchParams): Partial<OptUiState> {
   if (p.get('sets')) out.selectedSets = splitCsv(p.get('sets'));
   if (p.get('pack')) out.selectedPacks = splitCsv(p.get('pack')).map(Number).filter((n) => !Number.isNaN(n));
   if (p.get('slots')) out.selectedSlots = splitCsv(p.get('slots'));
+  if (p.get('owned') === '1') out.ownedOnly = true;
   // Read the new 'tags' param, falling back to legacy 'facets' for old links.
   const tagsParam = p.get('tags') ?? p.get('facets');
   if (tagsParam) out.selectedFacets = splitCsv(tagsParam);

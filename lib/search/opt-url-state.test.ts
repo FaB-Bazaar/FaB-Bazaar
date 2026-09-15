@@ -175,3 +175,12 @@ describe('equipment slots', () => {
     expect(uiStateToParams(DEFAULT_OPT_STATE).has('slots')).toBe(false);
   });
 });
+
+describe('your collection (ownedOnly)', () => {
+  it('serializes as owned=1 and parses back; omitted when off', () => {
+    expect(uiStateToParams({ ...DEFAULT_OPT_STATE, ownedOnly: true }).get('owned')).toBe('1');
+    expect(uiStateToParams(DEFAULT_OPT_STATE).has('owned')).toBe(false);
+    expect(paramsToUiState(new URLSearchParams('owned=1')).ownedOnly).toBe(true);
+    expect(DEFAULT_OPT_STATE.ownedOnly).toBe(false);
+  });
+});

@@ -7,7 +7,7 @@
 
 import { eq, and, or, sql, inArray, notInArray, isNull, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards, bannedCards, cardTranslations, cardFacetTags, cardFacetTagVotes, facetTagDefinitions, sets, tcgGroups } from '@/lib/postgres/schema';
+import { printings, cards, bannedCards, cardTranslations, cardFacetTags, cardFacetTagVotes, facetTagDefinitions, sets, tcgGroups, inventoryItems } from '@/lib/postgres/schema';
 import { isFutureReleaseCard } from '../future-release';
 import type {
   IPrintingsService,
@@ -1347,6 +1347,16 @@ export class PostgresPrintingsService implements IPrintingsService {
     const conditions: any[] = [];
     const lc = (arr: readonly string[]): string[] =>
       arr.map(s => (typeof s === 'string' ? s.toLowerCase() : s));
+
+    // ===== YOUR COLLECTION =====
+    // Printing-level: the user owns specific printings, and a grouped search
+    // must represent a card by an owned printing (not the canonical one).
+    if (filters.ownedByUserId) {
+      conditions.push(sql`${printings.printingId} IN (
+        SELECT ${inventoryItems.printingId} FROM ${inventoryItems}
+        WHERE ${inventoryItems.userId} = ${filters.ownedByUserId} AND ${inventoryItems.quantity} > 0
+      )`);
+    }
 
     // ===== IDENTIFIERS =====
     if (filters.cardUniqueId) {

@@ -316,6 +316,18 @@ export async function POST(request: NextRequest) {
       filters.facetTagsViewerId = authResult.userId;
     }
 
+    // "Your collection": resolved from auth ONLY. A client-supplied
+    // ownedByUserId would read another user's collection — always strip it.
+    delete filters.ownedByUserId;
+    if (filters.ownedOnly) {
+      delete filters.ownedOnly;
+      if (!authResult?.success || !authResult.userId) {
+        return NextResponse.json({ error: 'Sign in to search your collection' }, { status: 401 });
+      }
+      filters.ownedByUserId = authResult.userId;
+    }
+    delete filters.ownedOnly;
+
     // Fetch current price version (MAX price_updated_at) to detect stale cache
     let currentPriceVersion = 'unknown';
     try {
@@ -330,7 +342,7 @@ export async function POST(request: NextRequest) {
     // Personalized searches (viewer id set) NEVER touch the cache: the cache
     // invalidates on price changes only, but the user's own votes change their
     // results instantly — a cached personal entry is stale the moment they vote.
-    const personalized = Boolean(filters.facetTagsViewerId);
+    const personalized = Boolean(filters.facetTagsViewerId || filters.ownedByUserId);
 
     // Try Redis cache first
     const cacheKey = buildSearchCacheKey(filters, options);

@@ -243,6 +243,13 @@ export interface PrintingsSearchFilters {
   cardUniqueId?: string;
   cardUniqueIds?: string[];
 
+  // "Your collection": only printings the user holds (inventory_items,
+  // quantity > 0). `ownedOnly` is the CLIENT request flag; the search route
+  // resolves it from auth into `ownedByUserId` and strips any client-supplied
+  // id — never trust the id from a request body.
+  ownedOnly?: boolean;
+  ownedByUserId?: string;
+
   // Single color (shorthand parser convenience)
   color?: string;
 

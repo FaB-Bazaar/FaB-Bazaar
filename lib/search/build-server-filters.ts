@@ -52,6 +52,8 @@ export interface SearchUiState {
   selectedSets: string[];
   /** Equipment slot / weapon handedness tokens (SLOT_CHIPS values). */
   selectedSlots?: string[];
+  /** "Your collection": only printings the signed-in user owns. */
+  ownedOnly?: boolean;
   // Curated facet tags. facetsMatchAll=false → ANY (overlap); true → ALL (contains).
   selectedFacets?: string[];
   facetsMatchAll?: boolean;
@@ -124,6 +126,8 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   // Slots go to their own key so they AND with (rather than replace) the
   // type filter — the deck dialog's equipment zone pins types itself.
   if (s.selectedSlots?.length) f.subtypes = s.selectedSlots;
+  // Request flag only — the search route swaps it for the caller's user id.
+  if (s.ownedOnly) f.ownedOnly = true;
   if (s.selectedRarities.length) f.rarities = s.selectedRarities;
   if (s.selectedFoilings.length) f.foilings = s.selectedFoilings;
   if (s.selectedEditions.length) f.editions = s.selectedEditions;

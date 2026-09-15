@@ -760,7 +760,7 @@ export default function QuickAddCardDialog({
           {/* Header */}
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-gray-700/60 shrink-0">
             <DialogTitle className="text-base font-semibold">Add Card</DialogTitle>
-            <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 mt-0.5">
               <span>Adding to:</span>
               <span className="px-2 py-0.5 rounded-full bg-gray-700 text-gray-200 font-medium">{zoneLabel}</span>
               {deckFormat && (
@@ -768,6 +768,30 @@ export default function QuickAddCardDialog({
                   <span className="text-gray-600">•</span>
                   <span className="px-2 py-0.5 rounded-full bg-gray-700 text-gray-200 font-medium">{deckFormat}</span>
                 </>
+              )}
+              {!isSwapMode && (
+                /* Card pool: every card, or only printings in the user's collection.
+                   Defaults to all cards on every open (state HYDRATEs onto defaults). */
+                <div className="ml-auto flex items-center rounded-lg border border-gray-700 overflow-hidden" role="group" aria-label="Card pool">
+                  {([['all', 'All cards'], ['owned', 'Your collection']] as const).map(([key, label]) => {
+                    const active = key === 'owned' ? state.ownedOnly : !state.ownedOnly;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => dispatch({ type: 'PATCH', patch: { ownedOnly: key === 'owned' } })}
+                        className={cn(
+                          'px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                          key === 'owned' && 'border-l border-gray-700',
+                          active ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </DialogHeader>

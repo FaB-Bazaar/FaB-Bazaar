@@ -365,3 +365,14 @@ describe('buildServerFilters — equipment slots', () => {
     expect(buildServerFilters({ ...baseState, selectedSlots: [] })).not.toHaveProperty('subtypes');
   });
 });
+
+describe('buildServerFilters — your collection', () => {
+  it('maps ownedOnly to the ownedOnly request flag (the route resolves the user)', () => {
+    expect(buildServerFilters({ ...baseState, ownedOnly: true }).ownedOnly).toBe(true);
+  });
+
+  it('omits the flag when off', () => {
+    expect(buildServerFilters({ ...baseState, ownedOnly: false })).not.toHaveProperty('ownedOnly');
+    expect(buildServerFilters(baseState)).not.toHaveProperty('ownedOnly');
+  });
+});
