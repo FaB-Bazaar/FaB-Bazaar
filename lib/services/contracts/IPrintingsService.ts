@@ -160,6 +160,8 @@ export interface PrintingDTO {
   cc_legal: boolean;
   /** Printed in a set whose release date is still ahead — Future Classic Constructed input (derived; see lib/services/postgres/future-release.ts). */
   future_release?: boolean;
+  /** "Your collection" searches only: copies of this CARD across every printing the user owns. */
+  owned_quantity?: number;
   commoner_legal: boolean;
   ll_legal: boolean;
   silver_age_legal: boolean;

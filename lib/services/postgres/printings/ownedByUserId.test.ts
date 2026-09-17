@@ -20,6 +20,7 @@ const binderId = crypto.randomUUID();
 let ownedPrintingId: string;
 let ownedCardId: string;
 let zeroQtyPrintingId: string;
+let secondOwnedPrintingId: string;
 
 beforeAll(async () => {
   // A card with several English printings; own its LAST printing so the
@@ -33,6 +34,8 @@ beforeAll(async () => {
     ORDER BY p.card_unique_id ASC, p.set DESC, p.printing_id DESC LIMIT 1`);
   ownedPrintingId = (r.rows[0] as any).printing_id;
   ownedCardId = (r.rows[0] as any).card_unique_id;
+  const s2 = await db.execute(sql`SELECT printing_id FROM printings WHERE language = 'en' AND card_unique_id = ${ownedCardId} AND printing_id <> ${ownedPrintingId} ORDER BY printing_id ASC LIMIT 1`);
+  secondOwnedPrintingId = (s2.rows[0] as any).printing_id;
   const z = await db.execute(sql`SELECT printing_id FROM printings WHERE language = 'en' AND card_unique_id <> ${ownedCardId} ORDER BY printing_id DESC LIMIT 1`);
   zeroQtyPrintingId = (z.rows[0] as any).printing_id;
 
@@ -41,6 +44,7 @@ beforeAll(async () => {
   await db.insert(inventoryItems).values([
     { id: crypto.randomUUID(), userId: owner, binderId, printingId: ownedPrintingId, quantity: 2, condition: 'NM', language: 'EN', forTrade: false, forSale: false },
     { id: crypto.randomUUID(), userId: owner, binderId, printingId: zeroQtyPrintingId, quantity: 0, condition: 'NM', language: 'EN', forTrade: false, forSale: false },
+    { id: crypto.randomUUID(), userId: owner, binderId, printingId: secondOwnedPrintingId, quantity: 1, condition: 'NM', language: 'EN', forTrade: false, forSale: false },
   ]);
 });
 
@@ -54,8 +58,8 @@ describe('PostgresPrintingsService — ownedByUserId filter', () => {
     const res = await service.searchPrintings({ ownedByUserId: owner }, { limit: 50, groupByCard: false });
     expect(res.success).toBe(true);
     if (!res.success) return;
-    expect(res.data.total).toBe(1);
-    expect(res.data.printings.map((p) => p.printing_id)).toEqual([ownedPrintingId]);
+    expect(res.data.total).toBe(2);
+    expect(new Set(res.data.printings.map((p) => p.printing_id))).toEqual(new Set([ownedPrintingId, secondOwnedPrintingId]));
   });
 
   it('a zero-quantity inventory row does not count as owned', async () => {
@@ -78,7 +82,25 @@ describe('PostgresPrintingsService — ownedByUserId filter', () => {
     if (!res.success) return;
     expect(res.data.printings).toHaveLength(1);
     expect(res.data.printings[0].card_unique_id).toBe(ownedCardId);
-    expect(res.data.printings[0].printing_id).toBe(ownedPrintingId);
+    expect([ownedPrintingId, secondOwnedPrintingId]).toContain(res.data.printings[0].printing_id);
+  });
+
+  it('each row carries owned_quantity = copies of that CARD across all owned printings', async () => {
+    const grouped = await service.searchPrintings({ ownedByUserId: owner }, { limit: 5, groupByCard: true });
+    expect(grouped.success).toBe(true);
+    if (!grouped.success) return;
+    expect(grouped.data.printings[0].owned_quantity).toBe(3); // 2 + 1, the zero-qty row ignored
+    const flat = await service.searchPrintings({ ownedByUserId: owner }, { limit: 5, groupByCard: false });
+    expect(flat.success).toBe(true);
+    if (!flat.success) return;
+    expect(flat.data.printings.map((p) => p.owned_quantity)).toEqual([3, 3]);
+  });
+
+  it('owned_quantity is absent when no collection filter is set (shared cache stays user-agnostic)', async () => {
+    const res = await service.searchPrintings({ printingIds: [ownedPrintingId] } as any, { limit: 1, groupByCard: false });
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data.printings[0]).not.toHaveProperty('owned_quantity');
   });
 
   it('composes with other filters (a name that is not the owned card → empty)', async () => {

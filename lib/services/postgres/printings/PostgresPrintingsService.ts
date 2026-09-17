@@ -64,7 +64,7 @@ export class PostgresPrintingsService implements IPrintingsService {
 
       // Execute query with JOIN (sets join feeds the canonical order-by tiebreak)
       const results = await db
-        .select(this.buildSelectFields())
+        .select(this.buildSelectFields(filters.ownedByUserId))
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .leftJoin(sets, eq(sets.code, printings.set))
@@ -142,7 +142,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       // duplicate `created_at` columns inside the subquery. JS keys are
       // unchanged, so mapToPrintingDTO still works.
       const reprFields = {
-        ...this.buildSelectFields(),
+        ...this.buildSelectFields(filters.ownedByUserId),
         printingCreatedAt: sql`${printings.createdAt}`.as('printing_created_at'),
         cardCreatedAt: sql`${cards.createdAt}`.as('card_created_at'),
         // Carry the representative's set release order so the outer sort can
@@ -1173,8 +1173,20 @@ export class PostgresPrintingsService implements IPrintingsService {
   /**
    * Build SELECT fields for printing queries
    */
-  private buildSelectFields() {
+  private buildSelectFields(ownedByUserId?: string) {
     return {
+      // "Your collection" searches only: copies of this CARD across every
+      // printing the user owns (quantity > 0). Omitted otherwise so shared,
+      // cacheable searches stay user-agnostic. Correlated, but the owned row
+      // set is small (bounded by the user's collection).
+      ...(ownedByUserId ? {
+        ownedQuantity: sql<number>`(
+          SELECT COALESCE(SUM(${inventoryItems.quantity}), 0)::int FROM ${inventoryItems}
+          JOIN printings ip ON ip.printing_id = ${inventoryItems.printingId}
+          WHERE ${inventoryItems.userId} = ${ownedByUserId} AND ${inventoryItems.quantity} > 0
+            AND ip.card_unique_id = ${cards.cardUniqueId}
+        )`.as('owned_quantity'),
+      } : {}),
       // Printing fields
       printingId: printings.printingId,
       cardUniqueId: printings.cardUniqueId,
@@ -2338,6 +2350,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       blitz_legal: row.blitzLegal || false,
       cc_legal: row.ccLegal || false,
       future_release: row.futureRelease === true,
+      ...(row.ownedQuantity != null ? { owned_quantity: Number(row.ownedQuantity) } : {}),
       commoner_legal: row.commonerLegal || false,
       ll_legal: row.llLegal || false,
       silver_age_legal: row.silverAgeLegal || false,

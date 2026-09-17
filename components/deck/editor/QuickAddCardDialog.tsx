@@ -315,6 +315,7 @@ function CardGridTile({
   card,
   isSelected,
   inDeckCount,
+  ownedCount,
   onClick,
   onQuickAdd,
   onMagnify,
@@ -323,6 +324,8 @@ function CardGridTile({
   card: CardResult;
   isSelected: boolean;
   inDeckCount: number;
+  /** "Your collection" mode only: copies of this card the user owns. */
+  ownedCount?: number;
   onClick: () => void;
   onQuickAdd: (qty: QuickAddQty) => void;
   onMagnify: () => void;
@@ -363,6 +366,10 @@ function CardGridTile({
               <p className="text-[8px] text-gray-600 leading-tight">{count}p</p>
             ) : null;
           })()}
+          {/* "Your collection" mode: how many copies of this card the user owns. */}
+          {ownedCount != null && (
+            <p data-testid="tile-owned-count" className="text-[8px] font-semibold text-emerald-400 leading-tight">{ownedCount} owned</p>
+          )}
         </div>
       </button>
       {/* Already-in-deck badge */}
@@ -901,6 +908,7 @@ export default function QuickAddCardDialog({
                         card={card}
                         isSelected={selectedCard?.unique_id === card.unique_id}
                         inDeckCount={inDeckMap.get(card.unique_id) ?? 0}
+                        ownedCount={state.ownedOnly ? card.printings[0]?.owned_quantity : undefined}
                         onClick={() => {
                           const isAlreadySelected = selectedCard?.unique_id === card.unique_id;
                           setSelectedCard(isAlreadySelected ? null : card);

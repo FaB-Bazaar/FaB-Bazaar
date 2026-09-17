@@ -22,6 +22,8 @@ import type { PrintingDTO } from "@/lib/services/contracts/IPrintingsService";
  */
 export interface PrintingResult {
   printing_id: string;
+  /** Present on "Your collection" searches: copies of the card the user owns. */
+  owned_quantity?: number;
   image_url?: string;
   set?: string;
   collector_number?: string;
