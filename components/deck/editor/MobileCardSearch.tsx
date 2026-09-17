@@ -174,7 +174,14 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
 
   const getQty = (uid: string) => Math.max(0, (deckQtyMap.get(uid)?.qty ?? 0) + (deltas.get(uid) ?? 0));
 
-  const heroFilter = useMemo(() => resolveHeroFilter(deck), [deck]);
+  // Keyed on CONTENT, not the deck object: every add/remove refreshes the deck
+  // (a new object), and a new filter identity would re-fire doSearch — which
+  // collapsed a "Load more"d list back to page 1 (scroll jump) and reset the
+  // printing picks on every + tap.
+  const resolvedHeroFilter = resolveHeroFilter(deck);
+  const heroFilterKey = JSON.stringify(resolvedHeroFilter);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const heroFilter = useMemo(() => resolvedHeroFilter, [heroFilterKey]);
   // Type options narrowed to the hero's legal pool (same rule as the desktop
   // Add Card dialog); null while loading = every type.
   const poolTypes = useHeroPoolTypes(heroFilter, deck.format, true);
@@ -511,8 +518,10 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
 
   return (
     <div ref={rootRef} className="flex flex-col">
-      {/* Sticky search bar */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-3 py-2 border-b border-gray-300 dark:border-gray-800">
+      {/* Sticky search bar — top-16 = the site navbar's height (it is sticky
+          too, at top-0/z-50). At top-0 this bar slid UNDER the navbar, hiding
+          the text input until the page was scrolled back to the very top. */}
+      <div className="sticky top-16 z-10 bg-white dark:bg-gray-900 px-3 py-2 border-b border-gray-300 dark:border-gray-800">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           <input
