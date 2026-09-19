@@ -18,6 +18,36 @@ export function deriveFormatFromHero(hero: HeroLegalityRow | undefined): string 
   return 'Classic Constructed'
 }
 
+// Mirrors the server's hero gate (FORMAT_HERO_REQUIREMENT in lib/fab-constants/heroes.ts):
+// adult heroes → CC / Future CC / LL, young heroes → Silver Age / Blitz / Commoner.
+// Limited is free-form, so any hero can play it.
+const ADULT_HERO_FORMATS = ['Classic Constructed', 'Future Classic Constructed', 'Living Legend']
+const YOUNG_HERO_FORMATS = ['Silver Age', 'Blitz', 'Commoner']
+const FREE_FORM_FORMATS = ['Limited']
+
+/**
+ * Formats the create-deck dialog lets the user switch to for a hero. Only the
+ * age split is enforced (same as the server) — legality flags pick the DEFAULT
+ * (deriveFormatFromHero), they don't hide a format.
+ */
+export function formatOptionsForHero(hero: HeroLegalityRow | undefined): string[] {
+  if (!hero) {
+    return ['Classic Constructed', 'Future Classic Constructed', ...YOUNG_HERO_FORMATS, 'Living Legend', ...FREE_FORM_FORMATS]
+  }
+  const options = [
+    ...(hero.types.includes('young') ? YOUNG_HERO_FORMATS : ADULT_HERO_FORMATS),
+    ...FREE_FORM_FORMATS,
+  ]
+  const derived = deriveFormatFromHero(hero)
+  return options.includes(derived) ? options : [derived, ...options]
+}
+
+/** The format a new deck is created with: the user's pick when the hero can play it, else the derived default. */
+export function resolveDeckFormat(hero: HeroLegalityRow | undefined, picked: string | null): string {
+  if (picked && formatOptionsForHero(hero).includes(picked)) return picked
+  return deriveFormatFromHero(hero)
+}
+
 /** Hero restriction status (per format) keyed by card_unique_id. */
 export type HeroRestrictionsByFormat = Record<string, Map<string, RestrictionType>>
 

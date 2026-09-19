@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveFormatFromHero, heroRestrictions, restrictionChipLabel, formatShortLabel } from './hero-format-utils'
+import { deriveFormatFromHero, formatOptionsForHero, resolveDeckFormat, heroRestrictions, restrictionChipLabel, formatShortLabel } from './hero-format-utils'
 import type { HeroLegalityRow } from '@/lib/services/contracts/IPrintingsService'
 import type { RestrictionType } from '@/lib/services/contracts/IBannedCardsService'
 
@@ -38,7 +38,47 @@ describe('deriveFormatFromHero', () => {
   })
 })
 
-const byFormat = (entries: Record<string, [string, RestrictionType][]>) =>
+describe('formatOptionsForHero', () => {
+  const adult = hero({ types: ['ninja', 'hero'], ccLegal: true, silverAgeLegal: false, blitzLegal: false, commonerLegal: false })
+
+  it('offers a young hero the young-hero formats plus Limited', () => {
+    expect(formatOptionsForHero(hero({}))).toEqual(['Silver Age', 'Blitz', 'Commoner', 'Limited'])
+  })
+
+  it('offers an adult hero the adult-hero formats plus Limited', () => {
+    expect(formatOptionsForHero(adult)).toEqual([
+      'Classic Constructed', 'Future Classic Constructed', 'Living Legend', 'Limited',
+    ])
+  })
+
+  it('always contains the derived format, even when the age split would drop it', () => {
+    // The hero list is a CC superset: a young hero the feed flags cc_legal derives CC.
+    const youngCc = hero({ ccLegal: true })
+    expect(formatOptionsForHero(youngCc)[0]).toBe(deriveFormatFromHero(youngCc))
+  })
+
+  it('falls back to every format when no hero is selected', () => {
+    expect(formatOptionsForHero(undefined)).toEqual([
+      'Classic Constructed', 'Future Classic Constructed', 'Silver Age', 'Blitz', 'Commoner', 'Living Legend', 'Limited',
+    ])
+  })
+})
+
+describe('resolveDeckFormat', () => {
+  it('uses the derived format when nothing was picked', () => {
+    expect(resolveDeckFormat(hero({}), null)).toBe('Silver Age')
+  })
+
+  it('uses the picked format when the hero can play it', () => {
+    expect(resolveDeckFormat(hero({}), 'Blitz')).toBe('Blitz')
+  })
+
+  it('ignores a picked format the hero cannot play (stale pick from a previous hero)', () => {
+    expect(resolveDeckFormat(hero({}), 'Living Legend')).toBe('Silver Age')
+  })
+})
+
+const byFormat =(entries: Record<string, [string, RestrictionType][]>) =>
   Object.fromEntries(Object.entries(entries).map(([f, pairs]) => [f, new Map(pairs)]))
 
 describe('heroRestrictions', () => {

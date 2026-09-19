@@ -15,7 +15,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import type { HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
 import { useExcludedHeroes } from "@/hooks/banned-cards/useExcludedHeroes";
 import { useIsTouchDevice } from "@/components/ui/use-client-env";
-import { deriveFormatFromHero, heroRestrictions, restrictionChipLabel, type HeroRestrictionsByFormat } from "./hero-format-utils";
+import { formatOptionsForHero, formatShortLabel, resolveDeckFormat, heroRestrictions, restrictionChipLabel, type HeroRestrictionsByFormat } from "./hero-format-utils";
 
 // Chip color per hero restriction status (pairs color with text — not color alone).
 const RESTRICTION_CHIP_CLASS: Record<string, string> = {
@@ -58,6 +58,8 @@ export default function CreateDeckDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [hero, setHero] = useState("none");
+  // null = follow the hero's derived format; set when the user picks another one in step 2.
+  const [pickedFormat, setPickedFormat] = useState<string | null>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
   const [nameTouched, setNameTouched] = useState(false);
@@ -130,17 +132,19 @@ export default function CreateDeckDialog({
   }), [ccR, sageR, blitzR, commonerR, llR]);
 
   const selectedHero = hero === 'none' ? undefined : heroesByName.get(hero.toLowerCase());
-  const derivedFormat = deriveFormatFromHero(selectedHero);
+  const formatOptions = formatOptionsForHero(selectedHero);
+  const format = resolveDeckFormat(selectedHero, pickedFormat);
 
   const getDefaultDeckName = () => {
-    const abbrev = derivedFormat === 'Silver Age' ? 'Sage'
-      : derivedFormat === 'Classic Constructed' ? 'CC'
-      : derivedFormat;
+    const abbrev = format === 'Silver Age' ? 'Sage'
+      : format === 'Classic Constructed' ? 'CC'
+      : format;
     return hero !== 'none' ? `${abbrev} - ${toDisplayName(hero)}` : `${abbrev} Deck`;
   };
 
   const handleHeroSelect = (selectedHero: string) => {
     setHero(selectedHero);
+    setPickedFormat(null);
     setStep(2);
   };
 
@@ -157,7 +161,7 @@ export default function CreateDeckDialog({
       await onCreateDeck({
         name: deckName,
         description: description.trim(),
-        format: derivedFormat,
+        format,
         hero: hero === "none" ? undefined : hero.trim() || undefined,
         heroCardUniqueId: selectedHero?.cardUniqueId,
         isPublic,
@@ -175,6 +179,7 @@ export default function CreateDeckDialog({
     setName("");
     setDescription("");
     setHero("none");
+    setPickedFormat(null);
     setIsPublic(false);
     setNameTouched(false);
   };
@@ -339,16 +344,45 @@ export default function CreateDeckDialog({
                 <div className="font-medium text-sm truncate">
                   {hero === 'none' ? 'No hero' : (selectedHero?.displayName ?? toDisplayName(hero))}
                 </div>
-                <div className="mt-0.5 flex items-center gap-1.5">
-                  <span className="inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
-                    {derivedFormat}
-                  </span>
-                  {selectedHero && heroRestrictions(selectedHero, restrictionsByFormat).map((r) => (
-                    <span key={`${r.format}:${r.status}`} className={`inline-block text-[11px] px-1.5 py-0.5 rounded-full border font-medium ${RESTRICTION_CHIP_CLASS[r.status] ?? ''}`}>
-                      {restrictionChipLabel(r)}
-                    </span>
-                  ))}
-                </div>
+                {selectedHero && heroRestrictions(selectedHero, restrictionsByFormat).length > 0 && (
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    {heroRestrictions(selectedHero, restrictionsByFormat).map((r) => (
+                      <span key={`${r.format}:${r.status}`} className={`inline-block text-[11px] px-1.5 py-0.5 rounded-full border font-medium ${RESTRICTION_CHIP_CLASS[r.status] ?? ''}`}>
+                        {restrictionChipLabel(r)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Format — pre-selected from the hero, switchable before creating */}
+            <div className="space-y-1.5">
+              <Label id="deck-format-label" className="text-sm">Format</Label>
+              <div role="radiogroup" aria-labelledby="deck-format-label" className="flex flex-wrap gap-1.5">
+                {formatOptions.map((opt) => {
+                  const selected = opt === format;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      aria-label={opt}
+                      title={opt}
+                      onClick={() => setPickedFormat(opt)}
+                      className={
+                        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ' +
+                        (selected
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800')
+                      }
+                    >
+                      {selected && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+                      {formatShortLabel(opt)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
