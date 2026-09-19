@@ -66,6 +66,18 @@ describe('add_cards_to_deck — zone normalization', () => {
     expect(cats).toEqual(['inventory', 'benched']);
   });
 
+  it('leaves the zone unset when the caller names none — the API infers it from the card type', async () => {
+    // Defaulting to "maindeck" here stored base equipment as library cards
+    // (Galvanic Bender / Breaker Helm Protos / Cogwerx Base Legs on a Maxx deck).
+    await addCardsToDeckTool.handler(
+      { deckName: 'slab maxx', printings: [{ printingId: 'p1', quantity: 1 }] },
+      undefined,
+      'tok',
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(sentBody().printings[0]).not.toHaveProperty('category');
+  });
+
   it('rejects an unknown zone before calling the API', async () => {
     const result = await addCardsToDeckTool.handler(
       { deckName: 'slab maxx', printings: [{ printingId: 'p1', quantity: 1, category: 'graveyard' }] },

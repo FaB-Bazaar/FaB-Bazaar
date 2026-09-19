@@ -15,6 +15,7 @@ import { toHeroDisplayName } from "@/lib/fab-constants/heroes"
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits"
 import { Bookmark, Swords, RotateCcw } from "lucide-react"
 import { trackDeckPresent } from "@/lib/gtag"
+import { buildPresentSections } from "@/lib/deck/present-sections"
 
 interface PresenterCard {
   printingId: string
@@ -483,20 +484,16 @@ export default function PresenterPage() {
     const maindeckCards = selectedMatchup
       ? applyMatchupDiff(deck.maindeck ?? [], deck.inventory ?? [], selectedMatchup.sideboard)
       : (deck.maindeck ?? [])
-    const byPitch = (p: number) => maindeckCards.filter(c => c.printingDetails?.pitch === p)
-    const noPitch = maindeckCards.filter(c => !c.printingDetails?.pitch)
-    const result: Array<{ key: string; title: string; accent: string; cards: PresenterCard[] }> = [
-      { key: "hero", title: "Hero", accent: "text-amber-300", cards: deck.hero ?? [] },
-      { key: "equipment", title: "Equipment & Weapons", accent: "text-gray-300", cards: deck.equipment ?? [] },
-      { key: "red", title: "Library — Red", accent: "text-red-400", cards: byPitch(1) },
-      { key: "yellow", title: "Library — Yellow", accent: "text-yellow-400", cards: byPitch(2) },
-      { key: "blue", title: "Library — Blue", accent: "text-blue-400", cards: byPitch(3) },
-      { key: "no-pitch", title: "Library — No Pitch", accent: "text-gray-400", cards: noPitch },
-    ]
-    if (!selectedMatchup) {
-      result.push({ key: "inventory", title: "Inventory", accent: "text-gray-300", cards: deck.inventory ?? [] })
-    }
-    return result.filter(s => s.cards.length > 0)
+    // Grouped by card TYPE (classifyDeckZone), not by stored category: base
+    // equipment stored under maindeck belongs in Equipment & Weapons, evo
+    // equipment stored under equipment belongs in its pitch column.
+    return buildPresentSections<PresenterCard>({
+      hero: deck.hero ?? [],
+      equipment: deck.equipment ?? [],
+      maindeck: maindeckCards,
+      inventory: deck.inventory ?? [],
+      includeInventory: !selectedMatchup,
+    })
   }, [deck, selectedMatchup])
 
   // Sorted matchups for the tile row: core first, then strategies, then heroes alphabetical.

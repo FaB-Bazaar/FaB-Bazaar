@@ -34,8 +34,9 @@ export async function POST(
     if (body.printings && Array.isArray(body.printings)) {
       // Batch format: { printings: [...] }
       printingsToAdd = body.printings;
-    } else if (body.category && body.printingId) {
-      // Single format: { category, printingId, condition, notes }
+    } else if (body.printingId) {
+      // Single format: { printingId, category?, condition, notes } — category
+      // optional; the service infers the zone from the card's types.
       printingsToAdd = [{
         printingId: body.printingId,
         quantity: body.quantity || 1,
@@ -106,8 +107,10 @@ export async function POST(
 
       // Normalize the zone name ("sideboard" → "inventory", etc.) so an
       // unknown value is a per-item error instead of a Postgres enum failure.
-      const category = normalizeDeckCategory(item.category ?? 'maindeck');
-      if (!category) {
+      // An omitted zone stays undefined so the service infers it from the
+      // card's types; only a supplied-but-unknown value is an error.
+      const category = item.category != null ? normalizeDeckCategory(item.category) : undefined;
+      if (item.category != null && !category) {
         results.push({
           printingId: item.printingId,
           success: false,
@@ -123,7 +126,7 @@ export async function POST(
         {
           printingId: item.printingId,
           quantity: item.quantity || 1,
-          category,
+          category: category ?? undefined,
           condition: item.condition || 'NM',
           notes: item.notes || '',
         },

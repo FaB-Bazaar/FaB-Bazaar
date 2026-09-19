@@ -58,6 +58,7 @@ import {
   validateNotBanned,
   deckFormatToSnake,
 } from './validation';
+import { inferDeckCategory } from '@/lib/deck/classify-deck-zone';
 
 export class PostgresDeckService implements IDeckService {
   // ====================================
@@ -1650,6 +1651,7 @@ export class PostgresDeckService implements IDeckService {
           printingId: printings.printingId,  // Now correctly refers to schema table
           cardUniqueId: printings.cardUniqueId,
           name: cards.name,
+          types: cards.types,
           displayName: cards.displayName,
           classes: cards.classes,
           talents: cards.talents,
@@ -1753,7 +1755,10 @@ export class PostgresDeckService implements IDeckService {
           continue;
         }
 
-        const category = item.category || 'maindeck';
+        // No zone named by the caller → derive it from the card's types (base
+        // equipment/weapon → equipment, evo equipment → maindeck, hero → hero).
+        // Defaulting to maindeck stored equipment as library cards.
+        const category = item.category || inferDeckCategory(printingData.types);
         const quantity = item.quantity || 1;
 
         // Hero card → enforce age/format match (adult heroes only in CC/LL,

@@ -84,8 +84,7 @@ export const addCardsToDeckTool = {
             category: {
               type: 'string',
               enum: ['maindeck', 'equipment', 'hero', 'inventory', 'sideboard', 'benched', 'tokens'],
-              default: 'maindeck',
-              description: 'Deck zone to add the card to. "inventory" = the sideboard ("sideboard" is an accepted alias); "benched" = maybe-pile outside the playable deck.'
+              description: 'Deck zone to add the card to. Omit it and the zone is inferred from the card type (equipment/weapon → equipment, evo equipment → maindeck, hero → hero). "inventory" = the sideboard ("sideboard" is an accepted alias); "benched" = maybe-pile outside the playable deck.'
             }
           },
           required: []
@@ -114,9 +113,9 @@ export const addCardsToDeckTool = {
       const deck = deckResult.deck;
 
       // Separate cards that already have printingIds from those needing name resolution
-      const resolvedPrintings: Array<{ printingId: string; quantity: number; category: string; resolvedFrom?: string }> = [];
+      const resolvedPrintings: Array<{ printingId: string; quantity: number; category?: string; resolvedFrom?: string }> = [];
       const resolutionFailures: string[] = [];
-      const needsResolution: Array<{ cardName: string; pitch: number; quantity: number; category: string }> = [];
+      const needsResolution: Array<{ cardName: string; pitch: number; quantity: number; category?: string }> = [];
 
       // Normalize zone names up front ("sideboard" → "inventory"); an unknown
       // zone is a hard error so nothing lands in the wrong place.
@@ -131,7 +130,10 @@ export const addCardsToDeckTool = {
       }
 
       for (const p of printings) {
-        const category = normalizeDeckCategory(p.category ?? 'maindeck') ?? 'maindeck';
+        // No zone named → leave it unset; the API/service infers it from the
+        // card's types (equipment → equipment, evo → maindeck). Defaulting to
+        // maindeck here stored base equipment as library cards.
+        const category = p.category != null ? (normalizeDeckCategory(p.category) ?? 'maindeck') : undefined;
         if (p.printingId) {
           resolvedPrintings.push({ printingId: p.printingId, quantity: p.quantity || 1, category });
         } else if (p.cardName) {

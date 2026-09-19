@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const printings = cards.map((card: { printingId: string; quantity: number }) => ({
       printingId: card.printingId,
       quantity: card.quantity || 1,
-      category: 'maindeck' as const, // Service will auto-allocate based on card type
+      // No category: the service infers the zone from the card's types.
       condition: 'NM' as const,
     }));
 

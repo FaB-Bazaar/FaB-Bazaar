@@ -111,3 +111,30 @@ describe('POST /api/decks/[deckId]/printings/add — category normalization', ()
     expect(body.results[0].error).toMatch(/inventory/);
   });
 });
+
+describe('POST /api/decks/[deckId]/printings/add — zone omitted', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindByPublicId.mockResolvedValue({ success: true, data: { totalCards: 1 } } as any);
+    mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);
+    mockHasRole.mockResolvedValue({ success: true, data: false } as any);
+    mockAddPrinting.mockResolvedValue({
+      success: true,
+      data: { printingId: 'p1', success: true, cardName: 'Galvanic Bender', quantity: 1, category: 'equipment' },
+    } as any);
+  });
+
+  it('forwards no category so the service infers it from the card type (not "maindeck")', async () => {
+    await POST(postRequest({ printingId: 'p1', quantity: 1 }), { params: { deckId: 'pub1' } });
+    expect(mockAddPrinting).toHaveBeenCalledTimes(1);
+    const dto = mockAddPrinting.mock.calls[0][2] as any;
+    expect(dto.category).toBeUndefined();
+  });
+
+  it('still rejects an unknown zone per item', async () => {
+    const res = await POST(postRequest({ printingId: 'p1', quantity: 1, category: 'graveyard' }), { params: { deckId: 'pub1' } });
+    const json = await res.json();
+    expect(mockAddPrinting).not.toHaveBeenCalled();
+    expect(JSON.stringify(json)).toMatch(/graveyard/);
+  });
+});
