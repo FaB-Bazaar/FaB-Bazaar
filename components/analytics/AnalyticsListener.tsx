@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { trackLogin } from "@/lib/gtag"
+import { recordPageView, trackLogin } from "@/lib/gtag"
 
 // Sends one GA page_view per route change and keeps the `user_type` user
 // property in step with the session.
@@ -47,6 +47,7 @@ export function AnalyticsListener() {
     // a navigation (session settling, a parent state change) must not resend.
     if (lastSentPathRef.current === pagePath) return
     lastSentPathRef.current = pagePath
+    recordPageView(pagePath)
 
     window.gtag("event", "page_view", {
       page_path: pagePath,

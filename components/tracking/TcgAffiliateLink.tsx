@@ -2,6 +2,7 @@
 
 import { useCookieConsent } from '@/contexts/CookieConsentContext'
 import { usePathname } from 'next/navigation'
+import { trackAffiliateClick } from '@/lib/gtag'
 
 interface TcgAffiliateLinkProps {
   tcgplayerUrl: string
@@ -72,14 +73,28 @@ export function TcgAffiliateLink({
 }: TcgAffiliateLinkProps) {
   const { consentOptions } = useCookieConsent()
   const pathname = usePathname()
+  const affiliate = Boolean(consentOptions.advertising)
+
+  // GA sees every buy click regardless of the branch below; `affiliate`
+  // records whether the click carried partner attribution.
+  const handleClick = (e: React.MouseEvent) => {
+    onClick?.(e)
+    trackAffiliateClick({
+      page_context: getPageContext(pathname),
+      feature: feature ?? 'unspecified',
+      page_path: pathname,
+      destination: tcgplayerUrl,
+      affiliate,
+    })
+  }
 
   // If no advertising consent, use direct link with full privacy protection
-  if (!consentOptions.advertising) {
+  if (!affiliate) {
     return (
       <a
         href={tcgplayerUrl}
         className={className}
-        onClick={onClick}
+        onClick={handleClick}
         target={target}
         rel={rel} // Use default "noopener noreferrer" for maximum privacy
         title={title}
@@ -109,7 +124,7 @@ export function TcgAffiliateLink({
     <a
       href={affiliateUrl}
       className={className}
-      onClick={onClick}
+      onClick={handleClick}
       target={target}
       rel="noopener" // Allow referrer for affiliate tracking when user has consented
       title={title}

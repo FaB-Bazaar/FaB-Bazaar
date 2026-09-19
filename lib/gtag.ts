@@ -11,6 +11,22 @@ function canTrack() {
   return typeof window !== "undefined" && typeof window.gtag === "function"
 }
 
+// In-app route history, fed by AnalyticsListener on every page_view. Lets an
+// event say which page the visitor came from: the /daily market tier has no
+// buy links, its tiles lead to /printing where the click actually happens.
+let currentPath: string | null = null
+let previousPath: string | null = null
+
+export function recordPageView(path: string) {
+  if (path === currentPath) return
+  previousPath = currentPath
+  currentPath = path
+}
+
+export function getPreviousPath(): string | null {
+  return previousPath
+}
+
 export function trackEvent(name: string, params?: Record<string, unknown>) {
   if (!canTrack()) return
   window.gtag("event", name, params ?? {})
@@ -73,6 +89,20 @@ export function trackDeckPresent(params: {
   hero?: string
 }) {
   trackEvent("deck_present", params)
+}
+
+// Custom — a click on a "Buy on TCGplayer" link. Fired by TcgAffiliateLink for
+// every surface; `page_context`/`feature` mirror the Impact subId1/subId2 values,
+// `affiliate` is false when the visitor withheld advertising consent (the click
+// went to a plain TCGplayer link with no partner attribution).
+export function trackAffiliateClick(params: {
+  page_context: string
+  feature: string
+  page_path: string
+  destination: string
+  affiliate: boolean
+}) {
+  trackEvent("affiliate_click", { ...params, previous_page_path: getPreviousPath() ?? "none" })
 }
 
 // GA4 recommended event — login

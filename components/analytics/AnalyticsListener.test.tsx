@@ -24,6 +24,7 @@ vi.mock('next-auth/react', () => ({
 }))
 
 import { AnalyticsListener } from './AnalyticsListener'
+import { getPreviousPath } from '@/lib/gtag'
 
 type Call = unknown[]
 const calls = (): Call[] => (window.gtag as ReturnType<typeof vi.fn>).mock.calls
@@ -83,5 +84,13 @@ describe('AnalyticsListener', () => {
     mocks.query = 'sets=iar'
     rerender(<AnalyticsListener />)
     expect(pageViews().map((c) => (c[2] as { page_path: string }).page_path)).toEqual(['/daily', '/opt?sets=iar'])
+  })
+
+  it('records the route history that affiliate clicks are attributed against', () => {
+    mocks.session = { data: { user: { id: 'u1' } }, status: 'authenticated' }
+    const { rerender } = render(<AnalyticsListener />)
+    mocks.pathname = '/printing/abc123'
+    rerender(<AnalyticsListener />)
+    expect(getPreviousPath()).toBe('/daily')
   })
 })
