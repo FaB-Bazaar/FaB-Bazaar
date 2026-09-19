@@ -8,6 +8,7 @@ import { TrendingUp, TrendingDown, Zap, LineChart, Library, Search } from "lucid
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { renderPurchaseLink } from "@/components/wants/utils";
+import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import type {
   DailyMoverDTO,
   MarketMoverDTO,
@@ -204,6 +205,30 @@ function OwnershipLine({ m }: { m: DailyMoverDTO }) {
   );
 }
 
+// Compact buy link for the dense tiers (market grid, sparse-day rows). The
+// full "Buy on TCGplayer" row stays on the large MoverCard tiles; here it is
+// one small element under the price so the grid stays scannable. `feature`
+// distinguishes the tier in the affiliate_click event (market_* / mover_compact_*).
+function CompactBuyLink({ url, feature }: { url: string | null; feature: string }) {
+  if (!url) return null;
+  return (
+    <TcgAffiliateLink
+      tcgplayerUrl={url}
+      feature={feature}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+      title="Buy on TCGplayer"
+    >
+      <span>Buy</span>
+      <img
+        src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+        alt="on TCGplayer"
+        className="h-3 w-auto"
+      />
+    </TcgAffiliateLink>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Your movers — full tile (used when there's enough volume for sections)
 // ---------------------------------------------------------------------------
@@ -307,6 +332,9 @@ function MergedMoverRow({ m }: { m: MergedMover }) {
             {formatImpact(m.dollarImpact)}
           </div>
         )}
+        <div className="mt-1">
+          <CompactBuyLink url={m.tcgplayerUrl} feature={`mover_compact_${m.signals[0]}`} />
+        </div>
       </div>
     </div>
   );
@@ -318,18 +346,26 @@ function MergedMoverRow({ m }: { m: MergedMover }) {
 
 function MarketMoverTile({ m }: { m: MarketMoverDTO }) {
   const isPositive = (m.dollarChange ?? 0) >= 0;
+  const href = `/printing/${m.printingId}`;
   return (
-    <Link
-      href={`/printing/${m.printingId}`}
-      className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-2 flex gap-2 items-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-    >
-      <div className="shrink-0 w-10 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700">
+    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-2 flex gap-2 items-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+      <Link
+        href={href}
+        className="shrink-0 w-10 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        aria-label={`View ${m.displayName}`}
+        tabIndex={-1}
+      >
         {m.imageUrl ? (
           <Image src={m.imageUrl} alt={m.displayName} fill sizes="40px" className="object-cover" unoptimized />
         ) : null}
-      </div>
+      </Link>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{m.displayName}</div>
+        <Link
+          href={href}
+          className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+        >
+          {m.displayName}
+        </Link>
         <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
           {lookup(SET_MAP, m.set) || m.set?.toUpperCase()}
           {" · "}
@@ -341,8 +377,9 @@ function MarketMoverTile({ m }: { m: MarketMoverDTO }) {
         <div className={isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
           {formatPctChange(m.pctChange)}
         </div>
+        <CompactBuyLink url={m.tcgplayerUrl} feature={`market_${m.signalType}`} />
       </div>
-    </Link>
+    </div>
   );
 }
 
