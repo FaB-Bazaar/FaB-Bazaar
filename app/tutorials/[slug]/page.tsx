@@ -17,7 +17,7 @@ export async function generateMetadata({
   const tutorial = tutorials.find((t) => t.slug === slug)
   if (!tutorial) return {}
   return {
-    title: `${tutorial.title} Tutorial | FaB Bazaar`,
+    title: `${tutorial.title} Tutorial`,
     description: tutorial.description,
   }
 }

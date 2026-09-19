@@ -11,6 +11,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import type { Metadata } from 'next';
 import { auth } from '@/auth';
 import { dailyMoversService } from '@/lib/services';
 import type {
@@ -18,6 +19,15 @@ import type {
   MoversInCollectionDTO,
 } from '@/lib/services/contracts/IDailyMoversService';
 import { DailyMoversView } from './DailyMoversView';
+
+// The root layout's title template appends " | FaB Bazaar". Without a title of
+// its own this page reported under the generic site title in analytics, which
+// made the default landing page indistinguishable from the marketing homepage.
+export const metadata: Metadata = {
+  title: 'Daily Movers',
+  description:
+    "Today's Flesh and Blood price movers: the cards gaining and losing value across the market and inside your own collection.",
+};
 
 export default async function DailyMoversPage() {
   const session = await auth();

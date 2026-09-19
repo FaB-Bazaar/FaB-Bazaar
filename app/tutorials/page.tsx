@@ -6,7 +6,7 @@ import { tutorials } from "@/lib/tutorials-data"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Tutorials | FaB Bazaar",
+  title: "Tutorials",
   description: "Learn how to use FaB Bazaar with short video tutorials covering collection management, card search, deck building, and more.",
 }
 

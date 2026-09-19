@@ -72,7 +72,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: "Deck | FaB Bazaar",
+    title: "Deck",
     description: "View this Flesh and Blood deck on FaB Bazaar.",
     twitter: {
       card: "summary",

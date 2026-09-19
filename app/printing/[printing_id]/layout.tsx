@@ -21,7 +21,7 @@ export async function generateMetadata({
         const setName = printing.set?.toUpperCase() || 'Unknown Set'
         
         return {
-          title: `${cardName} (${setName}) - Card Details | FaB Bazaar`,
+          title: `${cardName} (${setName}) - Card Details`,
           description: `View detailed information for ${cardName} from ${setName}. Check pricing, stats, ownership data, and add to your wants list or collection.`,
           keywords: [
             cardName,
@@ -65,7 +65,7 @@ export async function generateMetadata({
 
   // Fallback metadata
   return {
-    title: "Card Details | FaB Bazaar",
+    title: "Card Details",
     description: "View detailed information for this Flesh and Blood card including pricing, stats, and ownership data.",
     keywords: [
       "FaB card details",
