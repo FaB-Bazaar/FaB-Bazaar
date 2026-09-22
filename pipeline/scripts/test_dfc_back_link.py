@@ -166,5 +166,68 @@ class DfcBackLinkTests(unittest.TestCase):
         self.assertIsNone(doc["other_face_printing_id"])
 
 
+def make_dtd164_pair(flags_swapped):
+    """Levia, Redeemed // Blasmophet (DTD164 non-foil) as the 2026-09 feed
+    ships it: the image filenames are right (DTD164.png = Levia = front,
+    DTD164_BACK.png = Blasmophet = back) but the is_front flags are the
+    wrong way round on the non-foil pair (the cold-foil pair is fine)."""
+    def printing(uid, other, is_front, back):
+        return {
+            "unique_id": uid, "id": "DTD164", "set_id": "DTD", "edition": "N",
+            "foiling": "S", "rarity": "L",
+            "image_url": f"https://s3/faces/2023-DTD/EN/DTD164{'_BACK' if back else ''}.png",
+            "double_sided_card_info": [
+                {"other_face_unique_id": other, "is_front": is_front, "is_DFC": True}
+            ],
+        }
+    levia = {"unique_id": "card-levia", "name": "Levia, Redeemed",
+             "types": ["Shadow", "Demi-Hero"], "pitch": "",
+             "printings": [printing("p-levia", "p-levia", not flags_swapped, False)]}
+    blas = {"unique_id": "card-blas", "name": "Blasmophet, Levia Consumed",
+            "types": ["Shadow", "Demi-Hero", "Demon"], "pitch": "",
+            "printings": [printing("p-blas", "p-levia", flags_swapped, True)]}
+    return levia, blas
+
+
+class FaceFlagContradictsImageTests(unittest.TestCase):
+    """The _BACK image filename is the ground truth for which face a printing
+    is; a feed is_front flag that contradicts it is overridden. DTD164 non-foil
+    shipped with the flags swapped, which cross-wired Levia's row to the
+    Blasmophet art (the deterministic image id derives _BACK from the flag)."""
+
+    def setUp(self):
+        self.t = transformer_module.CardsToPrintingsTransformer()
+
+    def _doc(self, card):
+        docs = self.t.transform_card_to_printings(card)
+        self.assertEqual(len(docs), 1)
+        return docs[0]
+
+    def test_swapped_flags_follow_the_back_image_filename(self):
+        levia, blas = make_dtd164_pair(flags_swapped=True)
+        self.t.index_face_links([levia, blas])
+        self.assertTrue(self._doc(levia)["is_front_face"])
+        self.assertFalse(self._doc(blas)["is_front_face"])
+
+    def test_swapped_flags_still_link_both_ways(self):
+        levia, blas = make_dtd164_pair(flags_swapped=True)
+        self.t.index_face_links([levia, blas])
+        self.assertEqual(self._doc(levia)["other_face_printing_id"], "p-blas")
+        self.assertEqual(self._doc(blas)["other_face_printing_id"], "p-levia")
+
+    def test_consistent_flags_are_unchanged(self):
+        levia, blas = make_dtd164_pair(flags_swapped=False)
+        self.t.index_face_links([levia, blas])
+        self.assertTrue(self._doc(levia)["is_front_face"])
+        self.assertFalse(self._doc(blas)["is_front_face"])
+
+    def test_lowercase_back_suffix_counts(self):
+        # UPR dragons / DYN092 ship *_Back.png, not *_BACK.png
+        levia, blas = make_dtd164_pair(flags_swapped=True)
+        blas["printings"][0]["image_url"] = "https://s3/faces/DTD164_Back.png"
+        self.t.index_face_links([levia, blas])
+        self.assertFalse(self._doc(blas)["is_front_face"])
+
+
 if __name__ == "__main__":
     unittest.main()

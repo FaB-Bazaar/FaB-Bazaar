@@ -58,7 +58,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //        canonical printing cascade
 //   v4 — hero legality: non-hybrid multi-class cards need EVERY class
 //        (Pirate Necromancer no longer in a Necromancer-only pool)
-const SEARCH_CACHE_VERSION = 'v5';
+//   v6 — migration 0113 swapped DTD164 non-foil faces/images outside a
+//        nightly run (cached bodies carry other_face_* / image_url)
+const SEARCH_CACHE_VERSION = 'v6';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

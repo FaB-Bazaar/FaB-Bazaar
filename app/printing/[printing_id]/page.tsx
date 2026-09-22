@@ -5,7 +5,7 @@ import React, { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Heart, Plus, ExternalLink, Users, TrendingUp, Package } from "lucide-react"
+import { ArrowLeft, Heart, Plus, ExternalLink, Users, TrendingUp, Package, RefreshCw } from "lucide-react"
 import CardDisplay from "@/components/printing/CardDisplay"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
@@ -94,8 +94,12 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
   const [otherPrintingsLoading, setOtherPrintingsLoading] = useState(false)
   const [selectedSiblingId, setSelectedSiblingId] = useState<string | null>(null)
   const [selectedTextLang, setSelectedTextLang] = useState<string | null>(null)
+  // DFC flip — printing_id whose OTHER face the rail is showing
+  // (other_face_image_url / other_face_name ride the search payload).
+  // Keyed by id so picking another printing starts on its own face.
+  const [flippedRailId, setFlippedRailId] = useState<string | null>(null)
 
-  
+
   // Unwrap the params Promise
   const resolvedParams = use(params)
 
@@ -544,20 +548,43 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
             const hasPower = rail.power != null
             const hasDefense = rail.defense != null
             const isViewingDifferent = selectedSiblingId && selectedSiblingId !== resolvedParams.printing_id
+            const railName = rail.display_name || rail.name
+            const otherFaceUrl = typeof rail.other_face_image_url === 'string' && rail.other_face_image_url ? rail.other_face_image_url : null
+            const otherFaceName = rail.other_face_name || 'other face'
+            const railId = rail.printing_id || rail.unique_id
+            const showingOtherFace = flippedRailId === railId && !!otherFaceUrl
 
             return (
               <div className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-3">
-                <div className="max-w-[260px] sm:max-w-[300px] mx-auto xl:max-w-none">
+                <div className="relative max-w-[260px] sm:max-w-[300px] mx-auto xl:max-w-none">
                   <FoilCardImage
                     foiling={rail.foiling}
                     artStyle={artStylesFromPrinting(rail.art_variations, rail.is_extended_art)}
                     foilInset={foilInsetFromValues(rail.foil_inset_top, rail.foil_inset_right, rail.foil_inset_bottom, rail.foil_inset_left, rail.foil_inset_round)}
-                    src={rail.image_url || '/placeholder.svg'}
-                    alt={rail.display_name || rail.name}
+                    src={(showingOtherFace ? otherFaceUrl : rail.image_url) || '/placeholder.svg'}
+                    alt={showingOtherFace ? otherFaceName : railName}
                     className="w-full rounded-md shadow"
                     imgClassName="w-full h-auto rounded-md"
                     expandable
                   />
+                  {/* Flip - double-faced cards only. Always shown (not hover-gated):
+                      the button IS the "this card has a back" cue (same as /opt). */}
+                  {otherFaceUrl && (
+                    <button
+                      type="button"
+                      aria-label={showingOtherFace ? `Flip back to ${railName}` : `Flip to ${otherFaceName}`}
+                      title={showingOtherFace ? `Show ${railName}` : `Show ${otherFaceName}`}
+                      aria-pressed={showingOtherFace}
+                      onClick={() => setFlippedRailId(showingOtherFace ? null : railId)}
+                      className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-md flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                        showingOtherFace
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-black/50 text-white/90 hover:bg-black/70 hover:text-white'
+                      }`}
+                    >
+                      <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
 
                 {setLogo && (

@@ -432,9 +432,17 @@ class CardsToPrintingsTransformer:
         other = dfc_info.get('other_face_unique_id')
         if not other or other == own:
             other = getattr(self, '_front_by_back', {}).get(own)
+        # The image filename is the ground truth for which face this is: the
+        # DTD164 non-foil pair ships is_front swapped (Levia flagged back,
+        # Blasmophet front) while its filenames are right, and the app derives
+        # the _BACK image id from this flag. *_BACK.png / *_Back.png = back.
+        image_name = (printing.get('image_url') or '').rsplit('/', 1)[-1].lower()
+        is_front = bool(dfc_info.get('is_front', True))
+        if image_name and ('_back' in image_name) == is_front:
+            is_front = not is_front
         return {
             'other_face_printing_id': other,
-            'is_front_face': bool(dfc_info.get('is_front', True)),
+            'is_front_face': is_front,
         }
 
     def get_edition_flags(self, edition_code):
