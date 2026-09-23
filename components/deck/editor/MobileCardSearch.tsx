@@ -17,6 +17,7 @@ import { groupSearchPrintings, hasMoreSearchPages } from "@/lib/deck/search-pagi
 import { GENERIC_CHIP } from "@/lib/search/card-filter-chips";
 import { availableTypeChips } from "@/lib/deck/available-type-chips";
 import { useHeroPoolTypes } from "@/hooks/deck/useHeroPoolTypes";
+import { resolveMobileAddCategory, pickRemovalSlot, type MobileAddZone } from "@/lib/deck/mobile-add-zone";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
 const shorthandParser = new FABShorthandParser();
@@ -28,13 +29,6 @@ const FORMAT_TO_SEARCH: Record<string, string> = {
   "Living Legend": "ll",
   "Silver Age": "silver_age",
 };
-
-function inferCategory(card: any): DeckCategory {
-  const types: string[] = (card.types || []).map((t: string) => t.toLowerCase());
-  if (types.some(t => t === "hero")) return "hero";
-  if (types.some(t => t === "equipment" || t === "weapon")) return "equipment";
-  return "maindeck";
-}
 
 function getMaxCopies(card: any): number {
   const types: string[] = (card.types || []).map((t: string) => t.toLowerCase());
@@ -63,9 +57,20 @@ interface Props {
   /** Increment to reset back to the kit-browse view (clears the query and
       scrolls the grid into view) — wired to the header's Explore button. */
   exploreSignal?: number;
+  /** Zone the + button posts to. 'maindeck' (default) infers hero/equipment
+      from the card type; 'inventory' / 'benched' take the card as-is. The
+      Build Tools panel's "+ Bench" / "+ Inventory" set it. */
+  addZone?: MobileAddZone;
+  onAddZoneChange?: (zone: MobileAddZone) => void;
 }
 
-export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds, exploreSignal }: Props) {
+const ADD_ZONES: ReadonlyArray<[NonNullable<MobileAddZone>, string]> = [
+  ["maindeck", "Deck"],
+  ["inventory", "Inventory"],
+  ["benched", "Bench"],
+];
+
+export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds, exploreSignal, addZone = "maindeck", onAddZoneChange }: Props) {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -159,6 +164,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
       ...(deck.equipment || []).map(p => ({ ...p, _cat: "equipment" as DeckCategory })),
       ...(deck.maindeck || []).map(p => ({ ...p, _cat: "maindeck" as DeckCategory })),
       ...(deck.inventory || []).map(p => ({ ...p, _cat: "inventory" as DeckCategory })),
+      ...(deck.benched || []).map(p => ({ ...p, _cat: "benched" as DeckCategory })),
     ];
     slots.forEach(slot => {
       const uid = (slot.printingDetails as any)?.card_unique_id;
@@ -289,7 +295,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
       const result = await decksClient.addPrintings(deckId, [{
         printingId: printing.printing_id,
         quantity: 1,
-        category: inferCategory(card),
+        category: resolveMobileAddCategory(addZone, card),
       }]);
       if (!result.success) {
         toast({ title: "Couldn't add card", description: result.error, variant: "destructive" });
@@ -309,7 +315,8 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
     if (!entry || entry.qty === 0) return;
     applyDelta(uid, -1);
     try {
-      const target = entry.printings[0];
+      const target = pickRemovalSlot(entry.printings, addZone);
+      if (!target) return;
       const result = await decksClient.removePrinting(deckId, target.printingId, target.category, 1);
       if (!result.success) {
         toast({ title: "Couldn't remove card", description: result.error, variant: "destructive" });
@@ -549,6 +556,33 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
             pitch/type chips narrow either source. Wraps (never h-scrolls) so
             every control stays on screen at phone widths. */}
         <div className="flex flex-wrap items-center gap-1.5 pt-2">
+          {/* Target zone — set by Build Tools "+ Bench" / "+ Inventory"; the
+              zone used to be dropped on the way here, so every mobile add
+              landed in the maindeck. role=status so the change is announced. */}
+          <div
+            role="status"
+            aria-label={`Adding to ${ADD_ZONES.find(([z]) => z === addZone)?.[1] ?? "Deck"}`}
+            className="flex shrink-0 items-center gap-1.5"
+          >
+            <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Adding to</span>
+            <div className="flex overflow-hidden rounded-full border border-gray-300 dark:border-gray-700">
+              {ADD_ZONES.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onAddZoneChange?.(value)}
+                  aria-pressed={addZone === value}
+                  className={`px-2.5 py-1 text-xs whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    addZone === value
+                      ? "bg-blue-600 font-semibold text-white"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {addZone === value ? "✓ " : ""}{label}
+                </button>
+              ))}
+            </div>
+          </div>
           {hasKits && (
             <div className="flex shrink-0 overflow-hidden rounded-full border border-gray-300 dark:border-gray-700" role="group" aria-label="Card source">
               {([["kits", "Kits"], ["all", "All cards"]] as const).map(([value, label]) => (

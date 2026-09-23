@@ -4,7 +4,15 @@ import { resolveQuickAddAction } from './quickAddRouting';
 describe('resolveQuickAddAction', () => {
   it('routes to the inline Cards tab on mobile (no dialog)', () => {
     const action = resolveQuickAddAction(true, { category: 'maindeck' });
-    expect(action).toEqual({ kind: 'switchTab', tab: 'search' });
+    expect(action).toEqual({ kind: 'switchTab', tab: 'search', target: { category: 'maindeck' } });
+  });
+
+  // The mobile Cards tab has no dialog to read the zone from, so the action
+  // must carry it — dropping it here is how "add to bench" landed in the
+  // maindeck on phones.
+  it('keeps the bench target on the mobile switchTab action', () => {
+    const action = resolveQuickAddAction(true, { category: 'benched' });
+    expect(action).toEqual({ kind: 'switchTab', tab: 'search', target: { category: 'benched' } });
   });
 
   it('opens the QuickAdd dialog on desktop and preserves category + pitch', () => {
@@ -37,6 +45,6 @@ describe('resolveQuickAddAction', () => {
 
   it('treats omitted canEdit as editable (back-compat)', () => {
     const action = resolveQuickAddAction(true, { category: 'inventory' });
-    expect(action).toEqual({ kind: 'switchTab', tab: 'search' });
+    expect(action).toEqual({ kind: 'switchTab', tab: 'search', target: { category: 'inventory' } });
   });
 });

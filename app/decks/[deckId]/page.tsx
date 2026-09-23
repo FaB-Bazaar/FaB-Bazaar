@@ -38,6 +38,7 @@ import { useBuildProgress } from "@/hooks/deck/useBuildProgress";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { useIsMac } from "@/components/ui/use-client-env";
 import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck/quickAddRouting";
+import type { MobileAddZone } from "@/lib/deck/mobile-add-zone";
 import { resolveDefaultDeckViewMode } from "@/lib/deck/deckViewMode";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
@@ -250,11 +251,18 @@ export default function DeckEditorPage() {
   // default before the media query resolves.
   const [viewportResolved, setViewportResolved] = useState(false);
   useEffect(() => { setViewportResolved(true); }, []);
+  // Zone the mobile Cards tab adds to. The desktop dialog reads the zone from
+  // quickAddTarget; on phones the tab switch used to drop it, so "+ Bench"
+  // added to the maindeck.
+  const [mobileAddZone, setMobileAddZone] = useState<MobileAddZone>("maindeck");
   const openQuickAdd = (target: QuickAddTarget) => {
     const action = resolveQuickAddAction(isMobile, target, canEdit);
     if (action.kind === "blocked") return;
-    if (action.kind === "switchTab") setActiveTab(action.tab);
-    else setQuickAddTarget(action.target);
+    if (action.kind === "switchTab") {
+      const c = action.target.category;
+      setMobileAddZone(c === "inventory" || c === "benched" ? c : "maindeck");
+      setActiveTab(action.tab);
+    } else setQuickAddTarget(action.target);
   };
 
   // Optimistic deck state for instant qty feedback in sidebar
@@ -2201,6 +2209,8 @@ export default function DeckEditorPage() {
                       onDeckChange={handlers.refreshDeck}
                       kitBuilds={curatedBuilds}
                       exploreSignal={exploreSignal}
+                      addZone={mobileAddZone}
+                      onAddZoneChange={setMobileAddZone}
                     />
                   </div>
                 )}
