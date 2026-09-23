@@ -2,6 +2,32 @@
 import { NextResponse } from "next/server";
 import { oauthFlowService } from '@/lib/services';
 
+/**
+ * client_secret_basic (RFC 6749 §2.3.1): credentials arrive as a Basic
+ * Authorization header of form-urlencoded `id:secret`. Our metadata advertises
+ * it, so fold it into the body the grant handlers read. Returns false when the
+ * header and body name different clients.
+ */
+function applyBasicClientAuth(req: Request, body: FormData): boolean {
+  const header = req.headers.get('authorization');
+  if (!header?.toLowerCase().startsWith('basic ')) return true;
+
+  const decoded = Buffer.from(header.slice(6).trim(), 'base64').toString('utf8');
+  const sep = decoded.indexOf(':');
+  if (sep === -1) return true;
+
+  const formDecode = (s: string) => decodeURIComponent(s.replace(/\+/g, ' '));
+  const clientId = formDecode(decoded.slice(0, sep));
+  const clientSecret = formDecode(decoded.slice(sep + 1));
+
+  const bodyClientId = body.get('client_id');
+  if (bodyClientId && bodyClientId !== clientId) return false;
+
+  body.set('client_id', clientId);
+  if (!body.get('client_secret')) body.set('client_secret', clientSecret);
+  return true;
+}
+
 async function handleAuthorizationCodeGrant(body: FormData) {
   const code = body.get('code') as string;
   const clientId = body.get('client_id') as string;
@@ -152,6 +178,13 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
     
+    if (!applyBasicClientAuth(req, body)) {
+      return NextResponse.json({
+        error: 'invalid_request',
+        error_description: 'client_id in the Authorization header and body do not match'
+      }, { status: 400 });
+    }
+
     const grantType = body.get('grant_type') as string;
     
     console.log('🔄 OAuth token request:', { grantType, contentType });
