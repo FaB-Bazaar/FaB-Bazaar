@@ -398,6 +398,21 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
         };
       }
 
+      // A revoked (deleted) client's tokens must not refresh. Tokens have no
+      // FK to oauth_clients, so orphans from before revokeClient cleaned up
+      // after itself still exist.
+      const [client] = await db
+        .select({ id: oauthClients.id })
+        .from(oauthClients)
+        .where(eq(oauthClients.clientId, clientId));
+
+      if (!client) {
+        return {
+          success: false,
+          error: 'Client has been revoked',
+        };
+      }
+
       // Check refresh token expiration
       if (tokenRecord.refreshTokenExpiresAt && new Date() > tokenRecord.refreshTokenExpiresAt) {
         return {

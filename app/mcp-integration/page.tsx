@@ -9,10 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Copy, RefreshCw, Trash2, Eye, EyeOff, Key } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MAX_CLIENTS_PER_USER, MAX_CLIENT_NAME_LENGTH } from '@/lib/oauth-client-limits';
 
 interface OAuthClient {
   client_id: string;
-  client_secret: string;
+  // Only present in the create response: secrets are stored hashed, so the
+  // list endpoint never returns them.
+  client_secret?: string;
   client_name: string;
   created_at: string;
   last_used?: string;
@@ -36,6 +39,10 @@ export default function MCPIntegrationPage() {
   // OAuth Clients state
   const [oauthClients, setOAuthClients] = useState<OAuthClient[]>([]);
   const [isGeneratingClient, setIsGeneratingClient] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  // One-time secrets from create responses, keyed by client_id. Kept apart from
+  // oauthClients because a list refetch (session refresh) has no secrets.
+  const [newSecrets, setNewSecrets] = useState<Record<string, string>>({});
   const [showSecrets, setShowSecrets] = useState<Set<string>>(new Set());
   const [copiedCredentials, setCopiedCredentials] = useState<Set<string>>(new Set());
   
@@ -47,12 +54,15 @@ export default function MCPIntegrationPage() {
   const mcpServerUrl = 'https://fabbazaar.app/api/mcp/server';
   const mcpUrl = mcpServerUrl; // Token must be sent as Authorization: Bearer <token> header, not in URL
 
+  // Keyed on the user id, not the session object: a session refresh would
+  // refetch the list and could land after a create, dropping the new client.
+  const userId = session?.user?.id;
   useEffect(() => {
-    if (session?.user) {
+    if (userId) {
       fetchOAuthClients();
       fetchBearerToken();
     }
-  }, [session]);
+  }, [userId]);
 
   // Bearer Token functions
   const fetchBearerToken = async () => {
@@ -117,29 +127,33 @@ export default function MCPIntegrationPage() {
   };
 
   const generateOAuthClient = async () => {
+    const clientName = newClientName.trim();
+    if (!clientName) return;
+
     setIsGeneratingClient(true);
     setError('');
     try {
       const response = await fetch('/api/user/oauth-clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_name: `MCP Client - ${new Date().toLocaleDateString()}`
-        })
+        body: JSON.stringify({ client_name: clientName })
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error('Failed to generate OAuth client');
+        setError(data.error || 'Failed to create credentials. Please try again.');
+        return;
       }
 
-      const newClient = await response.json();
-      setOAuthClients(prev => [newClient, ...prev]);
-      
-      // Auto-show the secret for the new client
-      setShowSecrets(prev => new Set([...prev, newClient.client_id]));
-      
+      setOAuthClients(prev => [data, ...prev]);
+      setNewSecrets(prev => ({ ...prev, [data.client_id]: data.client_secret }));
+      setNewClientName('');
+
+      // Auto-show the secret for the new client (the only time it's available)
+      setShowSecrets(prev => new Set([...prev, data.client_id]));
+
     } catch (error) {
-      setError('Failed to generate OAuth client credentials. Please try again.');
+      setError('Failed to create credentials. Please try again.');
       console.error('Error generating OAuth client:', error);
     } finally {
       setIsGeneratingClient(false);
@@ -147,7 +161,8 @@ export default function MCPIntegrationPage() {
   };
 
   const revokeOAuthClient = async (clientId: string) => {
-    if (!confirm('Are you sure? This will break any applications using these credentials.')) {
+    const name = oauthClients.find(c => c.client_id === clientId)?.client_name ?? 'these credentials';
+    if (!confirm(`Revoke "${name}"? The app using these credentials will be disconnected. Your other credentials keep working.`)) {
       return;
     }
 
@@ -180,12 +195,6 @@ export default function MCPIntegrationPage() {
       if (type === 'serverUrl') {
         setCopiedServerUrl(true);
         setTimeout(() => setCopiedServerUrl(false), 2000);
-      } else if (type === 'token') {
-        setCopiedToken(true);
-        setTimeout(() => setCopiedToken(false), 2000);
-      } else if (type === 'url') {
-        setCopiedUrl(true);
-        setTimeout(() => setCopiedUrl(false), 2000);
       } else if (type === 'bearer') {
         setCopiedBearer(true);
         setTimeout(() => setCopiedBearer(false), 2000);
@@ -383,43 +392,81 @@ export default function MCPIntegrationPage() {
               <TabsContent value="oauth" className="space-y-6">
                 <Alert className="border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/50">
                   <AlertDescription className="text-purple-800 dark:text-purple-200">
-                    <strong>For Claude Desktop/Web (Recommended):</strong> Full OAuth 2.1 support with Dynamic Client Registration,
-                    token refresh, and PKCE. Perfect for production use. Use redirect URI: <code className="bg-purple-100 dark:bg-purple-900/50 px-1 rounded">https://claude.ai/api/mcp/auth_callback</code>
+                    <strong>Most apps only need the server URL.</strong> Claude (web, Desktop and Claude Code) and ChatGPT
+                    register themselves: add the server URL below as a connector and sign in to FabBazaar when asked.
                     <br /><br />
-                    <strong>For other MCP clients:</strong> Also supports standard OAuth flows.
+                    <strong>Apps that ask for a client ID and secret</strong> (e.g. Meta Muse, Mistral Le Chat): create a
+                    separate set of credentials for each app below, so you can revoke one app without affecting the others.
                   </AlertDescription>
                 </Alert>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">OAuth Client Credentials</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Your credentials for connecting Claude and other MCP clients
-                      </p>
+                <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-md border border-gray-300 dark:border-gray-700 space-y-2 text-sm">
+                  <div>
+                    <strong className="text-gray-900 dark:text-gray-100">Server URL:</strong>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="bg-white dark:bg-gray-800 px-1 rounded text-gray-900 dark:text-gray-100 flex-1 break-all">
+                        {mcpServerUrl}
+                      </code>
+                      <Button
+                        onClick={() => copyToClipboard(mcpServerUrl, 'serverUrl')}
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-300 dark:border-gray-600 shrink-0"
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        {copiedServerUrl ? 'Copied!' : 'Copy'}
+                      </Button>
                     </div>
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 break-all">
+                    Authorization: <code>https://fabbazaar.app/oauth/authorize</code>
+                    <br />
+                    Token: <code>https://fabbazaar.app/oauth/token</code>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Your app credentials</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {oauthClients.length} of {MAX_CLIENTS_PER_USER} used. Name each set after the app that uses it.
+                    </p>
+                  </div>
+
+                  <form
+                    className="flex flex-col sm:flex-row gap-2"
+                    onSubmit={(e) => { e.preventDefault(); generateOAuthClient(); }}
+                  >
+                    <Label htmlFor="new-client-name" className="sr-only">App name</Label>
+                    <Input
+                      id="new-client-name"
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      maxLength={MAX_CLIENT_NAME_LENGTH}
+                      placeholder="App name, e.g. Meta Muse"
+                      disabled={oauthClients.length >= MAX_CLIENTS_PER_USER}
+                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    />
                     <Button
-                      onClick={generateOAuthClient}
-                      disabled={isGeneratingClient}
-                      className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600"
+                      type="submit"
+                      disabled={isGeneratingClient || !newClientName.trim() || oauthClients.length >= MAX_CLIENTS_PER_USER}
+                      className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600 shrink-0"
                     >
                       {isGeneratingClient ? (
                         <>
                           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Generating...
+                          Creating...
                         </>
-                      ) : oauthClients.length > 0 ? (
-                        'Regenerate Credentials'
                       ) : (
-                        'Generate Credentials'
+                        'Create credentials'
                       )}
                     </Button>
-                  </div>
+                  </form>
 
                   {oauthClients.length === 0 ? (
                     <Alert className="border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                       <AlertDescription className="text-gray-700 dark:text-gray-300">
-                        No credentials yet. Click "Generate Credentials" to get started.
+                        No credentials yet. You only need them for apps that ask for a client ID and secret.
                       </AlertDescription>
                     </Alert>
                   ) : (
@@ -427,9 +474,9 @@ export default function MCPIntegrationPage() {
                       {oauthClients.map((client) => (
                         <Card key={client.client_id} className="bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700">
                           <CardContent className="p-4">
-                            <div className="flex justify-between items-start mb-4">
-                              <div>
-                                <h4 className="font-medium text-gray-900 dark:text-gray-100">{client.client_name}</h4>
+                            <div className="flex justify-between items-start gap-2 mb-4">
+                              <div className="min-w-0">
+                                <h4 className="font-medium text-gray-900 dark:text-gray-100 break-words">{client.client_name}</h4>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
                                   Created: {new Date(client.created_at).toLocaleDateString()}
                                   {client.last_used && (
@@ -443,6 +490,7 @@ export default function MCPIntegrationPage() {
                                 onClick={() => revokeOAuthClient(client.client_id)}
                                 variant="destructive"
                                 size="sm"
+                                className="shrink-0"
                               >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Revoke
@@ -472,83 +520,43 @@ export default function MCPIntegrationPage() {
 
                               <div>
                                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Client Secret</Label>
-                                <div className="flex mt-1">
-                                  <Input
-                                    type={showSecrets.has(client.client_id) ? "text" : "password"}
-                                    value={client.client_secret}
-                                    readOnly
-                                    className="font-mono text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                                  />
-                                  <Button
-                                    onClick={() => toggleSecretVisibility(client.client_id)}
-                                    variant="outline"
-                                    size="sm"
-                                    className="ml-2 border-gray-300 dark:border-gray-600"
-                                  >
-                                    {showSecrets.has(client.client_id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                  </Button>
-                                  <Button
-                                    onClick={() => copyToClipboard(client.client_secret, 'credential', client.client_id)}
-                                    variant="outline"
-                                    size="sm"
-                                    className="ml-2 border-gray-300 dark:border-gray-600"
-                                  >
-                                    <Copy className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-950/50 rounded-md border border-purple-200 dark:border-purple-800">
-                              <h5 className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2">
-                                Claude Desktop Configuration:
-                              </h5>
-                              <div className="space-y-2 text-xs">
-                                <div>
-                                  <strong className="text-purple-900 dark:text-purple-100">Server URL:</strong>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <code className="bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100 flex-1 break-all">
-                                      {mcpServerUrl}
-                                    </code>
-                                    <Button
-                                      onClick={() => copyToClipboard(mcpServerUrl, 'serverUrl')}
-                                      variant="outline"
-                                      size="sm"
-                                      className="border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200 shrink-0"
-                                    >
-                                      <Copy className="w-3 h-3 mr-1" />
-                                      {copiedServerUrl ? 'Copied!' : 'Copy'}
-                                    </Button>
-                                  </div>
-                                </div>
-                                <div>
-                                  <strong className="text-purple-900 dark:text-purple-100">OAuth Endpoints:</strong>
-                                  <div className="ml-2 space-y-1">
-                                    <div>
-                                      <span className="text-purple-800 dark:text-purple-300">Authorization:</span>
-                                      <code className="ml-1 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                        https://fabbazaar.app/oauth/authorize
-                                      </code>
+                                {newSecrets[client.client_id] ? (
+                                  <>
+                                    <div className="flex mt-1">
+                                      <Input
+                                        type={showSecrets.has(client.client_id) ? "text" : "password"}
+                                        value={newSecrets[client.client_id]}
+                                        readOnly
+                                        className="font-mono text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                                      />
+                                      <Button
+                                        onClick={() => toggleSecretVisibility(client.client_id)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="ml-2 border-gray-300 dark:border-gray-600"
+                                        aria-label={showSecrets.has(client.client_id) ? 'Hide secret' : 'Show secret'}
+                                      >
+                                        {showSecrets.has(client.client_id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                      </Button>
+                                      <Button
+                                        onClick={() => copyToClipboard(newSecrets[client.client_id], 'credential', client.client_id)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="ml-2 border-gray-300 dark:border-gray-600"
+                                        aria-label="Copy secret"
+                                      >
+                                        <Copy className="w-4 h-4" />
+                                      </Button>
                                     </div>
-                                    <div>
-                                      <span className="text-purple-800 dark:text-purple-300">Token:</span>
-                                      <code className="ml-1 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                        https://fabbazaar.app/oauth/token
-                                      </code>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div>
-                                  <strong className="text-purple-900 dark:text-purple-100">Redirect URI (Claude):</strong>
-                                  <code className="ml-2 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                    https://claude.ai/api/mcp/auth_callback
-                                  </code>
-                                </div>
-                                <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-700">
-                                  <p className="text-purple-800 dark:text-purple-300 italic">
-                                    Add this remote MCP server in Claude via <strong>Settings → Connectors</strong>
+                                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                                      Copy this secret now. It won&apos;t be shown again after you leave this page.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    Hidden. Secrets are only shown once, when created. Lost it? Create new credentials for the app and revoke these.
                                   </p>
-                                </div>
+                                )}
                               </div>
                             </div>
                           </CardContent>
@@ -570,11 +578,9 @@ export default function MCPIntegrationPage() {
             <div className="space-y-4 pt-6 border-t border-gray-300 dark:border-gray-700">
               <h4 className="font-semibold text-gray-900 dark:text-gray-100">Setup Instructions</h4>
               <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li>Generate your credentials using one of the methods above</li>
-                <li>Configure your MCP client with the appropriate authentication method</li>
-                <li><strong>For Claude Desktop/Web (Recommended):</strong> Use OAuth Credentials tab with redirect URI <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">https://claude.ai/api/mcp/auth_callback</code></li>
-                <li><strong>For quick setup:</strong> Use the Bearer Token tab</li>
-                <li>Add the remote MCP server in Claude via Settings → Connectors</li>
+                <li>In your app, add a remote MCP server / connector with the server URL above (in Claude: Settings → Connectors)</li>
+                <li>If the app asks for a client ID and secret, create a set named after that app above and paste them in</li>
+                <li>Sign in to FabBazaar when the app sends you here to approve access</li>
                 <li>Verify FabBazaar appears in your available tools</li>
               </ol>
               

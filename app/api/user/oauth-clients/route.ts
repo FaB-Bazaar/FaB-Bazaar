@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { oauthService } from "@/lib/services";
+import { MAX_CLIENTS_PER_USER, MAX_CLIENT_NAME_LENGTH } from "@/lib/oauth-client-limits";
 
 // GET - List user's OAuth clients
 export async function GET(req: Request) {
@@ -26,7 +27,8 @@ export async function GET(req: Request) {
   }
 }
 
-// POST - Generate new OAuth client for user (replaces any existing client)
+// POST - Create an additional OAuth client for the user (one per app).
+// Existing clients are left alone; each is revoked on its own via DELETE.
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -34,20 +36,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { client_name } = await req.json();
-    if (!client_name) {
+    const body = await req.json();
+    const clientName = typeof body?.client_name === 'string' ? body.client_name.trim() : '';
+    if (!clientName) {
       return NextResponse.json({ error: "client_name is required" }, { status: 400 });
     }
-
-    // Revoke all existing clients before creating a new one (one-client-per-user limit)
-    const existing = await oauthService.listClients(session.user.id);
-    if (existing.success && existing.data.length > 0) {
-      await Promise.all(
-        existing.data.map(c => oauthService.revokeClient(session.user.id, c.client_id))
+    if (clientName.length > MAX_CLIENT_NAME_LENGTH) {
+      return NextResponse.json(
+        { error: `client_name must be at most ${MAX_CLIENT_NAME_LENGTH} characters` },
+        { status: 400 }
       );
     }
 
-    const result = await oauthService.createClient(session.user.id, client_name);
+    const existing = await oauthService.listClients(session.user.id);
+    if (!existing.success) {
+      return NextResponse.json({ error: existing.error }, { status: 500 });
+    }
+    if (existing.data.length >= MAX_CLIENTS_PER_USER) {
+      return NextResponse.json(
+        { error: `You can have at most ${MAX_CLIENTS_PER_USER} sets of credentials. Revoke one you no longer use first.` },
+        { status: 400 }
+      );
+    }
+
+    const result = await oauthService.createClient(session.user.id, clientName);
 
     if (!result.success) {
       const statusCode = result.error === 'User not found' ? 404 : 500;

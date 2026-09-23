@@ -6,7 +6,7 @@
  */
 
 import { db } from '@/lib/postgres/db';
-import { users, oauthClients } from '@/lib/postgres/schema';
+import { users, oauthClients, oauthAccessTokens, oauthAuthorizationCodes } from '@/lib/postgres/schema';
 import { randomBytes } from 'crypto';
 import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
@@ -167,8 +167,13 @@ export class PostgresOAuthService implements IOAuthService {
         return { success: false, error: 'Client not found or unauthorized' };
       }
 
-      // Delete the client (cascade will handle tokens)
-      await db.delete(oauthClients).where(eq(oauthClients.id, client.id));
+      // Tokens and codes have no FK to oauth_clients, so nothing cascades:
+      // delete them explicitly or they keep refreshing after the revoke.
+      await db.transaction(async (tx) => {
+        await tx.delete(oauthAccessTokens).where(eq(oauthAccessTokens.clientId, clientId));
+        await tx.delete(oauthAuthorizationCodes).where(eq(oauthAuthorizationCodes.clientId, clientId));
+        await tx.delete(oauthClients).where(eq(oauthClients.id, client.id));
+      });
 
       console.log(`✅ OAuth client revoked: ${clientId} (user: ${userId})`);
 
