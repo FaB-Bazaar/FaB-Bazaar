@@ -3,7 +3,7 @@
  *
  * Covers:
  *  - createClient registers the callback URLs of all supported MCP chat
- *    clients (Claude, Mistral Le Chat), so pasted credentials work in each.
+ *    clients (Claude, Mistral Le Chat, Meta Muse), so pasted credentials work in each.
  *    Regression: clients were minted Claude-only, which made /oauth/authorize
  *    reject Le Chat with invalid_client (Invalid redirect_uri).
  *  - Claude's callback stays first (authorize falls back to redirect_uris[0]
@@ -22,6 +22,7 @@ const service = new PostgresOAuthService();
 
 const CLAUDE_CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
 const MISTRAL_CALLBACK = 'https://callback.mistral.ai/v1/integrations_auth/oauth2_callback';
+const META_CALLBACK = 'https://agent.meta.ai/api/hatch/oauth/callback';
 
 let testUserId: string;
 
@@ -35,7 +36,7 @@ afterEach(async () => {
 });
 
 describe('createClient redirect_uris defaults', () => {
-  it('registers both Claude and Mistral Le Chat callbacks', async () => {
+  it('registers the Claude, Mistral Le Chat and Meta Muse callbacks', async () => {
     const result = await service.createClient(testUserId, 'Test MCP Client');
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -47,6 +48,7 @@ describe('createClient redirect_uris defaults', () => {
 
     expect(row.redirectUris).toContain(CLAUDE_CALLBACK);
     expect(row.redirectUris).toContain(MISTRAL_CALLBACK);
+    expect(row.redirectUris).toContain(META_CALLBACK);
   });
 
   it('keeps the Claude callback first (redirect_uris[0] fallback)', async () => {
