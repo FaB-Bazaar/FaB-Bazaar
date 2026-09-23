@@ -56,6 +56,148 @@ def _base_treatment(sub_type_name):
     return name
 
 
+# ─── Collector-number product matching (new sets with no feed ids) ───────────
+#
+# fab-cube ships a new set WITHOUT tcgplayer_product_id for weeks (IAR: 505
+# printings, 0 ids on develop AND the set branch), and pricing is keyed on the
+# feed id — so the whole set had no prices and no buy links while TCGplayer
+# already listed it. tcgcsv products carry the collector number, so an idless
+# printing is resolved INSIDE its own set's group(s). Feed ids are never
+# overwritten (feed_overrides own corrections); variants must match their own
+# product (a Marvel is never priced off the base card); two candidates of the
+# same class are reported, not guessed.
+
+# Product-name suffix → variant class. Pitch colours are not variants.
+_PRODUCT_SUFFIX_VARIANTS = {
+    "marvel": "marvel",
+    "extended art": "ea",
+    "alternate art": "aa",
+}
+_PITCH_SUFFIXES = {"red", "yellow", "blue"}
+_NAME_SUFFIX_RE = re.compile(r'\(([^()]+)\)\s*$')
+
+
+def product_variant(product_name):
+    """"Levia (Marvel)" -> "marvel"; "Arknight Shard (Blue)" -> "base"."""
+    m = _NAME_SUFFIX_RE.search(product_name or "")
+    if not m:
+        return "base"
+    suffix = m.group(1).strip().lower()
+    if suffix in _PITCH_SUFFIXES:
+        return "base"
+    # Unknown suffixes ("Golden", "Cold Foil", …) are their own class so they
+    # never collide with the base product.
+    return _PRODUCT_SUFFIX_VARIANTS.get(suffix, suffix)
+
+
+def printing_variant(printing):
+    """Feed printing -> variant class using the feed's own encoding."""
+    if str(printing.get("rarity") or "").upper() == "V":
+        return "marvel"
+    art = {str(a).upper() for a in (printing.get("art_variations") or [])}
+    if "EA" in art:
+        return "ea"
+    if "AA" in art:
+        return "aa"
+    return "base"
+
+
+def _product_number(product):
+    for entry in product.get("extendedData") or []:
+        if entry.get("name") == "Number":
+            return str(entry.get("value") or "").strip().upper()
+    return ""
+
+
+def sets_missing_product_ids(cards, group_mappings):
+    """{set_code(lower): [group_ids]} for sets that have a group mapping AND at
+    least one printing without a feed product id — the only groups whose
+    product lists are worth fetching."""
+    lower_groups = {}
+    for code, groups in group_mappings.items():
+        lower_groups.setdefault(code.lower(), list(groups) if isinstance(groups, list) else [groups])
+    needed = {}
+    for card in cards:
+        for printing in card.get("printings", []):
+            if printing.get("tcgplayer_product_id"):
+                continue
+            code = str(printing.get("set_id") or "").lower()
+            if code in lower_groups and code not in needed:
+                needed[code] = lower_groups[code]
+    return needed
+
+
+def fetch_products_for_groups(group_ids):
+    """tcgcsv product lists for the given groups, flattened. Network errors
+    skip the group (that set simply stays idless tonight)."""
+    products = []
+    for group_id in sorted(set(group_ids)):
+        try:
+            resp = requests.get(f"https://tcgcsv.com/tcgplayer/62/{group_id}/products",
+                                timeout=30, headers=TCGCSV_HEADERS)
+            resp.raise_for_status()
+            results = resp.json().get("results", [])
+            products.extend(r for r in results if isinstance(r, dict))
+            time.sleep(0.5)  # Be nice to the API
+        except Exception as e:
+            print(f"      ❌ products fetch failed for group {group_id}: {e}")
+    return products
+
+
+def resolve_missing_product_ids(cards, products_by_set):
+    """Assign tcgplayer_product_id/url to idless feed printings by collector
+    number within their set's products. Returns stats with the assigned count
+    and the unmatched / ambiguous printings for the report."""
+    index = {}  # (set_code, number) -> {variant: [products]}
+    for code, products in products_by_set.items():
+        for product in products:
+            number = _product_number(product)
+            if not number:
+                continue
+            slot = index.setdefault((code.lower(), number), {})
+            slot.setdefault(product_variant(product.get("name")), []).append(product)
+
+    # Variant classes the FEED has per number: when a number's only feed
+    # printing is a variant (IAR242 Cracked Bauble is EA-only) and the number
+    # has exactly one product, that product can only be that printing.
+    feed_variants = {}
+    for card in cards:
+        for printing in card.get("printings", []):
+            key = (str(printing.get("set_id") or "").lower(), str(printing.get("id") or "").strip().upper())
+            feed_variants.setdefault(key, set()).add(printing_variant(printing))
+
+    stats = {"assigned": 0, "unmatched": [], "ambiguous": []}
+    for card in cards:
+        for printing in card.get("printings", []):
+            if printing.get("tcgplayer_product_id"):
+                continue
+            code = str(printing.get("set_id") or "").lower()
+            if code not in {k.lower() for k in products_by_set}:
+                continue
+            number = str(printing.get("id") or "").strip().upper()
+            variant = printing_variant(printing)
+            by_variant = index.get((code, number), {})
+            candidates = by_variant.get(variant, [])
+            if not candidates:
+                all_products = [pr for prs in by_variant.values() for pr in prs]
+                if len(all_products) == 1 and feed_variants.get((code, number)) == {variant}:
+                    candidates = all_products  # sole product ↔ sole feed variant
+            detail = {"id": printing.get("id"), "printing_id": printing.get("unique_id"),
+                      "card_name": card.get("name"), "variant": variant, "foiling": printing.get("foiling")}
+            if not candidates:
+                stats["unmatched"].append(detail)
+                continue
+            if len(candidates) > 1:
+                detail["product_ids"] = [c.get("productId") for c in candidates]
+                stats["ambiguous"].append(detail)
+                continue
+            product = candidates[0]
+            printing["tcgplayer_product_id"] = str(product.get("productId"))
+            printing["tcgplayer_url"] = product.get("url") or f"https://www.tcgplayer.com/product/{product.get('productId')}"
+            stats["assigned"] += 1
+    return stats
+
+
 def _extract_cards(cards_data):
     """Return the list of card dicts from any of the JSON shapes 002 accepts."""
     if isinstance(cards_data, list):
@@ -202,6 +344,7 @@ class TCGPriceEnhancer:
         self.apply_overrides = apply_overrides
         self.override_stats = None
         self.product_url_mismatches = []
+        self.collector_match_stats = None
         
         # Statistics tracking
         self.stats = {
@@ -591,6 +734,7 @@ class TCGPriceEnhancer:
             'statistics': self.stats,
             'feed_overrides': self.override_stats,
             'product_url_mismatches': self.product_url_mismatches,
+            'collector_number_matching': self.collector_match_stats,
             'changes_made': self.changes_made,
             'missing_items': self.missing_items,
             'price_fields_added': [
@@ -722,6 +866,27 @@ class TCGPriceEnhancer:
                 print(f"   … and {len(self.product_url_mismatches) - 20} more (see price report)")
 
         print()
+
+        # Step 2d: Resolve idless printings by collector number inside their
+        # set's tcgcsv group(s) — new sets ship without feed ids for weeks.
+        needed = sets_missing_product_ids(cards, group_mappings)
+        if needed:
+            group_ids = sorted({g for groups in needed.values() for g in groups})
+            print(f"🔎 collector-number match: {len(needed)} set(s) have idless printings "
+                  f"({', '.join(sorted(needed))}) — fetching {len(group_ids)} product list(s)")
+            products = fetch_products_for_groups(group_ids)
+            self.stats['api_calls_made'] += len(group_ids)
+            by_set = {code: products for code in needed}  # numbers carry the set prefix
+            self.collector_match_stats = resolve_missing_product_ids(cards, by_set)
+            cm = self.collector_match_stats
+            print(f"   ✅ {cm['assigned']} printing(s) assigned a product id by collector number")
+            if cm['unmatched']:
+                print(f"   ⚠️  {len(cm['unmatched'])} idless printing(s) have no product of their variant class "
+                      f"(first: {[u['id'] for u in cm['unmatched'][:10]]})")
+            if cm['ambiguous']:
+                print(f"   ⚠️  {len(cm['ambiguous'])} printing(s) ambiguous (2+ products, same class): "
+                      f"{[a['id'] for a in cm['ambiguous'][:10]]}")
+            print()
 
         # Step 3: Fetch price data
         price_data = self.fetch_price_data_for_groups(group_mappings)
