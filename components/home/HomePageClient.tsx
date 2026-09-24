@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowRight, Search, MapPin, BookOpen, MessageCircle, Trophy } from "lucide-react"
+import { ArrowRight, Search, MapPin, BookOpen, MessageCircle, Trophy, PlayCircle } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { FeaturedCardsCarousel } from "@/components/shared/FeaturedCardsCarousel"
 
@@ -19,6 +19,12 @@ interface PublicArticle {
 // `image` arrives as a fully-resolved url (app/page.tsx resolves bare article
 // image ids through lib/images/article-image). Never rebuild a url from an id
 // here — printing_id-keyed CDN images were deleted 2026-07 and 404.
+
+const MUSE_SHORT_URL = "https://www.youtube.com/shorts/Ye3B2UTRmUI"
+// maxresdefault = the Short's CUSTOM thumbnail (1280×720, the vertical design
+// centred between blurred sides); a 9:16 object-cover crop shows just the design.
+// The oar*.jpg variants are auto-picked video frames, not the thumbnail.
+const MUSE_SHORT_THUMBNAIL = "https://i.ytimg.com/vi/Ye3B2UTRmUI/maxresdefault.jpg"
 
 const CONTENT_TYPE_LABELS: Record<string, string> = {
   hero: 'Hero Guide',
@@ -144,6 +150,54 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
             </div>
           </form>
         </div>
+
+        {/* Meta Muse promo */}
+        <section
+          aria-labelledby="muse-promo-heading"
+          className="mb-3 flex items-center gap-4 py-3 px-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700"
+        >
+          <a
+            href={MUSE_SHORT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Watch the Meta Muse video on YouTube"
+            className="group relative shrink-0 w-28 sm:w-36 aspect-[9/16] rounded-md overflow-hidden bg-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <img
+              src={MUSE_SHORT_THUMBNAIL}
+              alt="New feature: chat with your binders. FaB Bazaar works with Muse from Meta"
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/10 transition-colors">
+              <PlayCircle className="w-10 h-10 text-white drop-shadow" aria-hidden="true" />
+            </span>
+          </a>
+          <div className="flex-1 min-w-0">
+            <h2 id="muse-promo-heading" className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              New: manage your collection from Meta Muse
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Snap a photo of a card and add it to a binder by chatting with Meta&apos;s Muse app. Also works with Claude and ChatGPT.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <a
+                href={MUSE_SHORT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors px-3 py-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" /> Watch the short
+              </a>
+              <Link
+                href="/mcp-integration"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline px-1 py-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                Set it up <ArrowRight className="w-3 h-3" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
 
         {/* Articles row */}
         {articles.length > 0 && (
