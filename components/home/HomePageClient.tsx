@@ -175,7 +175,7 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
           </a>
           <div className="flex-1 min-w-0">
             <h2 id="muse-promo-heading" className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              New: manage your collection from Meta Muse
+              New: manage your collection and review your Talishar matches with Meta Muse
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               Snap a photo of a card and add it to a binder by chatting with Meta&apos;s Muse app. Also works with Claude and ChatGPT.
