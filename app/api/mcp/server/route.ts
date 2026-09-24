@@ -50,6 +50,9 @@ import { createEventTool } from '../tool/events/createEvent';
 // Import store/location tools (create_store is superadmin only)
 import { listStoresTool, getStoreTool, createStoreTool } from '../tool/stores/stores';
 
+// Import market feed tools (superadmin only)
+import { submitMarketFeedTool, getMarketFeedTool } from '../tool/marketFeed/marketFeed';
+
 // Import deck tools
 import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
@@ -445,6 +448,16 @@ async function handleMcpPost(req: Request) {
             name: createStoreTool.name,
             description: createStoreTool.description,
             inputSchema: createStoreTool.parameters,
+          },
+          {
+            name: getMarketFeedTool.name,
+            description: getMarketFeedTool.description,
+            inputSchema: getMarketFeedTool.parameters,
+          },
+          {
+            name: submitMarketFeedTool.name,
+            description: submitMarketFeedTool.description,
+            inputSchema: submitMarketFeedTool.parameters,
           },
         ] : [];
 
@@ -1912,7 +1925,7 @@ The new tool provides the same functionality with better guidance for proper wor
         }
 
         // BANNED-CARDS REGISTRY TOOLS (superadmin — the API enforces the role)
-        if (toolName === 'manage_card_restriction' || toolName === 'list_card_restrictions' || toolName === 'create_event' || toolName === 'create_store' || toolName === 'list_stores' || toolName === 'get_store') {
+        if (toolName === 'manage_card_restriction' || toolName === 'list_card_restrictions' || toolName === 'create_event' || toolName === 'create_store' || toolName === 'list_stores' || toolName === 'get_store' || toolName === 'get_market_feed' || toolName === 'submit_market_feed') {
           if (DEBUG_MCP) console.log(`🚫 Executing location/admin tool: ${toolName}`);
           try {
             const tokenToPass = bearerToken;
@@ -1924,6 +1937,8 @@ The new tool provides the same functionality with better guidance for proper wor
               create_store: createStoreTool,
               list_stores: listStoresTool,
               get_store: getStoreTool,
+              get_market_feed: getMarketFeedTool,
+              submit_market_feed: submitMarketFeedTool,
             };
             const result = await toolMap[toolName].handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({

@@ -1,0 +1,109 @@
+/**
+ * Unit tests for the superadmin market-feed MCP tools.
+ *
+ * Thin wrappers over /api/feed (the route enforces superadmin on POST):
+ *   submit_market_feed → POST /api/feed   (replaces the whole day)
+ *   get_market_feed    → GET  /api/feed?date=…  (read before re-submitting,
+ *                        so a re-scan can merge instead of dropping entries)
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+vi.mock('@/lib/mcp-fetch', () => ({
+  getMcpApiBaseUrl: () => 'http://localhost:3000',
+  mcpFetch: vi.fn(),
+}))
+
+import { submitMarketFeedTool, getMarketFeedTool } from './marketFeed'
+import { mcpFetch } from '@/lib/mcp-fetch'
+
+const mockFetch = vi.mocked(mcpFetch)
+const ok = (data: any) => ({ ok: true, status: 200, json: async () => ({ success: true, data }) })
+const auth = { mcpToken: 'tok' }
+const listing = { side: 'selling', cardName: 'Sink Below', pitch: 1, price: 1.5 }
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
+describe('submitMarketFeedTool.handler', () => {
+  it('POSTs the day to /api/feed with the caller bearer', async () => {
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', count: 1, unmatched: [] }) as any)
+
+    const res = await submitMarketFeedTool.handler({ feedDate: '2026-09-24', listings: [listing] }, auth, 'tok')
+
+    expect(res.success).toBe(true)
+    const [url, opts] = mockFetch.mock.calls[0]
+    expect(String(url)).toBe('http://localhost:3000/api/feed')
+    expect(opts!.method).toBe('POST')
+    expect((opts!.headers as any).Authorization).toBe('Bearer tok')
+    expect(JSON.parse(String(opts!.body))).toEqual({ feedDate: '2026-09-24', listings: [listing] })
+    expect(res.message).toMatch(/1 listing/)
+  })
+
+  it('names unmatched cards in the message so the client can fix them', async () => {
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', count: 2, unmatched: ['Sink Below'] }) as any)
+    const res = await submitMarketFeedTool.handler({ listings: [listing, listing] }, auth, 'tok')
+    expect(res.message).toContain('Sink Below')
+  })
+
+  it('omits feedDate when not given (server defaults to today, US Eastern)', async () => {
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', count: 1, unmatched: [] }) as any)
+    await submitMarketFeedTool.handler({ listings: [listing] }, auth, 'tok')
+    expect(JSON.parse(String(mockFetch.mock.calls[0][1]!.body))).toEqual({ listings: [listing] })
+  })
+
+  it('refuses without listings (no request)', async () => {
+    const res = await submitMarketFeedTool.handler({ feedDate: '2026-09-24' }, auth, 'tok')
+    expect(res.success).toBe(false)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('maps 403 to a superadmin message', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 403, text: async () => 'Forbidden' } as any)
+    const res = await submitMarketFeedTool.handler({ listings: [listing] }, auth, 'tok')
+    expect(res.success).toBe(false)
+    expect(res.error).toMatch(/Super Admin/)
+  })
+
+  it('surfaces the route validation error', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 400, text: async () => '{"error":"listings[0].price must be a positive number"}' } as any)
+    const res = await submitMarketFeedTool.handler({ listings: [{ ...listing, price: 0 }] }, auth, 'tok')
+    expect(res.error).toContain('price must be a positive number')
+  })
+})
+
+describe('getMarketFeedTool.handler', () => {
+  it('GETs the requested day and returns the listings', async () => {
+    const day = { feedDate: '2026-09-24', listings: [{ id: 'l1', ...listing }], dates: [] }
+    mockFetch.mockResolvedValue(ok(day) as any)
+
+    const res = await getMarketFeedTool.handler({ feedDate: '2026-09-24' }, auth, 'tok')
+
+    expect(String(mockFetch.mock.calls[0][0])).toBe('http://localhost:3000/api/feed?date=2026-09-24')
+    expect(res.success).toBe(true)
+    expect(res.data.listings).toHaveLength(1)
+  })
+
+  it('puts the listings in the message in submit-ready shape (clients only show the model the text)', async () => {
+    const stored = {
+      id: 'l1', side: 'selling', cardName: 'x', cardUniqueId: 'cu-1', displayName: 'Potion of Strength',
+      pitch: 3, collectorNumber: 'WTR171', foiling: 'r', condition: null, price: 25, currency: 'USD',
+      groupName: 'FaB UK', tcgLow: 0.17, imageUrl: 'img',
+    }
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', listings: [stored], dates: [] }) as any)
+
+    const res = await getMarketFeedTool.handler({ feedDate: '2026-09-24' }, auth, 'tok')
+
+    const json = res.message!.slice(res.message!.indexOf('['))
+    expect(JSON.parse(json)).toEqual([
+      { side: 'selling', cardName: 'x', pitch: 3, collectorNumber: 'WTR171', foiling: 'r', price: 25, currency: 'USD', groupName: 'FaB UK' },
+    ])
+  })
+
+  it('defaults to today (no date param)', async () => {
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', listings: [], dates: [] }) as any)
+    await getMarketFeedTool.handler({}, auth, 'tok')
+    expect(String(mockFetch.mock.calls[0][0])).toBe('http://localhost:3000/api/feed')
+  })
+})

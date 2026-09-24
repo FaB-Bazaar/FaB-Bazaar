@@ -1893,3 +1893,26 @@ export const foilMaskBulkOps = pgTable('foil_mask_bulk_ops', {
 }, (table) => ({
   createdAtIdx: index('idx_foil_mask_bulk_ops_created_at').on(table.createdAt),
 }));
+
+// Daily market feed: anonymous buy/sell prices seen in Facebook groups,
+// submitted per day by a superadmin MCP client (submit_market_feed).
+// Re-submitting a feed_date replaces that day. No poster names or post URLs
+// by design. card_unique_id NULL = unmatched/ambiguous. See migration 0115.
+export const marketFeedListings = pgTable('market_feed_listings', {
+  id: text('id').primaryKey(),
+  feedDate: date('feed_date', { mode: 'string' }).notNull(),
+  side: text('side').notNull(), // 'selling' | 'buying'
+  cardName: text('card_name').notNull(),
+  cardUniqueId: text('card_unique_id').references(() => cards.cardUniqueId, { onDelete: 'set null' }),
+  pitch: integer('pitch'),
+  collectorNumber: text('collector_number'),
+  foiling: text('foiling'),
+  condition: text('condition'),
+  price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+  currency: text('currency').default('USD').notNull(),
+  groupName: text('group_name'),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  feedDateIdx: index('idx_market_feed_listings_feed_date').on(table.feedDate),
+}));

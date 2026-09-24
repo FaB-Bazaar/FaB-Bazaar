@@ -61,6 +61,7 @@ import { PostgresCustomTokenCardService } from './postgres/custom-token-cards/Po
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 import { PostgresFeedOverridesService } from './postgres/feed-overrides/PostgresFeedOverridesService';
+import { PostgresMarketFeedService } from './postgres/market-feed/PostgresMarketFeedService';
 import { PostgresFoilMaskService } from './postgres/foil-mask/PostgresFoilMaskService';
 import { PostgresIngestService } from './postgres/ingest/PostgresIngestService';
 import { PostgresScanService } from './postgres/scan/PostgresScanService';
@@ -597,6 +598,7 @@ export const dailyMoversService = ServiceFactory.dailyMoversService;
 export const leagueService = ServiceFactory.leagueService;
 export const collectibleService = ServiceFactory.collectibleService;
 export const feedOverridesService = new PostgresFeedOverridesService();
+export const marketFeedService = new PostgresMarketFeedService();
 export const foilMaskService = new PostgresFoilMaskService();
 export const ingestService = new PostgresIngestService();
 export const scanService = new PostgresScanService();
