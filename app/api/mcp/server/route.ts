@@ -12,6 +12,7 @@ import { deckViewerResource } from '../resource/deckViewer';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService, mcpUsageService } from '@/lib/services';
 import { filterToolsForToolset, resolveToolset } from './toolsets';
+import { summarizeClientHello } from './client-hello';
 import { validateQueryComplexity } from './query-complexity';
 
 // Import the tools
@@ -349,6 +350,9 @@ async function handleMcpPost(req: Request) {
         return new NextResponse(null, { status: 200, headers: corsHeaders() });
 
       case 'initialize':
+        // One line per session: which host connected and what it can render
+        // (MCP Apps widgets vs text only). grep prod logs for [mcp-client].
+        console.info(`[mcp-client] ${JSON.stringify({ user: authenticatedUser?.username ?? null, ...summarizeClientHello(params) })}`);
         return NextResponse.json({
           jsonrpc: "2.0",
           id: id,
@@ -406,6 +410,14 @@ async function handleMcpPost(req: Request) {
               '  - Lists are targeted by `id` (preferred) OR `listName` + `heroName` (for name disambiguation).',
               '  - If a listName matches multiple heroes, the server returns all candidates — ask the user or pass `heroName` to narrow.',
               '  - `format` is required on create and cannot be cleared on update.',
+              '',
+              'PRESENTING RESULTS TO THE USER:',
+              '  - Visual first. get_deck, get_binder, get_wants and get_curated_list carry an interactive card-image view (`_meta.ui.resourceUri`, MCP Apps). If your host renders it, let it show the cards and add only a short summary — do not repeat the full list as text.',
+              '  - No widget support: show card IMAGES, not a long text list. Cards in structured results carry an image URL (`image_url` / `imageUrl`) — render it as an image (e.g. markdown `![Card name](url)`) or your host\'s image/carousel format. For a big list, show the key cards as images (hero, equipment, the cards the user asked about) and the rest compactly.',
+              '  - Decklists: lead with hero + format + card count, then group by zone (Hero, Equipment, Main deck, Inventory = sideboard) as "3× Card Name (Red)". Link the deck page (`url` in the result). Never show printing ids, card_unique_ids or collector-number tables unless the user asks for them.',
+              '  - Prices: say "TCG Low" for the price. Show TCGplayer market only when you label it as market.',
+              '  - Usernames: show `display_username` (no dc_/gh_ prefix).',
+              '  - Keep replies scannable: a one-line answer first, then the detail. Offer next steps (add to wants, compare with your binder) instead of dumping every field.',
               '',
               'DEFAULTS:',
               '  - Prefer calling tools/list and resources/list at session start to see what is available to the current user (curator/admin tools are visibility-gated).',
