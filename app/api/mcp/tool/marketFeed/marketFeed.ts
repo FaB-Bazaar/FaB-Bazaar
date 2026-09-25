@@ -51,7 +51,7 @@ feedDate is YYYY-MM-DD; omit it for today (US Eastern). Also returns the dates t
       const data = json.data;
       // Clients only show the model the message text, so it must carry the
       // listings — in submit_market_feed's input shape, ready to merge.
-      const fields = ['side', 'cardName', 'pitch', 'collectorNumber', 'foiling', 'condition', 'price', 'currency', 'groupName', 'postUrl'];
+      const fields = ['side', 'cardName', 'pitch', 'collectorNumber', 'foiling', 'condition', 'price', 'currency', 'groupName', 'postUrl', 'variant'];
       const listings = data.listings.map((l: Record<string, unknown>) =>
         Object.fromEntries(fields.filter((f) => l[f] != null).map((f) => [f, l[f]]))
       );
@@ -72,7 +72,7 @@ feedDate is YYYY-MM-DD; omit it for today (US Eastern). Also returns the dates t
 
 export const submitMarketFeedTool = {
   name: 'submit_market_feed',
-  description: `📰 SUBMIT MARKET FEED (superadmin only): Publish the day's curated buy/sell prices seen in Flesh and Blood Facebook groups to fabbazaar.app/feed, as a price reference next to TCGplayer.
+  description: `📰 SUBMIT MARKET FEED (superadmin only): Publish the day's curated buy/sell/trade listings seen in Flesh and Blood Facebook groups to fabbazaar.app/feed — a price reference next to TCGplayer, and signed-in users are shown which cards people want that they own.
 
 REPLACES THE WHOLE DAY: submitting the same feedDate again overwrites that day (other days are untouched). If the day may already have listings, call get_market_feed first and submit the merged list. An empty listings array clears the day.
 
@@ -81,14 +81,17 @@ ALWAYS SEND groupName AND postUrl on every listing — the site shows the group 
 NO NAMES: never include the poster's name, profile link or anything else that identifies them in any field. The card, the price, the group name and the link to the post are all that is stored.
 
 One listing per card per post:
-  • side — "selling" (someone offers the card) or "buying" (someone wants it)
+  • side — "selling" (someone offers the card), "buying" (someone wants to buy it) or "trade" (a card the poster wants in exchange — see TRADE LISTS)
   • cardName — the card's name; add pitch (1 red, 2 yellow, 3 blue) for pitched cards
   • collectorNumber — e.g. "WTR171" when the post names the set/printing (pins the price comparison)
   • foiling — "Rainbow Foil" / "Cold Foil" / "Gold Foil" / "Non-foil" when stated
   • condition — NM, LP, MP, HP or DMG when stated
-  • price + currency (default USD) — the asking or offered price for ONE copy
+  • variant — "Marvel", "Extended Art", "Alternate Art" or "Full Art" when the post says so ("Marvel - $325" → variant Marvel). Variants price very differently from the base card, so never leave this out when stated.
+  • price + currency (default USD) — the asking or offered price for ONE copy. Required for selling/buying; leave it out on trade listings unless the post gives a trade value.
   • groupName — the Facebook group it was posted in (always)
   • postUrl — the post's link, e.g. https://www.facebook.com/groups/<group>/posts/<post>/ (always; must be an https facebook.com link, tracking parameters are stripped)
+
+TRADE LISTS: a post like "Selling Usurp the Shadow Throne RF $40 — willing to trade for: Dead Threads CF, Eye of Ophidia, Gravy Bones Marvel" becomes one selling listing for the Usurp plus one "trade" listing per card on the want list (Dead Threads foiling Cold Foil; Eye of Ophidia; Gravy Bones variant Marvel), all with the SAME postUrl and groupName. Include every card on the list, including sections like "Treasures" or "Foils/Full Arts".
 
 The reply lists cards that could not be matched to a single card (misspelt, or a pitched card without pitch) — fix and resubmit the day if you can. feedDate is YYYY-MM-DD; omit it for today (US Eastern).`,
 
@@ -102,18 +105,19 @@ The reply lists cards that could not be matched to a single card (misspelt, or a
         items: {
           type: 'object',
           properties: {
-            side: { type: 'string', enum: ['selling', 'buying'] },
+            side: { type: 'string', enum: ['selling', 'buying', 'trade'] },
             cardName: { type: 'string' },
             pitch: { type: 'integer', enum: [1, 2, 3] },
             collectorNumber: { type: 'string' },
             foiling: { type: 'string' },
             condition: { type: 'string', enum: ['NM', 'LP', 'MP', 'HP', 'DMG'] },
-            price: { type: 'number', description: 'Price for one copy.' },
+            variant: { type: 'string', description: 'Marvel / Extended Art / Alternate Art / Full Art, when the post says so.' },
+            price: { type: 'number', description: 'Price for one copy. Required for selling/buying; omit on trade listings.' },
             currency: { type: 'string', description: 'ISO 4217 code. Default USD.' },
             groupName: { type: 'string', description: 'Facebook group the post is in. Always send it.' },
             postUrl: { type: 'string', description: 'https facebook.com link to the post (timestamp or Share → Copy link). Always send it; never a profile link.' },
           },
-          required: ['side', 'cardName', 'price'],
+          required: ['side', 'cardName'],
         },
       },
     },

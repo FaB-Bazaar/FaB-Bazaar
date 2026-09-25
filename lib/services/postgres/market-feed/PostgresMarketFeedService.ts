@@ -1,16 +1,17 @@
 import { db } from '@/lib/postgres/db';
 import { marketFeedListings } from '@/lib/postgres/schema';
 import { eq, sql } from 'drizzle-orm';
-import { FOILING_MAP } from '@/lib/fab-constants/foilings';
+import { FOILING_MAP, ART_VARIATIONS_MAP } from '@/lib/fab-constants/foilings';
 import type { AsyncResult } from '../../contracts/common';
 
 /**
  * market_feed_listings (migration 0115): a curated, anonymous daily feed of
  * buy/sell prices seen in Facebook groups, submitted by a superadmin MCP
  * client. One submission = one whole day; re-submitting a date replaces it.
+ * 'trade' rows (0117) are cards a poster wants in exchange — no price.
  */
 
-export const MARKET_FEED_SIDES = ['selling', 'buying'] as const;
+export const MARKET_FEED_SIDES = ['selling', 'buying', 'trade'] as const;
 export type MarketFeedSide = (typeof MARKET_FEED_SIDES)[number];
 
 export const MARKET_FEED_CONDITIONS = ['NM', 'LP', 'MP', 'HP', 'DMG'] as const;
@@ -29,7 +30,10 @@ export interface MarketFeedListingInput {
   /** Any FOILING_MAP spelling: 'Rainbow Foil', 'rf', 'cold', … */
   foiling?: string | null;
   condition?: string | null;
-  price: number;
+  /** Required for selling/buying; optional on 'trade' (wanted in exchange). */
+  price?: number | null;
+  /** Marvel / Extended Art / Alternate Art / Full Art … (aliases: mv, ea, aa, fa). */
+  variant?: string | null;
   /** ISO 4217, default USD. */
   currency?: string | null;
   groupName?: string | null;
@@ -55,10 +59,12 @@ export interface MarketFeedListing {
   /** Foiling code (r/c/g/s). */
   foiling: string | null;
   condition: string | null;
-  price: number;
+  /** NULL on 'trade' listings without a stated value. */
+  price: number | null;
   currency: string;
   groupName: string | null;
   postUrl: string | null;
+  variant: string | null;
   /** Cheapest English TCG Low for the matched card (+ foiling / collector number when given). */
   tcgLow: number | null;
   imageUrl: string | null;
@@ -67,6 +73,12 @@ export interface MarketFeedListing {
 export interface MarketFeedDay {
   feedDate: string;
   listings: MarketFeedListing[];
+}
+
+/** What the signed-in viewer holds of the cards in one day's feed, keyed by card_unique_id. */
+export interface MarketFeedViewerMatches {
+  owned: Record<string, { quantity: number; forTradeQuantity: number; foilings: string[]; variants: string[] }>;
+  wanted: Record<string, { foilings: string[] }>;
 }
 
 export interface MarketFeedDateSummary {
@@ -88,6 +100,31 @@ const FOILING_CODES: Record<string, string> = {
   'Gold Foil': 'g',
   'Non-foil': 's',
 };
+
+// Marvel is a rarity ('v'), not an art_variations code; the rest are.
+const VARIANT_ART_CODES: Record<string, string> = {
+  'Alternate Border': 'AB',
+  'Alternate Art': 'AA',
+  'Alternate Text': 'AT',
+  'Extended Art': 'EA',
+  'Full Art': 'FA',
+  'Half Size': 'HS',
+};
+const VARIANT_ALIASES: Record<string, string> = {
+  ...(ART_VARIATIONS_MAP as Record<string, string>),
+  marvel: 'Marvel',
+  mv: 'Marvel',
+  'alt art': 'Alternate Art',
+};
+
+// SQL: the art_variations code for a listing's variant (built from constants only).
+const VARIANT_CODE_SQL = sql.raw(
+  `CASE l.variant ${Object.entries(VARIANT_ART_CODES).map(([label, code]) => `WHEN '${label}' THEN '${code}'`).join(' ')} END`,
+);
+
+function toVariant(input: string): string | null {
+  return VARIANT_ALIASES[input.trim().toLowerCase()] ?? null;
+}
 
 function toFoilingCode(input: string): string | null {
   const name = (FOILING_MAP as Record<string, string>)[input.trim().toLowerCase()];
@@ -133,10 +170,11 @@ type NormalizedListing = {
   collectorNumber: string | null;
   foiling: string | null;
   condition: string | null;
-  price: string;
+  price: string | null;
   currency: string;
   groupName: string | null;
   postUrl: string | null;
+  variant: string | null;
 };
 
 function normalizeListing(l: MarketFeedListingInput, index: number):
@@ -144,12 +182,21 @@ function normalizeListing(l: MarketFeedListingInput, index: number):
   const at = `listings[${index}]`;
   if (!l || typeof l !== 'object') return { ok: false, error: `${at} must be an object` };
   if (!MARKET_FEED_SIDES.includes(l.side)) {
-    return { ok: false, error: `${at}.side must be 'selling' or 'buying'` };
+    return { ok: false, error: `${at}.side must be 'selling', 'buying' or 'trade'` };
   }
   const cardName = clean(l.cardName);
   if (!cardName) return { ok: false, error: `${at}.cardName is required` };
-  if (typeof l.price !== 'number' || !Number.isFinite(l.price) || l.price <= 0 || l.price >= 1e8) {
-    return { ok: false, error: `${at}.price must be a positive number` };
+  const priceGiven = l.price != null;
+  if (priceGiven || l.side !== 'trade') {
+    if (typeof l.price !== 'number' || !Number.isFinite(l.price) || l.price <= 0 || l.price >= 1e8) {
+      return { ok: false, error: `${at}.price must be a positive number` };
+    }
+  }
+  let variant: string | null = null;
+  const variantInput = clean(l.variant);
+  if (variantInput) {
+    variant = toVariant(variantInput);
+    if (!variant) return { ok: false, error: `${at}.variant '${variantInput}' is not a known variant (Marvel, Extended Art, Alternate Art, Full Art, …)` };
   }
   let pitch: number | null = null;
   if (l.pitch != null) {
@@ -188,10 +235,11 @@ function normalizeListing(l: MarketFeedListingInput, index: number):
       collectorNumber: clean(l.collectorNumber)?.toUpperCase() ?? null,
       foiling,
       condition,
-      price: l.price.toFixed(2),
+      price: typeof l.price === 'number' ? l.price.toFixed(2) : null,
       currency,
       groupName: clean(l.groupName),
       postUrl,
+      variant,
     },
   };
 }
@@ -294,11 +342,12 @@ export class PostgresMarketFeedService {
       const result = await db.execute<{
         id: string; side: MarketFeedSide; card_name: string; card_unique_id: string | null;
         display_name: string | null; pitch: number | null; collector_number: string | null;
-        foiling: string | null; condition: string | null; price: string; currency: string;
-        group_name: string | null; post_url: string | null; tcg_low: number | null; image_url: string | null;
+        foiling: string | null; condition: string | null; price: string | null; currency: string;
+        group_name: string | null; post_url: string | null; variant: string | null;
+        tcg_low: number | null; image_url: string | null;
       }>(sql`
         SELECT l.id, l.side, l.card_name, l.card_unique_id, c.display_name, l.pitch,
-               l.collector_number, l.foiling, l.condition, l.price, l.currency, l.group_name, l.post_url,
+               l.collector_number, l.foiling, l.condition, l.price, l.currency, l.group_name, l.post_url, l.variant,
                px.tcg_low, img.image_url
         FROM market_feed_listings l
         LEFT JOIN cards c ON c.card_unique_id = l.card_unique_id
@@ -307,6 +356,9 @@ export class PostgresMarketFeedService {
           WHERE p.card_unique_id = l.card_unique_id AND p.language = 'en'
             AND (l.foiling IS NULL OR p.foiling = l.foiling)
             AND (l.collector_number IS NULL OR upper(p.collector_number) = l.collector_number)
+            AND (l.variant IS NULL
+                 OR (l.variant = 'Marvel' AND p.rarity = 'v')
+                 OR (l.variant <> 'Marvel' AND ${VARIANT_CODE_SQL} = ANY(p.art_variations)))
         ) px ON true
         LEFT JOIN LATERAL (
           SELECT p.image_url FROM printings p
@@ -333,10 +385,11 @@ export class PostgresMarketFeedService {
             collectorNumber: r.collector_number,
             foiling: r.foiling,
             condition: r.condition,
-            price: Number(r.price),
+            price: r.price == null ? null : Number(r.price),
             currency: r.currency,
             groupName: r.group_name,
             postUrl: r.post_url,
+            variant: r.variant,
             tcgLow: r.tcg_low == null ? null : Number(r.tcg_low),
             imageUrl: r.image_url,
           })),
@@ -345,6 +398,62 @@ export class PostgresMarketFeedService {
     } catch (error) {
       console.error('[market-feed] getDay failed:', error);
       return { success: false, error: 'Failed to load market feed' };
+    }
+  }
+
+  /**
+   * The viewer's holdings for the cards in one day's feed: what they own
+   * (whole collection; forTradeQuantity = copies marked for trade) and what is
+   * on their wants list. Card-level (card_unique_id); foilings let the page
+   * flag an exact-foiling match. Only ever called for the signed-in viewer.
+   */
+  async getViewerMatches(userId: string, feedDate: string): AsyncResult<MarketFeedViewerMatches> {
+    try {
+      if (!isValidFeedDate(feedDate)) return { success: false, error: 'feedDate must be a YYYY-MM-DD date' };
+      // One row per owned inventory line; foilings + variants aggregate below.
+      const ownedRows = await db.execute<{
+        card_unique_id: string; quantity: number; for_trade: boolean; foiling: string;
+        rarity: string | null; art_variations: string[] | null;
+      }>(sql`
+        SELECT p.card_unique_id, i.quantity, i.for_trade, p.foiling, p.rarity, p.art_variations
+        FROM inventory_items i JOIN printings p ON p.printing_id = i.printing_id
+        WHERE i.user_id = ${userId} AND i.quantity > 0
+          AND p.card_unique_id IN (SELECT card_unique_id FROM market_feed_listings
+                                   WHERE feed_date = ${feedDate} AND card_unique_id IS NOT NULL)`);
+      const labelForArt = Object.fromEntries(Object.entries(VARIANT_ART_CODES).map(([label, code]) => [code, label]));
+      const owned: MarketFeedViewerMatches['owned'] = {};
+      for (const r of ownedRows.rows) {
+        const o = (owned[r.card_unique_id] ??= { quantity: 0, forTradeQuantity: 0, foilings: [], variants: [] });
+        o.quantity += Number(r.quantity);
+        if (r.for_trade) o.forTradeQuantity += Number(r.quantity);
+        if (!o.foilings.includes(r.foiling)) o.foilings.push(r.foiling);
+        const variants = [
+          ...(r.rarity === 'v' ? ['Marvel'] : []),
+          ...(r.art_variations ?? []).map((c) => labelForArt[c]).filter(Boolean),
+        ];
+        for (const v of variants) if (!o.variants.includes(v)) o.variants.push(v);
+      }
+      for (const o of Object.values(owned)) {
+        o.foilings.sort();
+        o.variants.sort();
+      }
+      const wanted = await db.execute<{ card_unique_id: string; foilings: string[] }>(sql`
+        SELECT p.card_unique_id, array_agg(DISTINCT p.foiling ORDER BY p.foiling) AS foilings
+        FROM wants_items w JOIN printings p ON p.printing_id = w.printing_id
+        WHERE w.user_id = ${userId}
+          AND p.card_unique_id IN (SELECT card_unique_id FROM market_feed_listings
+                                   WHERE feed_date = ${feedDate} AND card_unique_id IS NOT NULL)
+        GROUP BY p.card_unique_id`);
+      return {
+        success: true,
+        data: {
+          owned,
+          wanted: Object.fromEntries(wanted.rows.map((r) => [r.card_unique_id, { foilings: r.foilings }])),
+        },
+      };
+    } catch (error) {
+      console.error('[market-feed] getViewerMatches failed:', error);
+      return { success: false, error: 'Failed to match the feed against your collection' };
     }
   }
 

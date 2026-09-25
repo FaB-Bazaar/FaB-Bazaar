@@ -1901,17 +1901,18 @@ export const foilMaskBulkOps = pgTable('foil_mask_bulk_ops', {
 export const marketFeedListings = pgTable('market_feed_listings', {
   id: text('id').primaryKey(),
   feedDate: date('feed_date', { mode: 'string' }).notNull(),
-  side: text('side').notNull(), // 'selling' | 'buying'
+  side: text('side').notNull(), // 'selling' | 'buying' | 'trade' (wanted in exchange, 0117)
   cardName: text('card_name').notNull(),
   cardUniqueId: text('card_unique_id').references(() => cards.cardUniqueId, { onDelete: 'set null' }),
   pitch: integer('pitch'),
   collectorNumber: text('collector_number'),
   foiling: text('foiling'),
   condition: text('condition'),
-  price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+  price: numeric('price', { precision: 10, scale: 2 }), // NULL only on 'trade' rows (0117)
   currency: text('currency').default('USD').notNull(),
   groupName: text('group_name'),
   postUrl: text('post_url'), // https Facebook post link, tracking params stripped (0116)
+  variant: text('variant'), // 'Marvel' | 'Extended Art' | 'Alternate Art' | 'Full Art' | … (0117)
   createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({

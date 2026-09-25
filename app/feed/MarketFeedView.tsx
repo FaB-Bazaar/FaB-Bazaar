@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Tag, HandCoins, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Tag, HandCoins, ExternalLink, ArrowLeftRight } from 'lucide-react';
 import { FOILING_MAP } from '@/lib/fab-constants';
-import type { FeedCardGroup } from '@/lib/market-feed/group-listings';
+import type { ForYouSummary, PersonalizedGroup, TradePost } from '@/lib/market-feed/personalize';
 import type {
   MarketFeedDateSummary,
   MarketFeedListing,
@@ -35,6 +35,22 @@ function shortDate(date: string): string {
 
 const feedHref = (date: string, today: string) => (date === today ? '/feed' : `/feed?date=${date}`);
 
+const foilingName = (code: string | null) => (code ? (FOILING_MAP as Record<string, string>)[code] ?? null : null);
+
+function PostLink({ url, label = 'Post' }: { url: string; label?: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+    >
+      {label}<ExternalLink className="w-3 h-3" aria-hidden="true" />
+      <span className="sr-only"> on Facebook (opens in a new tab)</span>
+    </a>
+  );
+}
+
 function PriceList({ title, icon, items, empty }: {
   title: string;
   icon: ReactNode;
@@ -53,7 +69,9 @@ function PriceList({ title, icon, items, empty }: {
         <ul className="space-y-0.5">
           {items.map((l) => (
             <li key={l.id} className="text-sm text-gray-900 dark:text-gray-100">
-              <span className="font-semibold tabular-nums">{formatMoney(l.price, l.currency)}</span>
+              <span className="font-semibold tabular-nums">
+                {l.price != null ? formatMoney(l.price, l.currency) : 'Trade offer'}
+              </span>
               {l.condition && <span className="text-gray-600 dark:text-gray-400"> · {l.condition}</span>}
               {l.groupName && (
                 <span className="text-xs text-gray-500 dark:text-gray-400 break-words"> · {l.groupName}</span>
@@ -61,15 +79,7 @@ function PriceList({ title, icon, items, empty }: {
               {l.postUrl && (
                 <>
                   {' · '}
-                  <a
-                    href={l.postUrl}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
-                  >
-                    Post<ExternalLink className="w-3 h-3" aria-hidden="true" />
-                    <span className="sr-only"> on Facebook (opens in a new tab)</span>
-                  </a>
+                  <PostLink url={l.postUrl} />
                 </>
               )}
             </li>
@@ -80,8 +90,30 @@ function PriceList({ title, icon, items, empty }: {
   );
 }
 
-function CardGroup({ g }: { g: FeedCardGroup }) {
-  const foiling = g.foiling ? (FOILING_MAP as Record<string, string>)[g.foiling] : null;
+function ViewerBadges({ g }: { g: PersonalizedGroup }) {
+  const { have, onWants } = g.viewer;
+  if (!have && !onWants) return null;
+  const badge = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1">
+      {have && (
+        <span className={`${badge} bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300`}>
+          You have {have.quantity}
+          {have.forTradeQuantity > 0 && ` · ${have.forTradeQuantity} marked for trade`}
+          {(g.foiling || g.variant) && (have.sameVersion ? ' · same version' : ' · different version')}
+        </span>
+      )}
+      {onWants && (
+        <span className={`${badge} bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300`}>
+          On your wants list
+        </span>
+      )}
+    </div>
+  );
+}
+
+function CardGroup({ g }: { g: PersonalizedGroup }) {
+  const foiling = foilingName(g.foiling);
   const href = g.cardUniqueId ? `/opt?q=${encodeURIComponent(g.name)}` : null;
   return (
     <li className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex gap-3">
@@ -112,6 +144,7 @@ function CardGroup({ g }: { g: FeedCardGroup }) {
           </h2>
           {g.pitch && <span className="text-xs text-gray-600 dark:text-gray-400">{PITCH_LABEL[g.pitch]}</span>}
           {foiling && <span className="text-xs text-gray-600 dark:text-gray-400">{foiling}</span>}
+          {g.variant && <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">{g.variant}</span>}
           {g.collectorNumber && <span className="text-xs text-gray-600 dark:text-gray-400">{g.collectorNumber}</span>}
         </div>
         <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
@@ -123,6 +156,7 @@ function CardGroup({ g }: { g: FeedCardGroup }) {
             'Not matched to a card'
           )}
         </p>
+        <ViewerBadges g={g} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
           <PriceList
             title="Selling"
@@ -130,35 +164,148 @@ function CardGroup({ g }: { g: FeedCardGroup }) {
             items={g.selling}
             empty="No asks"
           />
-          <PriceList
-            title="Buying"
-            icon={<HandCoins className="w-3.5 h-3.5" aria-hidden="true" />}
-            items={g.buying}
-            empty="No offers"
-          />
+          <div className="space-y-2">
+            <PriceList
+              title="Buying"
+              icon={<HandCoins className="w-3.5 h-3.5" aria-hidden="true" />}
+              items={g.buying}
+              empty="No offers"
+            />
+            {g.trading.length > 0 && (
+              <PriceList
+                title="Wanted in trade"
+                icon={<ArrowLeftRight className="w-3.5 h-3.5" aria-hidden="true" />}
+                items={g.trading}
+                empty=""
+              />
+            )}
+          </div>
         </div>
       </div>
     </li>
   );
 }
 
+function TradePosts({ posts, signedIn }: { posts: TradePost[]; signedIn: boolean }) {
+  return (
+    <section id="trade-posts" aria-labelledby="trade-posts-heading" className="mb-6">
+      <h2 id="trade-posts-heading" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+        Trade posts
+      </h2>
+      <ul className="space-y-2">
+        {posts.map((p) => (
+          <li
+            key={p.postUrl}
+            className={`rounded-lg border p-3 ${
+              p.youHave.length
+                ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20'
+                : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+            }`}
+          >
+            <p className="text-sm text-gray-900 dark:text-gray-100">
+              {p.offering.length ? <>Offering <span className="font-semibold">{p.offering.join(', ')}</span></> : 'Trade post'}
+              {' · '}wants {p.wantsCount} card{p.wantsCount === 1 ? '' : 's'} in trade
+              {p.groupName && <span className="text-xs text-gray-500 dark:text-gray-400"> · {p.groupName}</span>}
+            </p>
+            {p.youHave.length > 0 && (
+              <p className="text-sm text-emerald-800 dark:text-emerald-300 mt-1">
+                You have {p.youHave.length}:{' '}
+                {p.youHave
+                  .map((w) => {
+                    const asked = [w.variant, foilingName(w.foiling)].filter(Boolean).join(' ');
+                    // They asked for a specific version the viewer may not have.
+                    return asked && !w.sameVersion ? `${w.name} (they want ${asked})` : [w.name, asked].filter(Boolean).join(' ');
+                  })
+                  .join(', ')}
+              </p>
+            )}
+            {signedIn && p.youHave.length === 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">None of their wants are in your collection.</p>
+            )}
+            <div className="mt-2">
+              <PostLink url={p.postUrl} label={p.youHave.length ? 'Make an offer on the post' : 'View post'} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ForYou({ forYou, signedIn, feedDate, today }: {
+  forYou: ForYouSummary | null;
+  signedIn: boolean;
+  feedDate: string;
+  today: string;
+}) {
+  const box = 'mb-6 rounded-lg p-4 text-sm';
+  if (!signedIn) {
+    return (
+      <div className={`${box} bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-gray-800 dark:text-gray-200`}>
+        <Link
+          href={`/auth/login?callbackUrl=${encodeURIComponent(feedHref(feedDate, today))}`}
+          className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Sign in
+        </Link>{' '}
+        to see which of these cards are in your collection or on your wants list.
+      </div>
+    );
+  }
+  if (!forYou) return null;
+  const { cardsWantedYouOwn, cardsSoldYouWant, tradePostsYouCanOffer } = forYou;
+  if (!cardsWantedYouOwn && !cardsSoldYouWant) {
+    return (
+      <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+        Nothing here matches your collection or wants list today.
+      </p>
+    );
+  }
+  return (
+    <div className={`${box} bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-gray-900 dark:text-gray-100`}>
+      <p className="font-semibold mb-1">For you</p>
+      <ul className="list-disc pl-5 space-y-0.5">
+        {cardsWantedYouOwn > 0 && (
+          <li>{cardsWantedYouOwn} card{cardsWantedYouOwn === 1 ? '' : 's'} people want {cardsWantedYouOwn === 1 ? 'is' : 'are'} in your collection</li>
+        )}
+        {tradePostsYouCanOffer > 0 && (
+          <li>
+            <a href="#trade-posts" className="text-blue-600 dark:text-blue-400 hover:underline">
+              {tradePostsYouCanOffer} trade post{tradePostsYouCanOffer === 1 ? '' : 's'} you could make an offer on
+            </a>
+          </li>
+        )}
+        {cardsSoldYouWant > 0 && (
+          <li>{cardsSoldYouWant} card{cardsSoldYouWant === 1 ? '' : 's'} on your wants list {cardsSoldYouWant === 1 ? 'is' : 'are'} for sale</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 export function MarketFeedView({
   feedDate,
   today,
+  signedIn,
   groups,
+  tradePosts,
+  forYou,
   dates,
   error,
 }: {
   feedDate: string;
   today: string;
-  groups: FeedCardGroup[];
+  signedIn: boolean;
+  groups: PersonalizedGroup[];
+  tradePosts: TradePost[];
+  forYou: ForYouSummary | null;
   dates: MarketFeedDateSummary[];
   error: string | null;
 }) {
   // dates is newest first; step to the nearest day that has listings.
   const older = dates.find((d) => d.feedDate < feedDate)?.feedDate ?? null;
   const newer = [...dates].reverse().find((d) => d.feedDate > feedDate)?.feedDate ?? null;
-  const listingCount = groups.reduce((n, g) => n + g.selling.length + g.buying.length, 0);
+  const listingCount = groups.reduce((n, g) => n + g.selling.length + g.buying.length + g.trading.length, 0);
 
   const navLink =
     'inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1 py-2';
@@ -215,6 +362,8 @@ export function MarketFeedView({
           </div>
         ) : (
           <>
+            <ForYou forYou={forYou} signedIn={signedIn} feedDate={feedDate} today={today} />
+            {tradePosts.length > 0 && <TradePosts posts={tradePosts} signedIn={signedIn} />}
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
               {listingCount} listing{listingCount === 1 ? '' : 's'} across {groups.length} card{groups.length === 1 ? '' : 's'}
             </p>

@@ -30,6 +30,18 @@ describe('submitMarketFeedTool schema', () => {
   it('accepts a post link per listing', () => {
     expect(submitMarketFeedTool.parameters.properties.listings.items.properties).toHaveProperty('postUrl')
   })
+
+  it('accepts trade wants (no price) and variants', () => {
+    const item = submitMarketFeedTool.parameters.properties.listings.items as any
+    expect(item.properties.side.enum).toEqual(['selling', 'buying', 'trade'])
+    expect(item.properties).toHaveProperty('variant')
+    expect(item.required).toEqual(['side', 'cardName'])
+  })
+
+  it('explains how to send a "willing to trade for" list', () => {
+    expect(submitMarketFeedTool.description).toMatch(/trade/i)
+    expect(submitMarketFeedTool.description).toMatch(/Marvel/)
+  })
 })
 
 describe('submitMarketFeedTool.handler', () => {
@@ -95,7 +107,7 @@ describe('getMarketFeedTool.handler', () => {
     const stored = {
       id: 'l1', side: 'selling', cardName: 'x', cardUniqueId: 'cu-1', displayName: 'Potion of Strength',
       pitch: 3, collectorNumber: 'WTR171', foiling: 'r', condition: null, price: 25, currency: 'USD',
-      groupName: 'FaB UK', postUrl: 'https://www.facebook.com/groups/1/posts/2/', tcgLow: 0.17, imageUrl: 'img',
+      groupName: 'FaB UK', postUrl: 'https://www.facebook.com/groups/1/posts/2/', variant: 'Marvel', tcgLow: 0.17, imageUrl: 'img',
     }
     mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', listings: [stored], dates: [] }) as any)
 
@@ -103,7 +115,7 @@ describe('getMarketFeedTool.handler', () => {
 
     const json = res.message!.slice(res.message!.indexOf('['))
     expect(JSON.parse(json)).toEqual([
-      { side: 'selling', cardName: 'x', pitch: 3, collectorNumber: 'WTR171', foiling: 'r', price: 25, currency: 'USD', groupName: 'FaB UK', postUrl: 'https://www.facebook.com/groups/1/posts/2/' },
+      { side: 'selling', cardName: 'x', pitch: 3, collectorNumber: 'WTR171', foiling: 'r', price: 25, currency: 'USD', groupName: 'FaB UK', postUrl: 'https://www.facebook.com/groups/1/posts/2/', variant: 'Marvel' },
     ])
   })
 

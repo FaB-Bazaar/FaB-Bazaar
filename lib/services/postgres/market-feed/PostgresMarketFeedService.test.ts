@@ -7,10 +7,10 @@
  *
  * Each test uses its own far-past feed_date so parallel runs can't collide.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { db } from '@/lib/postgres/db';
-import { marketFeedListings } from '@/lib/postgres/schema';
-import { inArray } from 'drizzle-orm';
+import { marketFeedListings, users, binders, inventoryItems, wantsItems } from '@/lib/postgres/schema';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { PostgresMarketFeedService } from './PostgresMarketFeedService';
 
 const service = new PostgresMarketFeedService();
@@ -207,6 +207,146 @@ describe('PostgresMarketFeedService', () => {
       ]) {
         expect(await storedUrl(bad)).toHaveProperty('error');
       }
+    });
+  });
+
+  describe('trade wants', () => {
+    it('stores a card the poster wants in trade without a price', async () => {
+      const date = testDate();
+      const saved = await service.replaceDay({
+        feedDate: date,
+        listings: [{ side: 'trade', cardName: 'Command and Conquer', groupName: 'G' } as any],
+      });
+      expect(saved.success).toBe(true);
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      expect(day.data.listings[0]).toMatchObject({ side: 'trade', price: null, displayName: 'Command and Conquer' });
+    });
+
+    it('still requires a price on selling and buying listings', async () => {
+      const res = await service.replaceDay({ feedDate: testDate(), listings: [{ side: 'selling', cardName: 'Command and Conquer' } as any] });
+      expect(res.success).toBe(false);
+    });
+  });
+
+  describe('variants', () => {
+    it('stores the variant under its display name (aliases accepted)', async () => {
+      const date = testDate();
+      await service.replaceDay({
+        feedDate: date,
+        listings: [
+          { side: 'selling', cardName: 'Usurp the Shadow Throne', price: 325, variant: 'marvel' },
+          { side: 'selling', cardName: 'Command and Conquer', price: 30, variant: 'EA' },
+        ],
+      });
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      expect(day.data.listings.map((l) => l.variant).sort()).toEqual(['Extended Art', 'Marvel']);
+    });
+
+    it('rejects an unknown variant', async () => {
+      const res = await service.replaceDay({
+        feedDate: testDate(),
+        listings: [{ side: 'selling', cardName: 'Command and Conquer', price: 1, variant: 'sparkly' }],
+      });
+      expect(res.success).toBe(false);
+    });
+
+    it('prices a Marvel listing against Marvel printings only', async () => {
+      // Pick a card that has both a priced Marvel and a cheaper priced non-Marvel English printing.
+      const [ref] = (
+        await db.execute<{ name: string; marvel_low: number; other_low: number }>(sql`
+          SELECT c.name,
+                 MIN(p.tcg_low) FILTER (WHERE p.rarity = 'v') AS marvel_low,
+                 MIN(p.tcg_low) FILTER (WHERE p.rarity <> 'v') AS other_low
+          FROM cards c JOIN printings p USING (card_unique_id)
+          WHERE p.language = 'en' AND p.tcg_low IS NOT NULL
+            AND (SELECT count(*) FROM cards c2 WHERE lower(c2.name) = lower(c.name)) = 1
+          GROUP BY c.name
+          HAVING MIN(p.tcg_low) FILTER (WHERE p.rarity = 'v') > MIN(p.tcg_low) FILTER (WHERE p.rarity <> 'v')
+          LIMIT 1`)
+      ).rows;
+      expect(ref).toBeDefined();
+
+      const date = testDate();
+      await service.replaceDay({ feedDate: date, listings: [{ side: 'selling', cardName: ref.name, price: 999, variant: 'Marvel' }] });
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      expect(day.data.listings[0].tcgLow).toBeCloseTo(Number(ref.marvel_low), 2);
+    });
+  });
+
+  describe('getViewerMatches', () => {
+    let userId: string;
+    let ownedPrinting: { printing_id: string; card_unique_id: string; foiling: string };
+    let wantedPrinting: { printing_id: string; card_unique_id: string };
+
+    beforeEach(async () => {
+      userId = crypto.randomUUID();
+      await db.insert(users).values({
+        id: userId,
+        username: `zmf_${userId.slice(0, 8)}`,
+        email: `${userId}@test.local`,
+      } as any);
+      [ownedPrinting] = (await db.execute<any>(sql`
+        SELECT p.printing_id, p.card_unique_id, p.foiling FROM printings p JOIN cards c USING (card_unique_id)
+        WHERE c.name = 'command and conquer' AND p.language = 'en' AND p.foiling = 'r' LIMIT 1`)).rows;
+      [wantedPrinting] = (await db.execute<any>(sql`
+        SELECT p.printing_id, p.card_unique_id FROM printings p JOIN cards c USING (card_unique_id)
+        WHERE c.name = 'snatch' AND c.pitch = 1 AND p.language = 'en' LIMIT 1`)).rows;
+      const binderId = crypto.randomUUID();
+      await db.insert(binders).values({ id: binderId, userId, name: 'zmf', slug: `zmf-${userId.slice(0, 8)}` } as any);
+      await db.insert(inventoryItems).values({
+        id: crypto.randomUUID(), userId, binderId, printingId: ownedPrinting.printing_id, quantity: 2, forTrade: true,
+      } as any);
+      await db.insert(wantsItems).values({ id: crypto.randomUUID(), userId, printingId: wantedPrinting.printing_id, quantity: 1 } as any);
+    });
+
+    afterEach(async () => {
+      await db.delete(users).where(eq(users.id, userId));
+    });
+
+    it("reports the viewer's copies of cards in the day's listings, and their wants", async () => {
+      const date = testDate();
+      await service.replaceDay({
+        feedDate: date,
+        listings: [
+          { side: 'trade', cardName: 'Command and Conquer', foiling: 'Rainbow Foil' } as any,
+          { side: 'selling', cardName: 'Snatch', pitch: 1, price: 2 },
+          { side: 'selling', cardName: 'Sink Below', pitch: 1, price: 1 },
+        ],
+      });
+      const res = await service.getViewerMatches(userId, date);
+      if (!res.success) throw new Error(res.error);
+      expect(res.data.owned[ownedPrinting.card_unique_id]).toMatchObject({ quantity: 2, forTradeQuantity: 2, foilings: ['r'] });
+      expect(Array.isArray(res.data.owned[ownedPrinting.card_unique_id].variants)).toBe(true);
+      expect(res.data.wanted[wantedPrinting.card_unique_id]).toBeDefined();
+      expect(Object.keys(res.data.owned)).toHaveLength(1);
+      expect(Object.keys(res.data.wanted)).toHaveLength(1);
+    });
+
+    it('reports Marvel and art variants among the copies the viewer owns', async () => {
+      const [marvel] = (await db.execute<any>(sql`
+        SELECT p.printing_id, p.card_unique_id, c.name FROM printings p JOIN cards c USING (card_unique_id)
+        WHERE p.rarity = 'v' AND p.language = 'en' AND 'EA' = ANY(p.art_variations)
+          AND (SELECT count(*) FROM cards c2 WHERE lower(c2.name) = lower(c.name)) = 1
+        LIMIT 1`)).rows;
+      expect(marvel).toBeDefined();
+      const [binder] = (await db.execute<any>(sql`SELECT id FROM binders WHERE user_id = ${userId} LIMIT 1`)).rows;
+      await db.insert(inventoryItems).values({
+        id: crypto.randomUUID(), userId, binderId: binder.id, printingId: marvel.printing_id, quantity: 1,
+      } as any);
+      const date = testDate();
+      await service.replaceDay({ feedDate: date, listings: [{ side: 'trade', cardName: marvel.name, variant: 'Marvel' } as any] });
+      const res = await service.getViewerMatches(userId, date);
+      if (!res.success) throw new Error(res.error);
+      expect(res.data.owned[marvel.card_unique_id].variants).toEqual(expect.arrayContaining(['Marvel', 'Extended Art']));
+    });
+
+    it('returns nothing for a day with no listings', async () => {
+      const res = await service.getViewerMatches(userId, testDate());
+      if (!res.success) throw new Error(res.error);
+      expect(res.data).toEqual({ owned: {}, wanted: {} });
     });
   });
 

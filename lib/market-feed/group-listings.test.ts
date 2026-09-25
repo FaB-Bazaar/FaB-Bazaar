@@ -5,7 +5,7 @@ import type { MarketFeedListing } from '@/lib/services/postgres/market-feed/Post
 const base: MarketFeedListing = {
   id: 'x', side: 'selling', cardName: 'Sink Below', cardUniqueId: 'cu-1', displayName: 'Sink Below',
   pitch: 1, collectorNumber: null, foiling: null, condition: null, price: 1, currency: 'USD',
-  groupName: null, postUrl: null, tcgLow: 0.5, imageUrl: 'img',
+  groupName: null, postUrl: null, variant: null, tcgLow: 0.5, imageUrl: 'img',
 };
 const l = (over: Partial<MarketFeedListing>): MarketFeedListing => ({ ...base, id: Math.random().toString(), ...over });
 
@@ -40,6 +40,19 @@ describe('groupFeedListings', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe('Mystery Card');
     expect(groups[0].matched).toBe(false);
+  });
+
+  it('collects cards wanted in trade separately', () => {
+    const groups = groupFeedListings([l({ side: 'trade', price: null }), l({ side: 'selling', price: 5 })]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].trading).toHaveLength(1);
+    expect(groups[0].selling).toHaveLength(1);
+  });
+
+  it('keeps variants apart (a Marvel prices nothing like the base card)', () => {
+    const groups = groupFeedListings([l({ variant: 'Marvel', price: 325 }), l({ variant: null, price: 40 })]);
+    expect(groups).toHaveLength(2);
+    expect(groups.find((g) => g.variant === 'Marvel')?.selling[0].price).toBe(325);
   });
 
   it('orders groups by number of listings, then name', () => {

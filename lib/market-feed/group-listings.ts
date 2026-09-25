@@ -8,23 +8,28 @@ export interface FeedCardGroup {
   pitch: number | null;
   foiling: string | null;
   collectorNumber: string | null;
+  variant: string | null;
   tcgLow: number | null;
   imageUrl: string | null;
   /** Cheapest ask first. */
   selling: MarketFeedListing[];
   /** Highest bid first. */
   buying: MarketFeedListing[];
+  /** Wanted in exchange ("willing to trade for"). */
+  trading: MarketFeedListing[];
 }
 
+const size = (g: FeedCardGroup) => g.selling.length + g.buying.length + g.trading.length;
+
 /**
- * One group per card + foiling + collector number (they price differently);
+ * One group per card + foiling + collector number + variant (they price differently);
  * unmatched listings group by the name the post gave. Busiest cards first.
  */
 export function groupFeedListings(listings: MarketFeedListing[]): FeedCardGroup[] {
   const groups = new Map<string, FeedCardGroup>();
   for (const l of listings) {
     const key = l.cardUniqueId
-      ? `${l.cardUniqueId}|${l.foiling ?? ''}|${l.collectorNumber ?? ''}`
+      ? `${l.cardUniqueId}|${l.foiling ?? ''}|${l.collectorNumber ?? ''}|${l.variant ?? ''}`
       : `name:${l.cardName.toLowerCase()}`;
     let g = groups.get(key);
     if (!g) {
@@ -36,21 +41,23 @@ export function groupFeedListings(listings: MarketFeedListing[]): FeedCardGroup[
         pitch: l.pitch,
         foiling: l.foiling,
         collectorNumber: l.collectorNumber,
+        variant: l.variant,
         tcgLow: l.tcgLow,
         imageUrl: l.imageUrl,
         selling: [],
         buying: [],
+        trading: [],
       };
       groups.set(key, g);
     }
-    (l.side === 'selling' ? g.selling : g.buying).push(l);
+    (l.side === 'selling' ? g.selling : l.side === 'buying' ? g.buying : g.trading).push(l);
   }
   const result = [...groups.values()];
   for (const g of result) {
-    g.selling.sort((a, b) => a.price - b.price);
-    g.buying.sort((a, b) => b.price - a.price);
+    g.selling.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+    g.buying.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
   }
   return result.sort(
-    (a, b) => b.selling.length + b.buying.length - (a.selling.length + a.buying.length) || a.name.localeCompare(b.name)
+    (a, b) => size(b) - size(a) || a.name.localeCompare(b.name)
   );
 }
