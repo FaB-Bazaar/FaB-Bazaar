@@ -15,6 +15,7 @@ import { marketFeedService } from '@/lib/services';
 import { marketFeedToday } from '@/lib/market-feed/feed-date';
 import { groupFeedListings } from '@/lib/market-feed/group-listings';
 import { personalizeFeed } from '@/lib/market-feed/personalize';
+import { groupFeedPosts } from '@/lib/market-feed/group-posts';
 import { isValidFeedDate } from '@/lib/services/postgres/market-feed/PostgresMarketFeedService';
 import { MarketFeedView } from './MarketFeedView';
 
@@ -27,9 +28,11 @@ export const metadata: Metadata = {
 export default async function MarketFeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; view?: string }>;
 }) {
-  const { date: requested } = await searchParams;
+  const { date: requested, view: requestedView } = await searchParams;
+  // By post is the default: a post often sells many cards at once.
+  const view = requestedView === 'cards' ? 'cards' : 'posts';
   const today = marketFeedToday();
   const feedDate = requested && isValidFeedDate(requested) ? requested : today;
 
@@ -44,7 +47,7 @@ export default async function MarketFeedPage({
   const error = !day.success ? day.error : !dates.success ? dates.error : null;
   const listings = day.success ? day.data.listings : [];
   // A failed match lookup degrades to the anonymous view rather than an error page.
-  const { groups, tradePosts, forYou } = personalizeFeed(
+  const { groups, byListing, tradePosts, forYou } = personalizeFeed(
     groupFeedListings(listings),
     listings,
     matches?.success ? matches.data : null,
@@ -54,8 +57,11 @@ export default async function MarketFeedPage({
     <MarketFeedView
       feedDate={feedDate}
       today={today}
+      view={view}
       signedIn={!!userId}
       groups={groups}
+      posts={groupFeedPosts(listings, byListing)}
+      byListing={byListing}
       tradePosts={tradePosts}
       forYou={forYou}
       dates={dates.success ? dates.data : []}

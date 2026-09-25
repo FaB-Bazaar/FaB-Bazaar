@@ -55,6 +55,18 @@ describe('TcgAffiliateLink click tracking', () => {
     ])
   })
 
+  it('labels clicks from the market feed page', () => {
+    mocks.pathname = '/feed'
+    render(
+      <TcgAffiliateLink tcgplayerUrl={PRODUCT} feature="market_feed">
+        Buy
+      </TcgAffiliateLink>
+    )
+    fireEvent.click(screen.getByText('Buy'))
+
+    expect(affiliateClicks()).toMatchObject([{ page_context: 'MarketFeed', feature: 'market_feed' }])
+  })
+
   it('still reports the click (affiliate=false) when advertising consent is withheld', () => {
     mocks.consent = { ...mocks.consent, advertising: false }
     render(

@@ -65,8 +65,10 @@ export interface MarketFeedListing {
   groupName: string | null;
   postUrl: string | null;
   variant: string | null;
-  /** Cheapest English TCG Low for the matched card (+ foiling / collector number when given). */
+  /** Cheapest English TCG Low for the matched card (+ foiling / collector number / variant when given). */
   tcgLow: number | null;
+  /** TCGplayer product link of that same printing (for an affiliate "Buy" link). */
+  tcgplayerUrl: string | null;
   imageUrl: string | null;
 }
 
@@ -428,21 +430,24 @@ export class PostgresMarketFeedService {
         display_name: string | null; pitch: number | null; collector_number: string | null;
         foiling: string | null; condition: string | null; price: string | null; currency: string;
         group_name: string | null; post_url: string | null; variant: string | null;
-        tcg_low: number | null; image_url: string | null;
+        tcg_low: number | null; tcgplayer_url: string | null; image_url: string | null;
       }>(sql`
         SELECT l.id, l.side, l.card_name, l.card_unique_id, c.display_name, l.pitch,
                l.collector_number, l.foiling, l.condition, l.price, l.currency, l.group_name, l.post_url, l.variant,
-               px.tcg_low, img.image_url
+               px.tcg_low, px.tcgplayer_url, img.image_url
         FROM market_feed_listings l
         LEFT JOIN cards c ON c.card_unique_id = l.card_unique_id
         LEFT JOIN LATERAL (
-          SELECT MIN(p.tcg_low) AS tcg_low FROM printings p
+          -- Cheapest priced matching printing; its product link rides along.
+          SELECT p.tcg_low, p.tcgplayer_url FROM printings p
           WHERE p.card_unique_id = l.card_unique_id AND p.language = 'en'
             AND (l.foiling IS NULL OR p.foiling = l.foiling)
             AND (l.collector_number IS NULL OR upper(p.collector_number) = l.collector_number)
             AND (l.variant IS NULL
                  OR (l.variant = 'Marvel' AND p.rarity = 'v')
                  OR (l.variant <> 'Marvel' AND ${VARIANT_CODE_SQL} = ANY(p.art_variations)))
+          ORDER BY (p.tcg_low IS NULL), p.tcg_low, (p.tcgplayer_url IS NULL)
+          LIMIT 1
         ) px ON true
         LEFT JOIN LATERAL (
           SELECT p.image_url FROM printings p
@@ -475,6 +480,7 @@ export class PostgresMarketFeedService {
             postUrl: r.post_url,
             variant: r.variant,
             tcgLow: r.tcg_low == null ? null : Number(r.tcg_low),
+            tcgplayerUrl: r.tcgplayer_url,
             imageUrl: r.image_url,
           })),
         },

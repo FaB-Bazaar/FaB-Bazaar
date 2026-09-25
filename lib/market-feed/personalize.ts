@@ -56,7 +56,13 @@ export function personalizeFeed(
   groups: FeedCardGroup[],
   listings: MarketFeedListing[],
   matches: MarketFeedViewerMatches | null,
-): { groups: PersonalizedGroup[]; tradePosts: TradePost[]; forYou: ForYouSummary | null } {
+): {
+  groups: PersonalizedGroup[];
+  /** Per-listing flags, for the post-first view (keyed by listing id). */
+  byListing: Record<string, ViewerGroupMatch>;
+  tradePosts: TradePost[];
+  forYou: ForYouSummary | null;
+} {
   const personalized = groups.map((g): PersonalizedGroup => {
     const viewer: ViewerGroupMatch = {};
     const owned = g.cardUniqueId ? matches?.owned[g.cardUniqueId] : undefined;
@@ -70,6 +76,19 @@ export function personalizeFeed(
     if (g.cardUniqueId && g.selling.length > 0 && matches?.wanted[g.cardUniqueId]) viewer.onWants = true;
     return { ...g, viewer };
   });
+
+  const byListing: Record<string, ViewerGroupMatch> = {};
+  for (const l of listings) {
+    if (!l.cardUniqueId || !matches) continue;
+    const owned = matches.owned[l.cardUniqueId];
+    if (owned && l.side !== 'selling') {
+      byListing[l.id] = {
+        have: { quantity: owned.quantity, forTradeQuantity: owned.forTradeQuantity, sameVersion: sameVersion(l.foiling, l.variant, owned) },
+      };
+    } else if (l.side === 'selling' && matches.wanted[l.cardUniqueId]) {
+      byListing[l.id] = { onWants: true };
+    }
+  }
 
   const posts = new Map<string, TradePost>();
   for (const l of listings) {
@@ -98,5 +117,5 @@ export function personalizeFeed(
       }
     : null;
 
-  return { groups: personalized, tradePosts, forYou };
+  return { groups: personalized, byListing, tradePosts, forYou };
 }

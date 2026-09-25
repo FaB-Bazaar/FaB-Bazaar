@@ -169,6 +169,31 @@ describe('PostgresMarketFeedService', () => {
     });
   });
 
+  describe('TCGplayer link', () => {
+    it('comes from the same printing as the TCG Low price', async () => {
+      const [ref] = (await db.execute<{ tcg_low: number; tcgplayer_url: string }>(sql`
+        SELECT tcg_low, tcgplayer_url FROM printings
+        WHERE collector_number = 'WTR171' AND language = 'en' AND foiling = 'r'
+          AND tcg_low IS NOT NULL AND tcgplayer_url IS NOT NULL
+        ORDER BY tcg_low LIMIT 1`)).rows;
+      expect(ref).toBeDefined();
+      const date = testDate();
+      await service.replaceDay({ feedDate: date, listings: [{ side: 'selling', cardName: 'x', collectorNumber: 'WTR171', foiling: 'Rainbow Foil', price: 5 }] });
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      expect(day.data.listings[0].tcgLow).toBeCloseTo(Number(ref.tcg_low), 2);
+      expect(day.data.listings[0].tcgplayerUrl).toBe(ref.tcgplayer_url);
+    });
+
+    it('is null for an unmatched card', async () => {
+      const date = testDate();
+      await service.replaceDay({ feedDate: date, listings: [{ side: 'selling', cardName: 'Zzqx Wvvq Plorf', price: 5 }] });
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      expect(day.data.listings[0].tcgplayerUrl).toBeNull();
+    });
+  });
+
   describe('loose name matching and suggestions', () => {
     const submit = async (listings: any[]) => {
       const date = testDate();

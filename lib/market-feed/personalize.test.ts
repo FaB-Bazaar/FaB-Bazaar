@@ -7,7 +7,7 @@ const POST = 'https://www.facebook.com/groups/1/posts/2/';
 const base: MarketFeedListing = {
   id: 'x', side: 'selling', cardName: 'X', cardUniqueId: 'cu-x', displayName: 'X', pitch: null,
   collectorNumber: null, foiling: null, condition: null, price: 1, currency: 'USD', groupName: 'G',
-  postUrl: null, variant: null, tcgLow: null, imageUrl: null,
+  postUrl: null, variant: null, tcgLow: null, tcgplayerUrl: null, imageUrl: null,
 };
 let n = 0;
 const l = (over: Partial<MarketFeedListing>): MarketFeedListing => ({ ...base, id: `l${n++}`, ...over });
@@ -68,6 +68,16 @@ describe('personalizeFeed', () => {
     expect(tradePosts[0].youHave.map((w) => [w.name, w.sameVersion])).toEqual([
       ['Dead Threads', false], ['Eye of Ophidia', true], ['Anka, Drag Under', false],
     ]);
+  });
+
+  it('flags individual listings too (for the post-first view)', () => {
+    const { byListing } = personalizeFeed(groupFeedListings(listings), listings, matches);
+    const flag = (name: string, side: string) => byListing[listings.find((x) => x.displayName === name && x.side === side)!.id];
+    expect(flag('Dead Threads', 'trade')?.have?.sameVersion).toBe(false);
+    expect(flag('Eye of Ophidia', 'trade')?.have?.sameVersion).toBe(true);
+    expect(flag('Command and Conquer', 'selling')?.onWants).toBe(true);
+    // The viewer owns the Usurp, but it is being sold — not something to offer.
+    expect(flag('Usurp the Shadow Throne', 'selling')).toBeUndefined();
   });
 
   it('counts the "for you" summary', () => {

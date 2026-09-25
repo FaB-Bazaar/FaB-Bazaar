@@ -1,23 +1,16 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Tag, HandCoins, ExternalLink, ArrowLeftRight } from 'lucide-react';
-import { FOILING_MAP } from '@/lib/fab-constants';
-import type { ForYouSummary, PersonalizedGroup, TradePost } from '@/lib/market-feed/personalize';
+import { ChevronLeft, ChevronRight, Tag, HandCoins, ArrowLeftRight } from 'lucide-react';
+import type { ForYouSummary, PersonalizedGroup, TradePost, ViewerGroupMatch } from '@/lib/market-feed/personalize';
+import type { FeedPost } from '@/lib/market-feed/group-posts';
+import { AffiliateDisclosure } from '@/components/shared/AffiliateDisclosure';
+import { BuyOnTcgplayer, PITCH_LABEL, PostLink, foilingName, formatMoney } from './feed-ui';
+import { PostCard } from './PostCard';
 import type {
   MarketFeedDateSummary,
   MarketFeedListing,
 } from '@/lib/services/postgres/market-feed/PostgresMarketFeedService';
-
-const PITCH_LABEL: Record<number, string> = { 1: 'Red', 2: 'Yellow', 3: 'Blue' };
-
-function formatMoney(value: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency}`;
-  }
-}
 
 function dateLabel(date: string): string {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
@@ -33,23 +26,16 @@ function shortDate(date: string): string {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-const feedHref = (date: string, today: string) => (date === today ? '/feed' : `/feed?date=${date}`);
+export type FeedView = 'posts' | 'cards';
 
-const foilingName = (code: string | null) => (code ? (FOILING_MAP as Record<string, string>)[code] ?? null : null);
+const feedHref = (date: string, today: string, view: FeedView = 'posts') => {
+  const params = new URLSearchParams();
+  if (date !== today) params.set('date', date);
+  if (view === 'cards') params.set('view', 'cards');
+  const qs = params.toString();
+  return qs ? `/feed?${qs}` : '/feed';
+};
 
-function PostLink({ url, label = 'Post' }: { url: string; label?: string }) {
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer nofollow"
-      className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
-    >
-      {label}<ExternalLink className="w-3 h-3" aria-hidden="true" />
-      <span className="sr-only"> on Facebook (opens in a new tab)</span>
-    </a>
-  );
-}
 
 function PriceList({ title, icon, items, empty }: {
   title: string;
@@ -155,6 +141,12 @@ function CardGroup({ g }: { g: PersonalizedGroup }) {
           ) : (
             'Not matched to a card'
           )}
+          {g.tcgplayerUrl && (
+            <>
+              {' · '}
+              <BuyOnTcgplayer url={g.tcgplayerUrl} />
+            </>
+          )}
         </p>
         <ViewerBadges g={g} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
@@ -232,18 +224,19 @@ function TradePosts({ posts, signedIn }: { posts: TradePost[]; signedIn: boolean
   );
 }
 
-function ForYou({ forYou, signedIn, feedDate, today }: {
+function ForYou({ forYou, signedIn, feedDate, today, view }: {
   forYou: ForYouSummary | null;
   signedIn: boolean;
   feedDate: string;
   today: string;
+  view: FeedView;
 }) {
   const box = 'mb-6 rounded-lg p-4 text-sm';
   if (!signedIn) {
     return (
       <div className={`${box} bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-gray-800 dark:text-gray-200`}>
         <Link
-          href={`/auth/login?callbackUrl=${encodeURIComponent(feedHref(feedDate, today))}`}
+          href={`/auth/login?callbackUrl=${encodeURIComponent(feedHref(feedDate, today, view))}`}
           className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
         >
           Sign in
@@ -270,7 +263,7 @@ function ForYou({ forYou, signedIn, feedDate, today }: {
         )}
         {tradePostsYouCanOffer > 0 && (
           <li>
-            <a href="#trade-posts" className="text-blue-600 dark:text-blue-400 hover:underline">
+            <a href={view === 'posts' ? '#posts' : '#trade-posts'} className="text-blue-600 dark:text-blue-400 hover:underline">
               {tradePostsYouCanOffer} trade post{tradePostsYouCanOffer === 1 ? '' : 's'} you could make an offer on
             </a>
           </li>
@@ -286,8 +279,11 @@ function ForYou({ forYou, signedIn, feedDate, today }: {
 export function MarketFeedView({
   feedDate,
   today,
+  view,
   signedIn,
   groups,
+  posts,
+  byListing,
   tradePosts,
   forYou,
   dates,
@@ -295,8 +291,11 @@ export function MarketFeedView({
 }: {
   feedDate: string;
   today: string;
+  view: FeedView;
   signedIn: boolean;
   groups: PersonalizedGroup[];
+  posts: FeedPost[];
+  byListing: Record<string, ViewerGroupMatch>;
   tradePosts: TradePost[];
   forYou: ForYouSummary | null;
   dates: MarketFeedDateSummary[];
@@ -324,18 +323,18 @@ export function MarketFeedView({
 
         <nav aria-label="Feed days" className="flex items-center justify-between gap-2 mb-4">
           {older ? (
-            <Link href={feedHref(older, today)} className={navLink}>
+            <Link href={feedHref(older, today, view)} className={navLink}>
               <ChevronLeft className="w-4 h-4" aria-hidden="true" /> {shortDate(older)}
             </Link>
           ) : (
             <span />
           )}
           {newer ? (
-            <Link href={feedHref(newer, today)} className={navLink}>
+            <Link href={feedHref(newer, today, view)} className={navLink}>
               {shortDate(newer)} <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           ) : feedDate !== today ? (
-            <Link href="/feed" className={navLink}>
+            <Link href={feedHref(today, today, view)} className={navLink}>
               Today <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           ) : (
@@ -362,16 +361,48 @@ export function MarketFeedView({
           </div>
         ) : (
           <>
-            <ForYou forYou={forYou} signedIn={signedIn} feedDate={feedDate} today={today} />
-            {tradePosts.length > 0 && <TradePosts posts={tradePosts} signedIn={signedIn} />}
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-              {listingCount} listing{listingCount === 1 ? '' : 's'} across {groups.length} card{groups.length === 1 ? '' : 's'}
-            </p>
-            <ul className="space-y-3">
-              {groups.map((g) => (
-                <CardGroup key={g.key} g={g} />
-              ))}
-            </ul>
+            <AffiliateDisclosure />
+            <ForYou forYou={forYou} signedIn={signedIn} feedDate={feedDate} today={today} view={view} />
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                {listingCount} listing{listingCount === 1 ? '' : 's'} ·{' '}
+                {view === 'posts'
+                  ? `${posts.length} post${posts.length === 1 ? '' : 's'}`
+                  : `${groups.length} card${groups.length === 1 ? '' : 's'}`}
+              </p>
+              <nav aria-label="Feed layout" className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden text-xs font-medium">
+                {(['posts', 'cards'] as const).map((v) => (
+                  <Link
+                    key={v}
+                    href={feedHref(feedDate, today, v)}
+                    aria-current={view === v ? 'page' : undefined}
+                    className={`px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                      view === v
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {v === 'posts' ? 'By post' : 'By card'}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+            {view === 'posts' ? (
+              <ul id="posts" className="space-y-3">
+                {posts.map((p) => (
+                  <PostCard key={p.key} post={p} byListing={byListing} />
+                ))}
+              </ul>
+            ) : (
+              <>
+                {tradePosts.length > 0 && <TradePosts posts={tradePosts} signedIn={signedIn} />}
+                <ul className="space-y-3">
+                  {groups.map((g) => (
+                    <CardGroup key={g.key} g={g} />
+                  ))}
+                </ul>
+              </>
+            )}
           </>
         )}
       </div>

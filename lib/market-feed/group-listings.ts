@@ -10,6 +10,7 @@ export interface FeedCardGroup {
   collectorNumber: string | null;
   variant: string | null;
   tcgLow: number | null;
+  tcgplayerUrl: string | null;
   imageUrl: string | null;
   /** Cheapest ask first. */
   selling: MarketFeedListing[];
@@ -43,6 +44,7 @@ export function groupFeedListings(listings: MarketFeedListing[]): FeedCardGroup[
         collectorNumber: l.collectorNumber,
         variant: l.variant,
         tcgLow: l.tcgLow,
+        tcgplayerUrl: l.tcgplayerUrl,
         imageUrl: l.imageUrl,
         selling: [],
         buying: [],

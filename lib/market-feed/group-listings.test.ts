@@ -5,7 +5,7 @@ import type { MarketFeedListing } from '@/lib/services/postgres/market-feed/Post
 const base: MarketFeedListing = {
   id: 'x', side: 'selling', cardName: 'Sink Below', cardUniqueId: 'cu-1', displayName: 'Sink Below',
   pitch: 1, collectorNumber: null, foiling: null, condition: null, price: 1, currency: 'USD',
-  groupName: null, postUrl: null, variant: null, tcgLow: 0.5, imageUrl: 'img',
+  groupName: null, postUrl: null, variant: null, tcgLow: 0.5, tcgplayerUrl: null, imageUrl: 'img',
 };
 const l = (over: Partial<MarketFeedListing>): MarketFeedListing => ({ ...base, id: Math.random().toString(), ...over });
 
@@ -40,6 +40,11 @@ describe('groupFeedListings', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe('Mystery Card');
     expect(groups[0].matched).toBe(false);
+  });
+
+  it('carries the TCGplayer link of the priced printing', () => {
+    const groups = groupFeedListings([l({ tcgplayerUrl: 'https://www.tcgplayer.com/product/1?Language=English' })]);
+    expect(groups[0].tcgplayerUrl).toBe('https://www.tcgplayer.com/product/1?Language=English');
   });
 
   it('collects cards wanted in trade separately', () => {

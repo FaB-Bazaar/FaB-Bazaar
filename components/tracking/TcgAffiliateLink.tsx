@@ -23,6 +23,7 @@ function getPageContext(pathname: string): string {
   if (pathname.startsWith('/printing/')) return 'PrintingDetails'
   if (pathname === '/browse') return 'Browse'
   if (pathname === '/daily') return 'DailyMovers'
+  if (pathname === '/feed') return 'MarketFeed'
   if (pathname.startsWith('/volzar')) return 'Volzar'
   return 'Other'
 }
