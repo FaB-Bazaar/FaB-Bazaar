@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { sortPrintingsByLanguage, languageFlag } from './printing-language';
+import { sortPrintingsByLanguage, languageFlag, languageName } from './printing-language';
 
 describe('sortPrintingsByLanguage', () => {
   test('puts English first, then French, then Japanese', () => {
@@ -83,6 +83,11 @@ describe('languageFlag', () => {
     expect(languageFlag('ja')).toBe('🇯🇵');
   });
 
+  test('covers the Korean and Chinese promo printings', () => {
+    expect(languageFlag('ko')).toBe('🇰🇷');
+    expect(languageFlag('zh')).toBe('🇨🇳');
+  });
+
   test('returns a fallback (globe) for unknown language codes', () => {
     expect(languageFlag('zz')).toBe('🌐');
     expect(languageFlag('')).toBe('🌐');
@@ -92,5 +97,19 @@ describe('languageFlag', () => {
   test('is case-insensitive', () => {
     expect(languageFlag('EN')).toBe('🇬🇧');
     expect(languageFlag('Fr')).toBe('🇫🇷');
+  });
+});
+
+describe('languageName', () => {
+  test('names every printing language we hold', () => {
+    expect(['en', 'fr', 'de', 'it', 'es', 'ja', 'ko', 'zh'].map(languageName)).toEqual([
+      'English', 'French', 'German', 'Italian', 'Spanish', 'Japanese', 'Korean', 'Chinese',
+    ]);
+  });
+
+  test('falls back to the upper-cased code, and English when missing', () => {
+    expect(languageName('zz')).toBe('ZZ');
+    expect(languageName('KO')).toBe('Korean');
+    expect(languageName(null)).toBe('English');
   });
 });

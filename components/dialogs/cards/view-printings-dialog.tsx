@@ -6,7 +6,7 @@ import { Loader2, Check } from "lucide-react";
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetName, getFoilingName, getEditionName, getVariantBadgeStyles } from "@/lib/fab-formatters";
 import { sortPrintings } from "@/lib/fab-constants";
-import { sortPrintingsByLanguage, languageFlag } from "@/lib/utils/printing-language";
+import { sortPrintingsByLanguage, languageFlag, languageName } from "@/lib/utils/printing-language";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { TcgAffiliateLink } from '@/components/tracking';
@@ -90,9 +90,6 @@ export default function ViewPrintingsDialog({
           <>
             {/* Language-grouped grid */}
             {(() => {
-              const LANGUAGE_NAMES: Record<string, string> = {
-                en: 'English', fr: 'French', de: 'German', it: 'Italian', es: 'Spanish', ja: 'Japanese',
-              };
               const groups = new Map<string, any[]>();
               for (const p of sortPrintingsByLanguage(printings)) {
                 const lang = (p.language || 'en').toLowerCase();
@@ -110,7 +107,7 @@ export default function ViewPrintingsDialog({
                       <div className="flex items-center gap-2 mb-1.5 sticky top-0 bg-gray-800 z-10 py-1">
                         <span className="text-base" aria-label={`Language: ${lang}`}>{languageFlag(lang)}</span>
                         <h3 className="font-semibold text-xs text-gray-200">
-                          {LANGUAGE_NAMES[lang] || lang.toUpperCase()}
+                          {languageName(lang)}
                         </h3>
                         <span className="text-[10px] text-gray-500">({items.length})</span>
                       </div>

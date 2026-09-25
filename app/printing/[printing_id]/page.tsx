@@ -19,7 +19,7 @@ import { useCookieConsent } from '@/contexts/CookieConsentContext'
 import { TcgAffiliateLink } from '@/components/tracking'
 import FoilCardImage from '@/components/shared/FoilCardImage'
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil'
-import { sortPrintingsByLanguage, languageFlag } from '@/lib/utils/printing-language'
+import { sortPrintingsByLanguage, languageFlag, languageName } from '@/lib/utils/printing-language'
 import { RarityIcon } from '@/components/shared/RarityIcon'
 import { getSetImageOrFallback } from '@/lib/set-images'
 
@@ -429,9 +429,6 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
                 <p className="text-sm text-gray-500 text-center py-4">No other printings found.</p>
               ) : (
                 (() => {
-                  const LANGUAGE_NAMES: Record<string, string> = {
-                    en: 'English', fr: 'French', de: 'German', it: 'Italian', es: 'Spanish', ja: 'Japanese',
-                  }
                   const sorted = sortPrintingsByLanguage(otherPrintings)
                   const groups = new Map<string, any[]>()
                   for (const p of sorted) {
@@ -445,7 +442,7 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
                         <div key={lang}>
                           <div className="flex items-center gap-2 mb-2 pb-1 border-b border-gray-300 dark:border-gray-700">
                             <span className="text-base" aria-label={`Language: ${lang}`}>{languageFlag(lang)}</span>
-                            <h3 className="font-semibold text-xs">{LANGUAGE_NAMES[lang] || lang.toUpperCase()}</h3>
+                            <h3 className="font-semibold text-xs">{languageName(lang)}</h3>
                             <span className="text-xs text-gray-500">({items.length})</span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-1.5">

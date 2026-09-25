@@ -5,6 +5,7 @@
  *   then French, then Japanese, then all other languages grouped contiguously
  *   (each language group's first-seen-in-input order determines the slot).
  * - `languageFlag` maps an ISO 639-1 code to a unicode emoji flag.
+ * - `languageName` maps it to an English display name.
  */
 
 const PRIORITY: Record<string, number> = { en: 0, fr: 1, ja: 2 };
@@ -16,6 +17,19 @@ const FLAGS: Record<string, string> = {
   it: '🇮🇹',
   es: '🇪🇸',
   ja: '🇯🇵',
+  ko: '🇰🇷',
+  zh: '🇨🇳',
+};
+
+const NAMES: Record<string, string> = {
+  en: 'English',
+  fr: 'French',
+  de: 'German',
+  it: 'Italian',
+  es: 'Spanish',
+  ja: 'Japanese',
+  ko: 'Korean',
+  zh: 'Chinese',
 };
 
 const FALLBACK_FLAG = '🌐';
@@ -50,4 +64,9 @@ export function sortPrintingsByLanguage<T extends { language?: string | null }>(
 export function languageFlag(lang: string | null | undefined): string {
   if (!lang) return FALLBACK_FLAG;
   return FLAGS[lang.toLowerCase()] ?? FALLBACK_FLAG;
+}
+
+export function languageName(lang: string | null | undefined): string {
+  const code = normalizeLang(lang);
+  return NAMES[code] ?? code.toUpperCase();
 }
