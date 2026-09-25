@@ -959,6 +959,27 @@ export async function getCardDeckUsage(
 }
 
 /**
+ * Correct a game's outcome (owner only) — e.g. a concession after a take-back
+ * that was then played out and won.
+ */
+export async function setDeckResultOutcome(
+  publicId: string,
+  resultId: string,
+  result: 'win' | 'loss'
+): Promise<ApiResponse<{ id: string; result: 'win' | 'loss' }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/results/${resultId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ result }),
+    });
+    return await handleResponse<{ id: string; result: 'win' | 'loss' }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Delete a game result from the deck's history
  */
 export async function deleteDeckResult(

@@ -14,17 +14,19 @@ vi.mock('@/lib/services', () => ({
   gameResultsService: {
     getGameResult: vi.fn(),
     deleteGameResult: vi.fn(),
+    setGameResultOutcome: vi.fn(),
   },
 }));
 vi.mock('@/lib/auth/multi-auth', () => ({ authenticateRequest: vi.fn() }));
 
-import { GET, DELETE } from './route';
+import { GET, DELETE, PATCH } from './route';
 import { deckService, gameResultsService } from '@/lib/services';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 
 const mockFindByPublicId = vi.mocked(deckService.findByPublicId);
 const mockGetGameResult = vi.mocked(gameResultsService.getGameResult);
 const mockDelete = vi.mocked(gameResultsService.deleteGameResult);
+const mockSetOutcome = vi.mocked(gameResultsService.setGameResultOutcome);
 const mockAuth = vi.mocked(authenticateRequest);
 
 const DECK_ID = 'deck-public';
@@ -121,5 +123,58 @@ describe('DELETE /api/decks/[deckId]/results/[resultId]', () => {
     const res = await DELETE(makeRequest('DELETE'), { params: makeParams() });
     expect(res.status).toBe(403);
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe('PATCH /api/decks/[deckId]/results/[resultId] (change result)', () => {
+  const patch = (body: unknown) =>
+    PATCH(
+      new NextRequest(`http://localhost/api/decks/${DECK_ID}/results/${RESULT_ID}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+      { params: makeParams() },
+    );
+
+  beforeEach(() => {
+    mockFindByPublicId.mockResolvedValue({ success: true, data: makeDeck() } as any);
+    mockSetOutcome.mockResolvedValue({ success: true, data: { id: RESULT_ID, result: 'win' } });
+  });
+
+  it('lets the deck owner turn a loss into a win', async () => {
+    setAuth(OWNER_ID);
+    const res = await patch({ result: 'win' });
+    expect(res.status).toBe(200);
+    expect(mockSetOutcome).toHaveBeenCalledWith(RESULT_ID, 'internal-id', 'win');
+    expect((await res.json()).data).toEqual({ id: RESULT_ID, result: 'win' });
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    setAuth(undefined);
+    expect((await patch({ result: 'win' })).status).toBe(401);
+    expect(mockSetOutcome).not.toHaveBeenCalled();
+  });
+
+  it('forbids co-owners and strangers (owner only, like delete)', async () => {
+    mockFindByPublicId.mockResolvedValue({ success: true, data: makeDeck({ coOwners: [CO_OWNER_ID] }) } as any);
+    for (const who of [CO_OWNER_ID, STRANGER_ID]) {
+      setAuth(who);
+      expect((await patch({ result: 'win' })).status).toBe(403);
+    }
+    expect(mockSetOutcome).not.toHaveBeenCalled();
+  });
+
+  it('rejects anything but win or loss', async () => {
+    setAuth(OWNER_ID);
+    expect((await patch({ result: 'draw' })).status).toBe(400);
+    expect((await patch({})).status).toBe(400);
+    expect(mockSetOutcome).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the result is not in this deck', async () => {
+    setAuth(OWNER_ID);
+    mockSetOutcome.mockResolvedValue({ success: false, error: 'Game result not found' });
+    expect((await patch({ result: 'win' })).status).toBe(404);
   });
 });

@@ -816,6 +816,8 @@ export const gameResults = pgTable('game_results', {
   opponentHero: text('opponent_hero'),
   result: gameResultEnum('result').notNull(),
   conceded: boolean('conceded').default(false).notNull(),
+  // Set when the deck owner manually corrected win/loss (0119); NULL = as reported by Talishar.
+  resultEditedAt: timestamp('result_edited_at'),
   firstPlayer: boolean('first_player'),
   totalTurns: integer('total_turns'),
   cardResults: jsonb('card_results'),

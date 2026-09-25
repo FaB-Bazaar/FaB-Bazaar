@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { Loader2, Sword, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { Loader2, Sword, ChevronDown, ChevronRight, Trash2, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   GameResultSummaryDTO,
@@ -111,6 +111,7 @@ interface GameRowProps {
   onToggle: () => void;
   onHover: (data: HoverCard | null) => void;
   onDelete?: (id: string) => Promise<void>;
+  onChangeResult?: (id: string, result: "win" | "loss") => Promise<void>;
   playerHeroName?: string;
 }
 
@@ -120,9 +121,29 @@ interface TableCellTooltip {
   y: number;
 }
 
-function GameRow({ game, deckId, detail, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, onDelete, playerHeroName }: GameRowProps) {
+function GameRow({ game, deckId, detail, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, onDelete, onChangeResult, playerHeroName }: GameRowProps) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // "Change result": Talishar records the end state, which isn't always the
+  // real outcome (a concession after a take-back that was then played out).
+  const [changeConfirm, setChangeConfirm] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [changeError, setChangeError] = useState<string | null>(null);
+  const flippedResult: "win" | "loss" = game.result === "win" ? "loss" : "win";
+  const handleChangeResult = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onChangeResult) return;
+    setChanging(true);
+    setChangeError(null);
+    try {
+      await onChangeResult(game.id, flippedResult);
+      setChangeConfirm(false);
+    } catch (err) {
+      setChangeError(err instanceof Error ? err.message : "Could not change the result");
+    } finally {
+      setChanging(false);
+    }
+  };
   const allCardResults = (game.cardResults as CardResult[] | null) ?? [];
 
   const handleDelete = async (e: React.MouseEvent) => {
@@ -228,6 +249,9 @@ function GameRow({ game, deckId, detail, cardLookup, cardIdLookup, isExpanded, o
                 vs {game.opponentHero ? formatHeroName(game.opponentHero) : "Unknown"}
               </span>
               {game.conceded && <span className="text-xs text-gray-400">(conceded)</span>}
+              {game.resultEdited && (
+                <span className="text-xs text-gray-400" title="Result changed by the deck owner">(edited)</span>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mt-0.5">
               {game.format && <span>Format {game.format}</span>}
@@ -241,7 +265,40 @@ function GameRow({ game, deckId, detail, cardLookup, cardIdLookup, isExpanded, o
           {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
         </button>
 
-        {onDelete && (
+        {onChangeResult && !deleteConfirm && (
+          <div className="flex items-center pl-2 shrink-0">
+            {changeConfirm ? (
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Mark as {flippedResult}?</span>
+                <button
+                  onClick={handleChangeResult}
+                  disabled={changing}
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded px-0.5"
+                >
+                  {changing ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setChangeConfirm(false); setChangeError(null); }}
+                  className="text-gray-400 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded px-0.5"
+                >
+                  No
+                </button>
+                {changeError && <span role="alert" className="text-xs text-red-500">{changeError}</span>}
+              </div>
+            ) : (
+              <button
+                onClick={e => { e.stopPropagation(); setChangeConfirm(true); }}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                title={`Change result to ${flippedResult === "win" ? "a win" : "a loss"}`}
+                aria-label={`Change result to ${flippedResult === "win" ? "a win" : "a loss"}`}
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {onDelete && !changeConfirm && (
           <div className="flex items-center pr-3 pl-2 shrink-0">
             {deleteConfirm ? (
               <div className="flex items-center gap-1.5 text-sm">
@@ -605,6 +662,15 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const toggleSection = (id: string) =>
     setCollapsedSections(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
+  const handleChangeResult = async (resultId: string, result: "win" | "loss") => {
+    const data = await decksClient.setDeckResultOutcome(deckId, resultId, result);
+    if (!data.success) throw new Error(data.error ?? 'Could not change the result');
+    // A win is no longer a concession; stats recompute from `results`.
+    setResults(prev => prev.map(r => r.id === resultId
+      ? { ...r, result, resultEdited: true, conceded: result === 'win' ? false : r.conceded }
+      : r));
+  };
+
   const handleDeleteGame = async (resultId: string) => {
     const data = await decksClient.deleteDeckResult(deckId, resultId);
     if (!data.success) throw new Error(data.error ?? 'Failed to delete game');
@@ -931,6 +997,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
                 onToggle={() => setExpandedGameId(expandedGameId === r.id ? null : r.id)}
                 onHover={setHoveredCard}
                 onDelete={handleDeleteGame}
+                onChangeResult={handleChangeResult}
                 playerHeroName={deck?.hero?.[0]?.printingDetails?.display_name ?? (deck?.heroName ? formatHeroName(deck.heroName) : undefined)}
               />
             ))}

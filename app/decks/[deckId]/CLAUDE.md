@@ -42,3 +42,4 @@ See `components/CLAUDE.md` for shared UI/WCAG standards.
 | `deck-highlight-clear` | dispatch + listen | Clear all highlights (double-Escape) |
 | `deck-tile-size` | dispatch | Request tile size change (`{ direction: 'smaller' \| 'larger' }`) |
 | `deck-tile-size-update` | listen | Sync tile size label from `DeckEditorListView` |
+- **Correcting a game's win/loss (2026-09)** — Talishar records the end state (a concession after a take-back reads as a loss). Owners flip it from the Results tab (⇄ on row hover → `PATCH /api/decks/[deckId]/results/[resultId]` `{ result }` → `setGameResultOutcome`): a win clears `conceded`, `result_edited_at` marks the row "(edited)" (migration 0119). Don't "fix" a result by deleting it — sync inserts with ON CONFLICT DO NOTHING, so a deleted game is re-imported as the original loss on the next sync, while an edited row is never overwritten (pinned in `setGameResultOutcome.test.ts`).

@@ -17,6 +17,7 @@ import {
   getDeckResult,
   getDeckResultRaw,
   deleteDeckResult,
+  setDeckResultOutcome,
 } from './decks-client';
 
 function mockJsonResponse(body: any, ok = true, status = 200): Response {
@@ -155,6 +156,27 @@ describe('decksClient.deleteDeckResult', () => {
 
     const result = await deleteDeckResult('abc123', 'g1');
 
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe('Unauthorized');
+  });
+});
+
+describe('decksClient.setDeckResultOutcome', () => {
+  it('PATCHes the new win/loss and returns it', async () => {
+    fetchMock.mockResolvedValue(mockJsonResponse({ success: true, data: { id: 'g1', result: 'win' } }));
+
+    const result = await setDeckResultOutcome('abc123', 'g1', 'win');
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/decks/abc123/results/g1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({ result: 'win' });
+    expect(result).toEqual({ success: true, data: { id: 'g1', result: 'win' } });
+  });
+
+  it('surfaces the API error when the change is rejected', async () => {
+    fetchMock.mockResolvedValue(mockJsonResponse({ success: false, error: 'Unauthorized' }, false, 403));
+    const result = await setDeckResultOutcome('abc123', 'g1', 'win');
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe('Unauthorized');
   });

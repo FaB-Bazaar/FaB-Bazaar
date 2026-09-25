@@ -72,3 +72,51 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// Owner-only correction of a game's outcome — Talishar records the end
+// state, which isn't always the real result (e.g. a concession after a
+// take-back that was then played out and won). Body: { result: 'win' | 'loss' }.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ deckId: string; resultId: string }> }
+) {
+  try {
+    let body: { result?: unknown } = {};
+    try {
+      body = await request.json();
+    } catch {
+      // fall through to validation
+    }
+
+    const authResult = await authenticateRequest(request, body);
+    if (!authResult.success) {
+      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 });
+    }
+
+    const outcome = body.result;
+    if (outcome !== 'win' && outcome !== 'loss') {
+      return NextResponse.json({ success: false, error: "result must be 'win' or 'loss'" }, { status: 400 });
+    }
+
+    const { deckId: publicId, resultId } = await params;
+
+    const deckLookup = await deckService.findByPublicId(publicId, authResult.userId);
+    if (!deckLookup.success || !deckLookup.data) {
+      return NextResponse.json({ success: false, error: 'Deck not found' }, { status: 404 });
+    }
+
+    if (deckLookup.data.userId?.toString() !== authResult.userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const result = await gameResultsService.setGameResultOutcome(resultId, deckLookup.data._id, outcome);
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: result.error === 'Game result not found' ? 404 : 500 });
+    }
+
+    return NextResponse.json({ success: true, data: result.data });
+  } catch (error) {
+    console.error('[Deck Results] Change result error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}

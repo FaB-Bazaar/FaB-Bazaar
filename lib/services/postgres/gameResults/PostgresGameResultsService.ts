@@ -49,6 +49,8 @@ export interface GameResultSummaryDTO {
   opponentHero?: string | null;
   result: 'win' | 'loss';
   conceded: boolean;
+  /** The owner manually changed win/loss (Talishar reported the other). */
+  resultEdited: boolean;
   firstPlayer?: boolean | null;
   totalTurns?: number | null;
   cardResults?: unknown;
@@ -444,7 +446,7 @@ export class PostgresGameResultsService {
         pool.query(`SELECT COUNT(*)::int AS total FROM game_results WHERE deck_id = $1`, [deckId]),
         pool.query(
           `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
-                  player_hero, opponent_hero, result::text, conceded, first_player,
+                  player_hero, opponent_hero, result::text, conceded, result_edited_at, first_player,
                   total_turns, card_results, opponent_card_results,
                   played_at, created_at
            FROM game_results
@@ -489,6 +491,7 @@ export class PostgresGameResultsService {
           opponentHero: canonicalHeroId(row.opponent_hero ?? null, row.format),
           result: row.result as 'win' | 'loss',
           conceded: row.conceded,
+          resultEdited: row.result_edited_at != null,
           firstPlayer: row.first_player ?? null,
           totalTurns: row.total_turns ?? null,
           cardResults: row.card_results ?? null,
@@ -614,6 +617,39 @@ export class PostgresGameResultsService {
     const map = new Map<string, string>();
     for (const r of rows) if (r.image_url) map.set(r.talishar_card_id, r.image_url);
     return map;
+  }
+
+  /**
+   * Owner correction of a game's outcome (Talishar reported the end state,
+   * e.g. a concession after a take-back). A win clears `conceded`; the row is
+   * stamped result_edited_at. Scoped to the deck so a result id from another
+   * deck can't be edited through this one.
+   */
+  async setGameResultOutcome(
+    resultId: string,
+    deckId: string,
+    outcome: 'win' | 'loss'
+  ): Promise<AsyncResult<{ id: string; result: 'win' | 'loss' }>> {
+    if (outcome !== 'win' && outcome !== 'loss') {
+      return { success: false, error: "result must be 'win' or 'loss'" };
+    }
+    try {
+      const updated = await db
+        .update(gameResults)
+        .set({
+          result: outcome,
+          resultEditedAt: new Date(),
+          ...(outcome === 'win' ? { conceded: false } : {}),
+        })
+        .where(and(eq(gameResults.id, resultId), eq(gameResults.deckId, deckId)))
+        .returning({ id: gameResults.id });
+      if (updated.length === 0) return { success: false, error: 'Game result not found' };
+      return { success: true, data: { id: resultId, result: outcome } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GameResults] Outcome update failed:', message);
+      return { success: false, error: message };
+    }
   }
 
   async deleteGameResult(
