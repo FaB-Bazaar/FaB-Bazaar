@@ -81,6 +81,26 @@ export interface MarketFeedViewerMatches {
   wanted: Record<string, { foilings: string[] }>;
 }
 
+/** A listing whose name only matched loosely (typo, missing space/hyphen, shortened). */
+export interface MarketFeedLooseMatch {
+  cardName: string;
+  matchedName: string;
+}
+
+/** Closest cards for a name that could not be matched, so the client can fix and resubmit. */
+export interface MarketFeedSuggestion {
+  cardName: string;
+  candidates: { name: string; pitch: number | null; collectorNumbers: string[] }[];
+}
+
+export interface MarketFeedReplaceResult {
+  feedDate: string;
+  count: number;
+  unmatched: string[];
+  looseMatches: MarketFeedLooseMatch[];
+  suggestions: MarketFeedSuggestion[];
+}
+
 export interface MarketFeedDateSummary {
   feedDate: string;
   count: number;
@@ -244,7 +264,58 @@ function normalizeListing(l: MarketFeedListingInput, index: number):
   };
 }
 
+// Loose matching (pg_trgm): accept the best card only when it is clearly
+// close AND clearly ahead of the next-closest name — a near tie is a guess.
+const LOOSE_MIN_SCORE = 0.6;
+const LOOSE_MIN_MARGIN = 0.2;
+const SUGGESTION_MIN_SCORE = 0.3;
+
+type ResolvedCard = { cardUniqueId: string; pitch: number | null; looseName?: string };
+
 export class PostgresMarketFeedService {
+  /**
+   * Closest card names to a listing's name: trigram similarity, plus
+   * word_similarity so a shortened name ("Boneseer") scores against the full
+   * one ("Boneseer Skullcap"). One row per card (pitches are separate cards).
+   */
+  private async closeCards(l: NormalizedListing, limit: number) {
+    const input = l.cardName.replace(/\s*\((young|adult)\)\s*$/i, '').trim().toLowerCase();
+    const pitchFilter = l.pitch != null ? sql`AND c.pitch = ${l.pitch}` : sql``;
+    return (await db.execute<{ card_unique_id: string; name: string; display_name: string; pitch: number | null; score: number }>(sql`
+      SELECT c.card_unique_id, c.name, c.display_name, c.pitch,
+             GREATEST(similarity(c.name, ${input}), word_similarity(${input}, c.name)) AS score
+      FROM cards c
+      WHERE (c.name % ${input} OR ${input} <% c.name) ${pitchFilter}
+      ORDER BY score DESC, c.name
+      LIMIT ${limit}`)).rows.map((r) => ({ ...r, score: Number(r.score) }));
+  }
+
+  /** Loose match: a single card whose name is clearly the closest. */
+  private async looseMatch(l: NormalizedListing): Promise<ResolvedCard | null> {
+    const rows = await this.closeCards(l, 12);
+    if (!rows.length || rows[0].score < LOOSE_MIN_SCORE) return null;
+    const top = rows[0];
+    // Pitches share a name: the runner-up is the next DIFFERENT name.
+    const runnerUp = rows.find((r) => r.name !== top.name);
+    if (runnerUp && top.score - runnerUp.score < LOOSE_MIN_MARGIN) return null;
+    const sameName = rows.filter((r) => r.name === top.name);
+    if (sameName.length !== 1) return null; // pitched card without pitch — let the client say which
+    return { cardUniqueId: top.card_unique_id, pitch: top.pitch, looseName: top.display_name };
+  }
+
+  private async suggest(l: NormalizedListing): Promise<MarketFeedSuggestion> {
+    const rows = (await this.closeCards(l, 5)).filter((r) => r.score >= SUGGESTION_MIN_SCORE);
+    const candidates = [];
+    for (const r of rows) {
+      const cns = (await db.execute<{ collector_number: string }>(sql`
+        SELECT DISTINCT upper(collector_number) AS collector_number FROM printings
+        WHERE card_unique_id = ${r.card_unique_id} AND language = 'en' AND collector_number IS NOT NULL
+        ORDER BY 1 LIMIT 3`)).rows.map((x) => x.collector_number);
+      candidates.push({ name: r.display_name, pitch: r.pitch, collectorNumbers: cns });
+    }
+    return { cardName: l.cardName, candidates };
+  }
+
   /**
    * Resolve a listing to one card_unique_id, or null when unmatched/ambiguous.
    * Posts are messy, so name and collector number are cross-checked:
@@ -255,7 +326,7 @@ export class PostgresMarketFeedService {
    * "(Young)" / "(Adult)" suffixes pick the young/adult hero card — young
    * heroes carry the short name ("Malice, Domina of the Dead" → "malice").
    */
-  private async resolveCard(l: NormalizedListing): Promise<{ cardUniqueId: string; pitch: number | null } | null> {
+  private async resolveCard(l: NormalizedListing): Promise<ResolvedCard | null> {
     type Row = { card_unique_id: string; pitch: number | null };
     const pitchFilter = l.pitch != null ? sql`AND c.pitch = ${l.pitch}` : sql``;
 
@@ -287,10 +358,10 @@ export class PostgresMarketFeedService {
       const agreeing = byName.filter((n) => byCollector.some((c) => c.card_unique_id === n.card_unique_id));
       return pick(agreeing.length ? agreeing : byName);
     }
-    return pick(byCollector);
+    return pick(byCollector) ?? (await this.looseMatch(l));
   }
 
-  async replaceDay(input: ReplaceMarketFeedDayInput): AsyncResult<{ feedDate: string; count: number; unmatched: string[] }> {
+  async replaceDay(input: ReplaceMarketFeedDayInput): AsyncResult<MarketFeedReplaceResult> {
     try {
       if (!isValidFeedDate(input.feedDate)) {
         return { success: false, error: 'feedDate must be a YYYY-MM-DD date' };
@@ -308,10 +379,20 @@ export class PostgresMarketFeedService {
       }
 
       const unmatched: string[] = [];
+      const looseMatches: MarketFeedLooseMatch[] = [];
+      const suggestions: MarketFeedSuggestion[] = [];
       const rows: (typeof marketFeedListings.$inferInsert)[] = [];
       for (const l of normalized) {
         const match = await this.resolveCard(l);
-        if (!match) unmatched.push(l.cardName);
+        if (!match) {
+          if (!unmatched.includes(l.cardName)) {
+            unmatched.push(l.cardName);
+            const s = await this.suggest(l);
+            if (s.candidates.length) suggestions.push(s);
+          }
+        } else if (match.looseName && !looseMatches.some((m) => m.cardName === l.cardName)) {
+          looseMatches.push({ cardName: l.cardName, matchedName: match.looseName });
+        }
         rows.push({
           id: crypto.randomUUID(),
           feedDate: input.feedDate,
@@ -327,7 +408,10 @@ export class PostgresMarketFeedService {
         if (rows.length) await tx.insert(marketFeedListings).values(rows);
       });
 
-      return { success: true, data: { feedDate: input.feedDate, count: rows.length, unmatched: [...new Set(unmatched)] } };
+      return {
+        success: true,
+        data: { feedDate: input.feedDate, count: rows.length, unmatched, looseMatches, suggestions },
+      };
     } catch (error) {
       console.error('[market-feed] replaceDay failed:', error);
       return { success: false, error: 'Failed to save market feed' };

@@ -6,6 +6,8 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 type MarketFeedToolResult = { success: boolean; data?: any; message?: string; error?: string };
 
+const PITCH_NAMES: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
+
 const failure = async (response: any, what: string): Promise<MarketFeedToolResult> => {
   if (response.status === 403) {
     return { success: false, error: 'Access denied: Super Admin role required.' };
@@ -144,15 +146,37 @@ The reply lists cards that could not be matched to a single card (misspelt, or a
       if (!response.ok) return failure(response, 'save the market feed');
 
       const json = await response.json();
-      const data = json.data as { feedDate: string; count: number; unmatched: string[] };
-      const unmatched = data.unmatched.length
-        ? ` Not matched to a card (stored as written): ${data.unmatched.join(', ')}.`
-        : '';
-      return {
-        success: true,
-        data,
-        message: `Saved ${data.count} listing(s) for ${data.feedDate} — replaces anything stored for that day.${unmatched}`,
+      const data = json.data as {
+        feedDate: string;
+        count: number;
+        unmatched: string[];
+        looseMatches?: { cardName: string; matchedName: string }[];
+        suggestions?: { cardName: string; candidates: { name: string; pitch: number | null; collectorNumbers: string[] }[] }[];
       };
+      const lines = [`Saved ${data.count} listing(s) for ${data.feedDate} — replaces anything stored for that day.`];
+      if (data.looseMatches?.length) {
+        lines.push(
+          `Matched loosely (check these are right; if not, resubmit with the exact name or collectorNumber): ${data.looseMatches
+            .map((m) => `"${m.cardName}" → ${m.matchedName}`)
+            .join('; ')}.`,
+        );
+      }
+      if (data.unmatched.length) {
+        const suggestionFor = new Map((data.suggestions ?? []).map((s) => [s.cardName, s.candidates]));
+        const described = data.unmatched.map((name) => {
+          const candidates = suggestionFor.get(name);
+          if (!candidates?.length) return `"${name}"`;
+          const options = candidates.map((c) => {
+            const detail = [c.pitch ? PITCH_NAMES[c.pitch] : null, c.collectorNumbers[0]].filter(Boolean).join(', ');
+            return detail ? `${c.name} (${detail})` : c.name;
+          });
+          return `"${name}" — did you mean: ${options.join(', ')}?`;
+        });
+        lines.push(
+          `Not matched to a card (stored as written): ${described.join('; ')}. Fix the names (or add pitch / collectorNumber) and resubmit the whole day.`,
+        );
+      }
+      return { success: true, data, message: lines.join('\n') };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }

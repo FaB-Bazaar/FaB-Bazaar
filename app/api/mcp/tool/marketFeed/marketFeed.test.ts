@@ -60,9 +60,31 @@ describe('submitMarketFeedTool.handler', () => {
   })
 
   it('names unmatched cards in the message so the client can fix them', async () => {
-    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', count: 2, unmatched: ['Sink Below'] }) as any)
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', count: 2, unmatched: ['Sink Below'], looseMatches: [], suggestions: [] }) as any)
     const res = await submitMarketFeedTool.handler({ listings: [listing, listing] }, auth, 'tok')
     expect(res.message).toContain('Sink Below')
+  })
+
+  it('reports loose matches so a wrong guess can be spotted', async () => {
+    mockFetch.mockResolvedValue(ok({
+      feedDate: '2026-09-24', count: 1, unmatched: [], suggestions: [],
+      looseMatches: [{ cardName: 'Become the Shadowlord', matchedName: 'Become the Shadow Lord' }],
+    }) as any)
+    const res = await submitMarketFeedTool.handler({ listings: [listing] }, auth, 'tok')
+    expect(res.message).toContain('"Become the Shadowlord" → Become the Shadow Lord')
+  })
+
+  it('lists suggestions for unmatched names, with collector numbers, so the client can fix and resubmit', async () => {
+    mockFetch.mockResolvedValue(ok({
+      feedDate: '2026-09-24', count: 1, unmatched: ['Command'], looseMatches: [],
+      suggestions: [{ cardName: 'Command', candidates: [
+        { name: 'Command and Conquer', pitch: 1, collectorNumbers: ['ARC159'] },
+        { name: 'Command the Currents', pitch: null, collectorNumbers: [] },
+      ] }],
+    }) as any)
+    const res = await submitMarketFeedTool.handler({ listings: [listing] }, auth, 'tok')
+    expect(res.message).toContain('"Command" — did you mean: Command and Conquer (red, ARC159), Command the Currents?')
+    expect(res.message).toMatch(/resubmit/i)
   })
 
   it('omits feedDate when not given (server defaults to today, US Eastern)', async () => {

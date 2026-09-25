@@ -169,6 +169,52 @@ describe('PostgresMarketFeedService', () => {
     });
   });
 
+  describe('loose name matching and suggestions', () => {
+    const submit = async (listings: any[]) => {
+      const date = testDate();
+      const saved = await service.replaceDay({ feedDate: date, listings });
+      if (!saved.success) throw new Error(saved.error);
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      return { saved: saved.data, listings: day.data.listings };
+    };
+
+    it.each([
+      ['Become the Shadowlord', 'become the shadow lord'], // space dropped
+      ['Gold Baited Hook', 'gold-baited hook'], // hyphen dropped
+      ['Boneseer', 'boneseer skullcap'], // name shortened
+    ])('matches "%s" to the one close card and reports it as a loose match', async (sent, expected) => {
+      const { saved, listings } = await submit([{ side: 'selling', cardName: sent, price: 10 }]);
+      expect(listings[0].displayName?.toLowerCase()).toBe(expected);
+      expect(saved.unmatched).toEqual([]);
+      expect(saved.looseMatches).toEqual([
+        expect.objectContaining({ cardName: sent, matchedName: expect.stringMatching(new RegExp(`^${expected}$`, 'i')) }),
+      ]);
+    });
+
+    it('does not guess when several cards are about as close', async () => {
+      const { saved, listings } = await submit([{ side: 'selling', cardName: 'Command', price: 10 }]);
+      expect(listings[0].cardUniqueId).toBeNull();
+      expect(saved.unmatched).toEqual(['Command']);
+      const s = saved.suggestions.find((x) => x.cardName === 'Command');
+      expect(s?.candidates.map((c) => c.name.toLowerCase())).toContain('command and conquer');
+      const cnc = s?.candidates.find((c) => c.name.toLowerCase() === 'command and conquer');
+      expect(cnc?.collectorNumbers.length).toBeGreaterThan(0);
+    });
+
+    it('does not report exact names as loose matches', async () => {
+      const { saved } = await submit([{ side: 'selling', cardName: 'Command and Conquer', price: 10 }]);
+      expect(saved.looseMatches).toEqual([]);
+      expect(saved.suggestions).toEqual([]);
+    });
+
+    it('leaves nonsense unmatched', async () => {
+      const { saved, listings } = await submit([{ side: 'selling', cardName: 'Zzqx Wvvq Plorf', price: 10 }]);
+      expect(listings[0].cardUniqueId).toBeNull();
+      expect(saved.unmatched).toEqual(['Zzqx Wvvq Plorf']);
+    });
+  });
+
   describe('post links', () => {
     const storedUrl = async (postUrl: string) => {
       const date = testDate();

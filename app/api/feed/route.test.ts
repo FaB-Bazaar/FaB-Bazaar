@@ -48,7 +48,7 @@ beforeEach(() => {
   mockHasRole.mockResolvedValue({ success: true, data: true } as any);
   mockGetDay.mockResolvedValue({ success: true, data: { feedDate: '2026-09-24', listings: [] } });
   mockListDates.mockResolvedValue({ success: true, data: [{ feedDate: '2026-09-24', count: 3 }] });
-  mockReplaceDay.mockResolvedValue({ success: true, data: { feedDate: '2026-09-24', count: 1, unmatched: [] } });
+  mockReplaceDay.mockResolvedValue({ success: true, data: { feedDate: '2026-09-24', count: 1, unmatched: [], looseMatches: [], suggestions: [] } });
 });
 
 describe('GET /api/feed', () => {
@@ -82,7 +82,7 @@ describe('POST /api/feed', () => {
     expect(mockAuth.mock.calls[0][2]).toEqual({ allowOAuth: true });
     expect(mockReplaceDay).toHaveBeenCalledWith({ feedDate: '2026-09-24', listings: [listing], createdBy: 'admin-1' });
     const json = await res.json();
-    expect(json.data).toEqual({ feedDate: '2026-09-24', count: 1, unmatched: [] });
+    expect(json.data).toEqual({ feedDate: '2026-09-24', count: 1, unmatched: [], looseMatches: [], suggestions: [] });
   });
 
   it('defaults feedDate to today in US Eastern', async () => {
