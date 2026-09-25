@@ -159,21 +159,49 @@ function normalizeListing(l: MarketFeedListingInput, index: number):
 }
 
 export class PostgresMarketFeedService {
-  /** Resolve a listing to one card_unique_id, or null when unmatched/ambiguous. */
+  /**
+   * Resolve a listing to one card_unique_id, or null when unmatched/ambiguous.
+   * Posts are messy, so name and collector number are cross-checked:
+   *   - a recognised name wins over a collector number that points at a
+   *     different card (a mistyped/misread number);
+   *   - an unrecognised name (typo) falls back to the collector number;
+   *   - a collector number we don't hold falls back to the name.
+   * "(Young)" / "(Adult)" suffixes pick the young/adult hero card — young
+   * heroes carry the short name ("Malice, Domina of the Dead" → "malice").
+   */
   private async resolveCard(l: NormalizedListing): Promise<{ cardUniqueId: string; pitch: number | null } | null> {
+    type Row = { card_unique_id: string; pitch: number | null };
     const pitchFilter = l.pitch != null ? sql`AND c.pitch = ${l.pitch}` : sql``;
-    const rows = l.collectorNumber
-      ? (await db.execute<{ card_unique_id: string; pitch: number | null }>(sql`
+
+    const age = l.cardName.match(/\s*\((young|adult)\)\s*$/i);
+    const baseName = (age ? l.cardName.slice(0, age.index) : l.cardName).trim().toLowerCase();
+    const nameFilter = !age
+      ? sql`lower(c.name) = ${baseName}`
+      : age[1].toLowerCase() === 'young'
+        ? sql`'young' = ANY(c.types) AND lower(c.name) IN (${baseName}, ${baseName.split(',')[0].trim()})`
+        : sql`NOT ('young' = ANY(c.types)) AND lower(c.name) = ${baseName}`;
+
+    // No LIMIT: a name maps to at most a few cards (pitches), and the collector
+    // number must be able to pick any of them.
+    const byName = (await db.execute<Row>(sql`
+      SELECT c.card_unique_id, c.pitch FROM cards c
+      WHERE ${nameFilter} ${pitchFilter}`)).rows;
+
+    const byCollector = l.collectorNumber
+      ? (await db.execute<Row>(sql`
           SELECT DISTINCT c.card_unique_id, c.pitch
           FROM printings p JOIN cards c ON c.card_unique_id = p.card_unique_id
           WHERE upper(p.collector_number) = ${l.collectorNumber} ${pitchFilter}
           LIMIT 2`)).rows
-      : (await db.execute<{ card_unique_id: string; pitch: number | null }>(sql`
-          SELECT c.card_unique_id, c.pitch FROM cards c
-          WHERE lower(c.name) = lower(${l.cardName}) ${pitchFilter}
-          LIMIT 2`)).rows;
-    if (rows.length !== 1) return null;
-    return { cardUniqueId: rows[0].card_unique_id, pitch: rows[0].pitch };
+      : [];
+
+    const pick = (rows: Row[]) => (rows.length === 1 ? { cardUniqueId: rows[0].card_unique_id, pitch: rows[0].pitch } : null);
+    if (byName.length) {
+      // Name is a real card: the collector number only disambiguates it.
+      const agreeing = byName.filter((n) => byCollector.some((c) => c.card_unique_id === n.card_unique_id));
+      return pick(agreeing.length ? agreeing : byName);
+    }
+    return pick(byCollector);
   }
 
   async replaceDay(input: ReplaceMarketFeedDayInput): AsyncResult<{ feedDate: string; count: number; unmatched: string[] }> {

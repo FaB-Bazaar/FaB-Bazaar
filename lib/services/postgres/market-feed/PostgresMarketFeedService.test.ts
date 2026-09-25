@@ -127,6 +127,48 @@ describe('PostgresMarketFeedService', () => {
     expect(l.tcgLow).toBeCloseTo(Number(ref.tcg_low), 2);
   });
 
+  describe('card matching when name and collector number disagree', () => {
+    const matchedName = async (listing: Record<string, unknown>) => {
+      const date = testDate();
+      const saved = await service.replaceDay({ feedDate: date, listings: [{ side: 'selling', price: 1, ...listing } as any] });
+      if (!saved.success) throw new Error(saved.error);
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      return day.data.listings[0].displayName?.toLowerCase() ?? null;
+    };
+
+    it('a recognised name beats a collector number that belongs to another card', async () => {
+      // ANQ018 is "That All You Got?" — the post named Ripple Away.
+      expect(await matchedName({ cardName: 'Ripple Away', collectorNumber: 'ANQ018' })).toBe('ripple away');
+    });
+
+    it('an unrecognised (misspelt) name falls back to the collector number', async () => {
+      expect(await matchedName({ cardName: 'Blasphomet, the Insatiable Hunger', collectorNumber: 'IAR221' }))
+        .toBe('blasmophet, the insatiable hunger');
+    });
+
+    it('a collector number we do not have falls back to the name', async () => {
+      expect(await matchedName({ cardName: 'Corrupted Corpse', collectorNumber: 'ZZZ999' })).toBe('corrupted corpse');
+    });
+
+    it('a collector number picks the pitch when the name alone is ambiguous', async () => {
+      const date = testDate();
+      await service.replaceDay({ feedDate: date, listings: [{ side: 'selling', price: 1, cardName: 'Snatch', collectorNumber: 'WTR169' }] });
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      expect(day.data.listings[0].pitch).toBe(3);
+    });
+
+    it('a "(Young)" suffix resolves to the young hero card', async () => {
+      expect(await matchedName({ cardName: 'Malice, Domina of the Dead (Young)' })).toBe('malice');
+      expect(await matchedName({ cardName: 'Viserai (Young)' })).toBe('viserai');
+    });
+
+    it('an "(Adult)" suffix resolves to the adult hero card', async () => {
+      expect(await matchedName({ cardName: 'Malice, Domina of the Dead (Adult)' })).toBe('malice, domina of the dead');
+    });
+  });
+
   it('rejects invalid listings without touching the stored day', async () => {
     const date = testDate();
     await service.replaceDay({ feedDate: date, listings: [{ side: 'selling', cardName: 'Sink Below', pitch: 1, price: 1 }] });
