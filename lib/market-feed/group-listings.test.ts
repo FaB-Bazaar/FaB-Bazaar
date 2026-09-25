@@ -5,7 +5,7 @@ import type { MarketFeedListing } from '@/lib/services/postgres/market-feed/Post
 const base: MarketFeedListing = {
   id: 'x', side: 'selling', cardName: 'Sink Below', cardUniqueId: 'cu-1', displayName: 'Sink Below',
   pitch: 1, collectorNumber: null, foiling: null, condition: null, price: 1, currency: 'USD',
-  groupName: null, tcgLow: 0.5, imageUrl: 'img',
+  groupName: null, postUrl: null, tcgLow: 0.5, imageUrl: 'img',
 };
 const l = (over: Partial<MarketFeedListing>): MarketFeedListing => ({ ...base, id: Math.random().toString(), ...over });
 

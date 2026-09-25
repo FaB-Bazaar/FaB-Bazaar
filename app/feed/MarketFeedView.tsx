@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Tag, HandCoins } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Tag, HandCoins, ExternalLink } from 'lucide-react';
 import { FOILING_MAP } from '@/lib/fab-constants';
 import type { FeedCardGroup } from '@/lib/market-feed/group-listings';
 import type {
@@ -57,6 +57,20 @@ function PriceList({ title, icon, items, empty }: {
               {l.condition && <span className="text-gray-600 dark:text-gray-400"> · {l.condition}</span>}
               {l.groupName && (
                 <span className="text-xs text-gray-500 dark:text-gray-400 break-words"> · {l.groupName}</span>
+              )}
+              {l.postUrl && (
+                <>
+                  {' · '}
+                  <a
+                    href={l.postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                  >
+                    Post<ExternalLink className="w-3 h-3" aria-hidden="true" />
+                    <span className="sr-only"> on Facebook (opens in a new tab)</span>
+                  </a>
+                </>
               )}
             </li>
           ))}

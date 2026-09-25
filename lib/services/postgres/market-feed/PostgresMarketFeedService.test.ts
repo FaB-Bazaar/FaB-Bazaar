@@ -169,6 +169,47 @@ describe('PostgresMarketFeedService', () => {
     });
   });
 
+  describe('post links', () => {
+    const storedUrl = async (postUrl: string) => {
+      const date = testDate();
+      const saved = await service.replaceDay({
+        feedDate: date,
+        listings: [{ side: 'selling', cardName: 'Sink Below', pitch: 1, price: 1, postUrl }],
+      });
+      if (!saved.success) return { error: saved.error };
+      const day = await service.getDay(date);
+      if (!day.success) throw new Error(day.error);
+      return { url: day.data.listings[0].postUrl };
+    };
+
+    it('stores a Facebook group post link', async () => {
+      expect(await storedUrl('https://www.facebook.com/groups/123456/posts/7890/'))
+        .toEqual({ url: 'https://www.facebook.com/groups/123456/posts/7890/' });
+    });
+
+    it('strips tracking parameters and fragments', async () => {
+      expect(await storedUrl('https://www.facebook.com/groups/123456/posts/7890/?__cft__[0]=AZX&__tn__=%2CO%2CP-R&mibextid=abc#comments'))
+        .toEqual({ url: 'https://www.facebook.com/groups/123456/posts/7890/' });
+    });
+
+    it('keeps only the post identifiers on permalink.php links', async () => {
+      expect(await storedUrl('https://m.facebook.com/permalink.php?story_fbid=111&id=222&__cft__=x&ref=share'))
+        .toEqual({ url: 'https://m.facebook.com/permalink.php?story_fbid=111&id=222' });
+    });
+
+    it('rejects links that are not https Facebook URLs', async () => {
+      for (const bad of [
+        'javascript:alert(1)',
+        'http://www.facebook.com/groups/1/posts/2/',
+        'https://facebook.com.evil.example/groups/1/posts/2/',
+        'https://example.com/facebook.com/groups/1',
+        'not a url',
+      ]) {
+        expect(await storedUrl(bad)).toHaveProperty('error');
+      }
+    });
+  });
+
   it('rejects invalid listings without touching the stored day', async () => {
     const date = testDate();
     await service.replaceDay({ feedDate: date, listings: [{ side: 'selling', cardName: 'Sink Below', pitch: 1, price: 1 }] });

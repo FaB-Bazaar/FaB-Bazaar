@@ -33,6 +33,8 @@ export interface MarketFeedListingInput {
   /** ISO 4217, default USD. */
   currency?: string | null;
   groupName?: string | null;
+  /** Link to the Facebook post (https Facebook URL; tracking params are stripped). */
+  postUrl?: string | null;
 }
 
 export interface ReplaceMarketFeedDayInput {
@@ -56,6 +58,7 @@ export interface MarketFeedListing {
   price: number;
   currency: string;
   groupName: string | null;
+  postUrl: string | null;
   /** Cheapest English TCG Low for the matched card (+ foiling / collector number when given). */
   tcgLow: number | null;
   imageUrl: string | null;
@@ -91,6 +94,33 @@ function toFoilingCode(input: string): string | null {
   return name ? FOILING_CODES[name] ?? null : null;
 }
 
+const FACEBOOK_HOST = /^(?:[a-z0-9-]+\.)*(?:facebook\.com|fb\.com)$/i;
+// permalink/story links carry the post id in the query; everything else is
+// path-addressed, so its query string is only tracking (__cft__, mibextid, …).
+const QUERY_ID_PARAMS: Record<string, string[]> = {
+  '/permalink.php': ['story_fbid', 'id'],
+  '/story.php': ['story_fbid', 'id'],
+};
+
+/** https Facebook URL with tracking stripped, or null if it isn't one. */
+export function normalizeFacebookPostUrl(input: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || !FACEBOOK_HOST.test(url.hostname) || url.username || url.password) return null;
+  const keep = QUERY_ID_PARAMS[url.pathname] ?? [];
+  const query = new URLSearchParams();
+  for (const k of keep) {
+    const v = url.searchParams.get(k);
+    if (v) query.set(k, v);
+  }
+  const qs = query.toString();
+  return `https://${url.hostname.toLowerCase()}${url.pathname}${qs ? `?${qs}` : ''}`;
+}
+
 const clean = (v: string | null | undefined) => {
   const t = typeof v === 'string' ? v.trim() : '';
   return t === '' ? null : t;
@@ -106,6 +136,7 @@ type NormalizedListing = {
   price: string;
   currency: string;
   groupName: string | null;
+  postUrl: string | null;
 };
 
 function normalizeListing(l: MarketFeedListingInput, index: number):
@@ -141,6 +172,12 @@ function normalizeListing(l: MarketFeedListingInput, index: number):
   }
   const currency = (clean(l.currency) ?? 'USD').toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) return { ok: false, error: `${at}.currency must be a 3-letter code` };
+  let postUrl: string | null = null;
+  const postUrlInput = clean(l.postUrl);
+  if (postUrlInput) {
+    postUrl = normalizeFacebookPostUrl(postUrlInput);
+    if (!postUrl) return { ok: false, error: `${at}.postUrl must be an https facebook.com link` };
+  }
 
   return {
     ok: true,
@@ -154,6 +191,7 @@ function normalizeListing(l: MarketFeedListingInput, index: number):
       price: l.price.toFixed(2),
       currency,
       groupName: clean(l.groupName),
+      postUrl,
     },
   };
 }
@@ -257,10 +295,10 @@ export class PostgresMarketFeedService {
         id: string; side: MarketFeedSide; card_name: string; card_unique_id: string | null;
         display_name: string | null; pitch: number | null; collector_number: string | null;
         foiling: string | null; condition: string | null; price: string; currency: string;
-        group_name: string | null; tcg_low: number | null; image_url: string | null;
+        group_name: string | null; post_url: string | null; tcg_low: number | null; image_url: string | null;
       }>(sql`
         SELECT l.id, l.side, l.card_name, l.card_unique_id, c.display_name, l.pitch,
-               l.collector_number, l.foiling, l.condition, l.price, l.currency, l.group_name,
+               l.collector_number, l.foiling, l.condition, l.price, l.currency, l.group_name, l.post_url,
                px.tcg_low, img.image_url
         FROM market_feed_listings l
         LEFT JOIN cards c ON c.card_unique_id = l.card_unique_id
@@ -298,6 +336,7 @@ export class PostgresMarketFeedService {
             price: Number(r.price),
             currency: r.currency,
             groupName: r.group_name,
+            postUrl: r.post_url,
             tcgLow: r.tcg_low == null ? null : Number(r.tcg_low),
             imageUrl: r.image_url,
           })),
