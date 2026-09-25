@@ -107,6 +107,23 @@ describe('getMarketFeedTool.handler', () => {
     ])
   })
 
+  it('tells the client how many stored listings are missing their post link', async () => {
+    const withLink = { id: 'a', side: 'selling', cardName: 'A', price: 1, currency: 'USD', postUrl: 'https://www.facebook.com/groups/1/posts/2/' }
+    const noLink = { id: 'b', side: 'buying', cardName: 'B', price: 1, currency: 'USD', postUrl: null }
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', listings: [withLink, noLink, { ...noLink, id: 'c' }], dates: [] }) as any)
+
+    const res = await getMarketFeedTool.handler({ feedDate: '2026-09-24' }, auth, 'tok')
+
+    expect(res.message).toMatch(/2 listing\(s\) have no postUrl/)
+  })
+
+  it('stays quiet about links when every listing has one', async () => {
+    const withLink = { id: 'a', side: 'selling', cardName: 'A', price: 1, currency: 'USD', postUrl: 'https://www.facebook.com/groups/1/posts/2/' }
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', listings: [withLink], dates: [] }) as any)
+    const res = await getMarketFeedTool.handler({}, auth, 'tok')
+    expect(res.message).not.toMatch(/no postUrl/)
+  })
+
   it('defaults to today (no date param)', async () => {
     mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', listings: [], dates: [] }) as any)
     await getMarketFeedTool.handler({}, auth, 'tok')

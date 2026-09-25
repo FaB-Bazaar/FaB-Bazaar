@@ -55,10 +55,14 @@ feedDate is YYYY-MM-DD; omit it for today (US Eastern). Also returns the dates t
       const listings = data.listings.map((l: Record<string, unknown>) =>
         Object.fromEntries(fields.filter((f) => l[f] != null).map((f) => [f, l[f]]))
       );
+      const missingLinks = listings.filter((l: Record<string, unknown>) => !l.postUrl).length;
+      const linkNote = missingLinks
+        ? ` ${missingLinks} listing(s) have no postUrl — add each post's link when you resubmit.`
+        : '';
       return {
         success: true,
         data,
-        message: `${listings.length} listing(s) stored for ${data.feedDate}. Include them in your next submit_market_feed for this day or they will be removed:\n${JSON.stringify(listings)}`,
+        message: `${listings.length} listing(s) stored for ${data.feedDate}.${linkNote} Include them in your next submit_market_feed for this day or they will be removed:\n${JSON.stringify(listings)}`,
       };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -72,7 +76,9 @@ export const submitMarketFeedTool = {
 
 REPLACES THE WHOLE DAY: submitting the same feedDate again overwrites that day (other days are untouched). If the day may already have listings, call get_market_feed first and submit the merged list. An empty listings array clears the day.
 
-NO NAMES: never include the poster's name, profile link or anything else that identifies them in any field. The card, the price, the group name and a link to the post are all that is stored.
+ALWAYS SEND groupName AND postUrl on every listing — the site shows the group and links "Post" to the original so readers can check the listing. Get the link from the post's timestamp or Share → Copy link.
+
+NO NAMES: never include the poster's name, profile link or anything else that identifies them in any field. The card, the price, the group name and the link to the post are all that is stored.
 
 One listing per card per post:
   • side — "selling" (someone offers the card) or "buying" (someone wants it)
@@ -81,8 +87,8 @@ One listing per card per post:
   • foiling — "Rainbow Foil" / "Cold Foil" / "Gold Foil" / "Non-foil" when stated
   • condition — NM, LP, MP, HP or DMG when stated
   • price + currency (default USD) — the asking or offered price for ONE copy
-  • groupName — the Facebook group it was posted in
-  • postUrl — the post's link (https://www.facebook.com/groups/…/posts/…); tracking parameters are stripped
+  • groupName — the Facebook group it was posted in (always)
+  • postUrl — the post's link, e.g. https://www.facebook.com/groups/<group>/posts/<post>/ (always; must be an https facebook.com link, tracking parameters are stripped)
 
 The reply lists cards that could not be matched to a single card (misspelt, or a pitched card without pitch) — fix and resubmit the day if you can. feedDate is YYYY-MM-DD; omit it for today (US Eastern).`,
 
@@ -104,8 +110,8 @@ The reply lists cards that could not be matched to a single card (misspelt, or a
             condition: { type: 'string', enum: ['NM', 'LP', 'MP', 'HP', 'DMG'] },
             price: { type: 'number', description: 'Price for one copy.' },
             currency: { type: 'string', description: 'ISO 4217 code. Default USD.' },
-            groupName: { type: 'string' },
-            postUrl: { type: 'string', description: 'https Facebook link to the post.' },
+            groupName: { type: 'string', description: 'Facebook group the post is in. Always send it.' },
+            postUrl: { type: 'string', description: 'https facebook.com link to the post (timestamp or Share → Copy link). Always send it; never a profile link.' },
           },
           required: ['side', 'cardName', 'price'],
         },
