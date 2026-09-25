@@ -3,6 +3,13 @@
 // prices seen in Facebook groups (shown on /feed). Thin wrappers over
 // /api/feed — POST enforces the superadmin role.
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { FEED_REGIONS, FEED_REGION_LABELS, isFeedRegion } from '@/lib/market-feed/region';
+
+const REGION_PARAM = {
+  type: 'string',
+  enum: [...FEED_REGIONS],
+  description: 'Regional feed: "na" (North America, default), "eu" (Europe) or "apac" (Asia-Pacific) — the region of the Facebook group.',
+};
 
 type MarketFeedToolResult = { success: boolean; data?: any; message?: string; error?: string };
 
@@ -26,7 +33,7 @@ export const getMarketFeedTool = {
   name: 'get_market_feed',
   description: `📰 GET MARKET FEED (superadmin only): Read one day of the anonymous Facebook buy/sell price feed shown on fabbazaar.app/feed.
 
-ALWAYS call this before submit_market_feed on a day that may already have listings: submit replaces the WHOLE day, so merge what is already stored with your new finds and submit the combined list.
+ALWAYS call this before submit_market_feed on a day that may already have listings: submit replaces the WHOLE day for that region, so merge what is already stored with your new finds and submit the combined list. Pass the same region you will submit to.
 
 feedDate is YYYY-MM-DD; omit it for today (US Eastern). Also returns the dates that have listings.`,
 
@@ -34,6 +41,7 @@ feedDate is YYYY-MM-DD; omit it for today (US Eastern). Also returns the dates t
     type: 'object',
     properties: {
       feedDate: { type: 'string', description: 'Day to read (YYYY-MM-DD). Defaults to today, US Eastern.' },
+      region: REGION_PARAM,
     },
   },
 
@@ -43,7 +51,10 @@ feedDate is YYYY-MM-DD; omit it for today (US Eastern). Also returns the dates t
       const tokenToUse = authenticatedUser?.mcpToken || token;
       if (!tokenToUse) return { success: false, error: 'Authentication required: no token found.' };
 
-      const qs = params?.feedDate ? `?date=${encodeURIComponent(params.feedDate)}` : '';
+      const query = new URLSearchParams();
+      if (params?.feedDate) query.set('date', params.feedDate);
+      if (params?.region) query.set('region', params.region);
+      const qs = query.toString() ? `?${query.toString()}` : '';
       const response = await mcpFetch(`${API_BASE_URL}/api/feed${qs}`, {
         headers: { Authorization: `Bearer ${tokenToUse}` },
       });
@@ -76,7 +87,11 @@ export const submitMarketFeedTool = {
   name: 'submit_market_feed',
   description: `📰 SUBMIT MARKET FEED (superadmin only): Publish the day's curated buy/sell/trade listings seen in Flesh and Blood Facebook groups to fabbazaar.app/feed — a price reference next to TCGplayer, and signed-in users are shown which cards people want that they own.
 
-REPLACES THE WHOLE DAY: submitting the same feedDate again overwrites that day (other days are untouched). If the day may already have listings, call get_market_feed first and submit the merged list. An empty listings array clears the day.
+REGIONS: set region to the Facebook group's region — "na" (North America, default), "eu" (Europe) or "apac" (Asia-Pacific). Submit each region separately; each has its own feed. Keep prices in the currency the post uses (e.g. EUR for European groups).
+
+DATES: feedDate is the date the posts were made, not the day you scan them. When a scan finds posts from several days, submit one call per date.
+
+REPLACES THE WHOLE DAY (for that region): submitting the same feedDate + region again overwrites it (other days and regions are untouched). If it may already have listings, call get_market_feed first (same date + region) and submit the merged list. An empty listings array clears it.
 
 ALWAYS SEND groupName AND postUrl on every listing — the site shows the group and links "Post" to the original so readers can check the listing. Get the link from the post's timestamp or Share → Copy link.
 
@@ -100,7 +115,8 @@ The reply lists cards that could not be matched to a single card (misspelt, or a
   parameters: {
     type: 'object',
     properties: {
-      feedDate: { type: 'string', description: 'Day the listings belong to (YYYY-MM-DD). Defaults to today, US Eastern.' },
+      feedDate: { type: 'string', description: 'Date the posts were made (YYYY-MM-DD). Defaults to today, US Eastern.' },
+      region: REGION_PARAM,
       listings: {
         type: 'array',
         description: 'The complete list for the day (max 500).',
@@ -135,8 +151,12 @@ The reply lists cards that could not be matched to a single card (misspelt, or a
         return { success: false, error: 'Missing required parameter: listings (array; [] clears the day).' };
       }
 
+      if (params.region != null && !isFeedRegion(params.region)) {
+        return { success: false, error: 'region must be "na", "eu" or "apac".' };
+      }
       const body: Record<string, unknown> = { listings: params.listings };
       if (params.feedDate) body.feedDate = params.feedDate;
+      if (params.region) body.region = params.region;
 
       const response = await mcpFetch(`${API_BASE_URL}/api/feed`, {
         method: 'POST',
@@ -148,12 +168,14 @@ The reply lists cards that could not be matched to a single card (misspelt, or a
       const json = await response.json();
       const data = json.data as {
         feedDate: string;
+        region?: string;
         count: number;
         unmatched: string[];
         looseMatches?: { cardName: string; matchedName: string }[];
         suggestions?: { cardName: string; candidates: { name: string; pitch: number | null; collectorNumbers: string[] }[] }[];
       };
-      const lines = [`Saved ${data.count} listing(s) for ${data.feedDate} — replaces anything stored for that day.`];
+      const regionLabel = isFeedRegion(data.region) ? FEED_REGION_LABELS[data.region] : FEED_REGION_LABELS.na;
+      const lines = [`Saved ${data.count} listing(s) for ${data.feedDate} (${regionLabel}) — replaces anything stored for that day and region.`];
       if (data.looseMatches?.length) {
         lines.push(
           `Matched loosely (check these are right; if not, resubmit with the exact name or collectorNumber): ${data.looseMatches

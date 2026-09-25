@@ -7,6 +7,7 @@ import type { FeedPost } from '@/lib/market-feed/group-posts';
 import { AffiliateDisclosure } from '@/components/shared/AffiliateDisclosure';
 import { BuyOnTcgplayer, PITCH_LABEL, PostLink, foilingName, formatMoney } from './feed-ui';
 import { PostCard } from './PostCard';
+import { FEED_REGIONS, FEED_REGION_LABELS, type FeedRegion } from '@/lib/market-feed/region';
 import type {
   MarketFeedDateSummary,
   MarketFeedListing,
@@ -28,10 +29,13 @@ function shortDate(date: string): string {
 
 export type FeedView = 'posts' | 'cards';
 
-const feedHref = (date: string, today: string, view: FeedView = 'posts') => {
+// region is only put in the URL when the viewer picks one (the page then
+// remembers it); otherwise it is resolved per viewer on the server.
+const feedHref = (date: string, today: string, view: FeedView = 'posts', region?: FeedRegion) => {
   const params = new URLSearchParams();
   if (date !== today) params.set('date', date);
   if (view === 'cards') params.set('view', 'cards');
+  if (region) params.set('region', region);
   const qs = params.toString();
   return qs ? `/feed?${qs}` : '/feed';
 };
@@ -280,6 +284,7 @@ export function MarketFeedView({
   feedDate,
   today,
   view,
+  region,
   signedIn,
   groups,
   posts,
@@ -292,6 +297,7 @@ export function MarketFeedView({
   feedDate: string;
   today: string;
   view: FeedView;
+  region: FeedRegion;
   signedIn: boolean;
   groups: PersonalizedGroup[];
   posts: FeedPost[];
@@ -314,12 +320,31 @@ export function MarketFeedView({
       <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Market Feed</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{dateLabel(feedDate)}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {FEED_REGION_LABELS[region]} · {dateLabel(feedDate)}
+          </p>
           <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
             Prices players asked and offered for cards in Flesh and Blood buy/sell groups that day, next to the
             TCGplayer low price. Collected daily, with no names attached. It&apos;s a reference point, not a live listing.
           </p>
         </div>
+
+        <nav aria-label="Region" className="flex flex-wrap gap-2 mb-2">
+          {FEED_REGIONS.map((r) => (
+            <Link
+              key={r}
+              href={feedHref(feedDate, today, view, r)}
+              aria-current={region === r ? 'page' : undefined}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                region === r
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              {FEED_REGION_LABELS[r]}
+            </Link>
+          ))}
+        </nav>
 
         <nav aria-label="Feed days" className="flex items-center justify-between gap-2 mb-4">
           {older ? (

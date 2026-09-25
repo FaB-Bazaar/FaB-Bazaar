@@ -38,6 +38,13 @@ describe('submitMarketFeedTool schema', () => {
     expect(item.required).toEqual(['side', 'cardName'])
   })
 
+  it('takes a region (na / eu / apac) for the whole submission', () => {
+    expect((submitMarketFeedTool.parameters.properties as any).region.enum).toEqual(['na', 'eu', 'apac'])
+    expect((getMarketFeedTool.parameters.properties as any).region.enum).toEqual(['na', 'eu', 'apac'])
+    expect(submitMarketFeedTool.description).toMatch(/region/)
+    expect(submitMarketFeedTool.description).toMatch(/date the posts? (were|was) made|post's own date|date of the post/i)
+  })
+
   it('explains how to send a "willing to trade for" list', () => {
     expect(submitMarketFeedTool.description).toMatch(/trade/i)
     expect(submitMarketFeedTool.description).toMatch(/Marvel/)
@@ -85,6 +92,13 @@ describe('submitMarketFeedTool.handler', () => {
     const res = await submitMarketFeedTool.handler({ listings: [listing] }, auth, 'tok')
     expect(res.message).toContain('"Command" — did you mean: Command and Conquer (red, ARC159), Command the Currents?')
     expect(res.message).toMatch(/resubmit/i)
+  })
+
+  it('sends the region with the submission', async () => {
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-08-26', region: 'eu', count: 1, unmatched: [], looseMatches: [], suggestions: [] }) as any)
+    const res = await submitMarketFeedTool.handler({ feedDate: '2026-08-26', region: 'eu', listings: [listing] }, auth, 'tok')
+    expect(JSON.parse(String(mockFetch.mock.calls[0][1]!.body))).toEqual({ feedDate: '2026-08-26', region: 'eu', listings: [listing] })
+    expect(res.message).toMatch(/Europe/)
   })
 
   it('omits feedDate when not given (server defaults to today, US Eastern)', async () => {
@@ -156,6 +170,12 @@ describe('getMarketFeedTool.handler', () => {
     mockFetch.mockResolvedValue(ok({ feedDate: '2026-09-24', listings: [withLink], dates: [] }) as any)
     const res = await getMarketFeedTool.handler({}, auth, 'tok')
     expect(res.message).not.toMatch(/no postUrl/)
+  })
+
+  it('reads the requested region', async () => {
+    mockFetch.mockResolvedValue(ok({ feedDate: '2026-08-26', region: 'eu', listings: [], dates: [] }) as any)
+    await getMarketFeedTool.handler({ feedDate: '2026-08-26', region: 'eu' }, auth, 'tok')
+    expect(String(mockFetch.mock.calls[0][0])).toBe('http://localhost:3000/api/feed?date=2026-08-26&region=eu')
   })
 
   it('defaults to today (no date param)', async () => {

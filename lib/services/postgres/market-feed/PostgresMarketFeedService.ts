@@ -1,6 +1,7 @@
 import { db } from '@/lib/postgres/db';
 import { marketFeedListings } from '@/lib/postgres/schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { isFeedRegion, type FeedRegion } from '@/lib/market-feed/region';
 import { FOILING_MAP, ART_VARIATIONS_MAP } from '@/lib/fab-constants/foilings';
 import type { AsyncResult } from '../../contracts/common';
 
@@ -43,6 +44,8 @@ export interface MarketFeedListingInput {
 
 export interface ReplaceMarketFeedDayInput {
   feedDate: string;
+  /** Which regional feed this is (default 'na'). Only that (date, region) is replaced. */
+  region?: FeedRegion;
   listings: MarketFeedListingInput[];
   createdBy?: string | null;
 }
@@ -74,6 +77,7 @@ export interface MarketFeedListing {
 
 export interface MarketFeedDay {
   feedDate: string;
+  region: FeedRegion;
   listings: MarketFeedListing[];
 }
 
@@ -97,6 +101,7 @@ export interface MarketFeedSuggestion {
 
 export interface MarketFeedReplaceResult {
   feedDate: string;
+  region: FeedRegion;
   count: number;
   unmatched: string[];
   looseMatches: MarketFeedLooseMatch[];
@@ -368,6 +373,8 @@ export class PostgresMarketFeedService {
       if (!isValidFeedDate(input.feedDate)) {
         return { success: false, error: 'feedDate must be a YYYY-MM-DD date' };
       }
+      const region = input.region ?? 'na';
+      if (!isFeedRegion(region)) return { success: false, error: "region must be 'na', 'eu' or 'apac'" };
       if (!Array.isArray(input.listings)) return { success: false, error: 'listings must be an array' };
       if (input.listings.length > MARKET_FEED_MAX_LISTINGS) {
         return { success: false, error: `At most ${MARKET_FEED_MAX_LISTINGS} listings per day` };
@@ -398,6 +405,7 @@ export class PostgresMarketFeedService {
         rows.push({
           id: crypto.randomUUID(),
           feedDate: input.feedDate,
+          region,
           ...l,
           cardUniqueId: match?.cardUniqueId ?? null,
           pitch: l.pitch ?? match?.pitch ?? null,
@@ -406,13 +414,15 @@ export class PostgresMarketFeedService {
       }
 
       await db.transaction(async (tx) => {
-        await tx.delete(marketFeedListings).where(eq(marketFeedListings.feedDate, input.feedDate));
+        await tx
+          .delete(marketFeedListings)
+          .where(and(eq(marketFeedListings.feedDate, input.feedDate), eq(marketFeedListings.region, region)));
         if (rows.length) await tx.insert(marketFeedListings).values(rows);
       });
 
       return {
         success: true,
-        data: { feedDate: input.feedDate, count: rows.length, unmatched, looseMatches, suggestions },
+        data: { feedDate: input.feedDate, region, count: rows.length, unmatched, looseMatches, suggestions },
       };
     } catch (error) {
       console.error('[market-feed] replaceDay failed:', error);
@@ -420,9 +430,10 @@ export class PostgresMarketFeedService {
     }
   }
 
-  async getDay(feedDate: string): AsyncResult<MarketFeedDay> {
+  async getDay(feedDate: string, region: FeedRegion = 'na'): AsyncResult<MarketFeedDay> {
     try {
       if (!isValidFeedDate(feedDate)) return { success: false, error: 'feedDate must be a YYYY-MM-DD date' };
+      if (!isFeedRegion(region)) return { success: false, error: "region must be 'na', 'eu' or 'apac'" };
       // Price + image come from the cheapest English printing matching the
       // listing's collector number / foiling when it gave them (tcg_low is THE price).
       const result = await db.execute<{
@@ -457,13 +468,14 @@ export class PostgresMarketFeedService {
                    (p.language = 'en') DESC, p.set, p.edition
           LIMIT 1
         ) img ON true
-        WHERE l.feed_date = ${feedDate}
+        WHERE l.feed_date = ${feedDate} AND l.region = ${region}
         ORDER BY coalesce(c.display_name, l.card_name), l.side, l.price`);
 
       return {
         success: true,
         data: {
           feedDate,
+          region,
           listings: result.rows.map((r) => ({
             id: r.id,
             side: r.side,
@@ -497,7 +509,7 @@ export class PostgresMarketFeedService {
    * on their wants list. Card-level (card_unique_id); foilings let the page
    * flag an exact-foiling match. Only ever called for the signed-in viewer.
    */
-  async getViewerMatches(userId: string, feedDate: string): AsyncResult<MarketFeedViewerMatches> {
+  async getViewerMatches(userId: string, feedDate: string, region: FeedRegion = 'na'): AsyncResult<MarketFeedViewerMatches> {
     try {
       if (!isValidFeedDate(feedDate)) return { success: false, error: 'feedDate must be a YYYY-MM-DD date' };
       // One row per owned inventory line; foilings + variants aggregate below.
@@ -509,7 +521,7 @@ export class PostgresMarketFeedService {
         FROM inventory_items i JOIN printings p ON p.printing_id = i.printing_id
         WHERE i.user_id = ${userId} AND i.quantity > 0
           AND p.card_unique_id IN (SELECT card_unique_id FROM market_feed_listings
-                                   WHERE feed_date = ${feedDate} AND card_unique_id IS NOT NULL)`);
+                                   WHERE feed_date = ${feedDate} AND region = ${region} AND card_unique_id IS NOT NULL)`);
       const labelForArt = Object.fromEntries(Object.entries(VARIANT_ART_CODES).map(([label, code]) => [code, label]));
       const owned: MarketFeedViewerMatches['owned'] = {};
       for (const r of ownedRows.rows) {
@@ -532,7 +544,7 @@ export class PostgresMarketFeedService {
         FROM wants_items w JOIN printings p ON p.printing_id = w.printing_id
         WHERE w.user_id = ${userId}
           AND p.card_unique_id IN (SELECT card_unique_id FROM market_feed_listings
-                                   WHERE feed_date = ${feedDate} AND card_unique_id IS NOT NULL)
+                                   WHERE feed_date = ${feedDate} AND region = ${region} AND card_unique_id IS NOT NULL)
         GROUP BY p.card_unique_id`);
       return {
         success: true,
@@ -547,11 +559,12 @@ export class PostgresMarketFeedService {
     }
   }
 
-  async listDates(limit = 60): AsyncResult<MarketFeedDateSummary[]> {
+  async listDates(limit = 60, region: FeedRegion = 'na'): AsyncResult<MarketFeedDateSummary[]> {
     try {
       const result = await db.execute<{ feed_date: string; count: number }>(sql`
         SELECT feed_date::text AS feed_date, count(*)::int AS count
         FROM market_feed_listings
+        WHERE region = ${region}
         GROUP BY feed_date ORDER BY feed_date DESC
         LIMIT ${Math.max(1, Math.min(limit, 1000))}`);
       return { success: true, data: result.rows.map((r) => ({ feedDate: r.feed_date, count: Number(r.count) })) };

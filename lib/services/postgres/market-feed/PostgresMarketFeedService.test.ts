@@ -169,6 +169,41 @@ describe('PostgresMarketFeedService', () => {
     });
   });
 
+  describe('regions', () => {
+    const one = (price: number) => [{ side: 'selling' as const, cardName: 'Sink Below', pitch: 1, price }];
+
+    it('replacing one region leaves the other regions of the same day alone', async () => {
+      const date = testDate();
+      await service.replaceDay({ feedDate: date, listings: one(1) }); // default region: North America
+      await service.replaceDay({ feedDate: date, region: 'eu', listings: one(2) });
+      await service.replaceDay({ feedDate: date, region: 'eu', listings: one(3) });
+
+      const na = await service.getDay(date);
+      const eu = await service.getDay(date, 'eu');
+      const apac = await service.getDay(date, 'apac');
+      if (!na.success || !eu.success || !apac.success) throw new Error('getDay failed');
+      expect(na.data.listings.map((l) => l.price)).toEqual([1]);
+      expect(eu.data.listings.map((l) => l.price)).toEqual([3]);
+      expect(apac.data.listings).toEqual([]);
+      expect(eu.data.region).toBe('eu');
+    });
+
+    it('lists dates per region', async () => {
+      const date = testDate();
+      await service.replaceDay({ feedDate: date, region: 'apac', listings: one(1) });
+      const apac = await service.listDates(1000, 'apac');
+      const na = await service.listDates(1000, 'na');
+      if (!apac.success || !na.success) throw new Error('listDates failed');
+      expect(apac.data.some((d) => d.feedDate === date)).toBe(true);
+      expect(na.data.some((d) => d.feedDate === date)).toBe(false);
+    });
+
+    it('rejects an unknown region', async () => {
+      const res = await service.replaceDay({ feedDate: testDate(), region: 'mars' as any, listings: one(1) });
+      expect(res.success).toBe(false);
+    });
+  });
+
   describe('TCGplayer link', () => {
     it('comes from the same printing as the TCG Low price', async () => {
       const [ref] = (await db.execute<{ tcg_low: number; tcgplayer_url: string }>(sql`

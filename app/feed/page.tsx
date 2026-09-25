@@ -6,12 +6,17 @@
 // Server component: one day per page, ?date=YYYY-MM-DD, default today (ET).
 // Signed-in viewers also see which wanted cards they own / which sold cards
 // they want (their own collection only, matched server-side).
+// Region (na / eu / apac): ?region choice → remembered cookie → profile
+// country → Cloudflare CF-IPCountry → na (lib/market-feed/region.ts).
 
 export const dynamic = 'force-dynamic';
 
 import type { Metadata } from 'next';
+import { cookies, headers } from 'next/headers';
 import { auth } from '@/auth';
-import { marketFeedService } from '@/lib/services';
+import { marketFeedService, userService } from '@/lib/services';
+import { FEED_REGION_COOKIE, isFeedRegion, resolveFeedRegion } from '@/lib/market-feed/region';
+import { RememberRegion } from './RememberRegion';
 import { marketFeedToday } from '@/lib/market-feed/feed-date';
 import { groupFeedListings } from '@/lib/market-feed/group-listings';
 import { personalizeFeed } from '@/lib/market-feed/personalize';
@@ -28,9 +33,9 @@ export const metadata: Metadata = {
 export default async function MarketFeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; view?: string }>;
+  searchParams: Promise<{ date?: string; view?: string; region?: string }>;
 }) {
-  const { date: requested, view: requestedView } = await searchParams;
+  const { date: requested, view: requestedView, region: requestedRegion } = await searchParams;
   // By post is the default: a post often sells many cards at once.
   const view = requestedView === 'cards' ? 'cards' : 'posts';
   const today = marketFeedToday();
@@ -39,10 +44,18 @@ export default async function MarketFeedPage({
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
+  const profile = userId ? await userService.getBasicInfo(userId) : null;
+  const region = resolveFeedRegion({
+    requested: requestedRegion,
+    remembered: (await cookies()).get(FEED_REGION_COOKIE)?.value,
+    profileCountry: profile?.success ? profile.data?.countryCode : null,
+    ipCountry: (await headers()).get('cf-ipcountry'),
+  });
+
   const [day, dates, matches] = await Promise.all([
-    marketFeedService.getDay(feedDate),
-    marketFeedService.listDates(),
-    userId ? marketFeedService.getViewerMatches(userId, feedDate) : Promise.resolve(null),
+    marketFeedService.getDay(feedDate, region),
+    marketFeedService.listDates(60, region),
+    userId ? marketFeedService.getViewerMatches(userId, feedDate, region) : Promise.resolve(null),
   ]);
   const error = !day.success ? day.error : !dates.success ? dates.error : null;
   const listings = day.success ? day.data.listings : [];
@@ -54,18 +67,22 @@ export default async function MarketFeedPage({
   );
 
   return (
-    <MarketFeedView
-      feedDate={feedDate}
-      today={today}
-      view={view}
-      signedIn={!!userId}
-      groups={groups}
-      posts={groupFeedPosts(listings, byListing)}
-      byListing={byListing}
-      tradePosts={tradePosts}
-      forYou={forYou}
-      dates={dates.success ? dates.data : []}
-      error={error}
-    />
+    <>
+      {isFeedRegion(requestedRegion) && <RememberRegion region={requestedRegion} />}
+      <MarketFeedView
+        feedDate={feedDate}
+        today={today}
+        view={view}
+        region={region}
+        signedIn={!!userId}
+        groups={groups}
+        posts={groupFeedPosts(listings, byListing)}
+        byListing={byListing}
+        tradePosts={tradePosts}
+        forYou={forYou}
+        dates={dates.success ? dates.data : []}
+        error={error}
+      />
+    </>
   );
 }

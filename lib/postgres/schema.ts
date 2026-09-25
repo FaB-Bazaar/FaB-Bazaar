@@ -1901,6 +1901,7 @@ export const foilMaskBulkOps = pgTable('foil_mask_bulk_ops', {
 export const marketFeedListings = pgTable('market_feed_listings', {
   id: text('id').primaryKey(),
   feedDate: date('feed_date', { mode: 'string' }).notNull(),
+  region: text('region').default('na').notNull(), // 'na' | 'eu' | 'apac' — a submission replaces one (date, region) (0118)
   side: text('side').notNull(), // 'selling' | 'buying' | 'trade' (wanted in exchange, 0117)
   cardName: text('card_name').notNull(),
   cardUniqueId: text('card_unique_id').references(() => cards.cardUniqueId, { onDelete: 'set null' }),
@@ -1916,5 +1917,5 @@ export const marketFeedListings = pgTable('market_feed_listings', {
   createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
-  feedDateIdx: index('idx_market_feed_listings_feed_date').on(table.feedDate),
+  regionDateIdx: index('idx_market_feed_listings_region_date').on(table.region, table.feedDate),
 }));

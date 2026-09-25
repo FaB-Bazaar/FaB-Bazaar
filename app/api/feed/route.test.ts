@@ -46,9 +46,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue({ success: true, userId: 'admin-1' } as any);
   mockHasRole.mockResolvedValue({ success: true, data: true } as any);
-  mockGetDay.mockResolvedValue({ success: true, data: { feedDate: '2026-09-24', listings: [] } });
+  mockGetDay.mockResolvedValue({ success: true, data: { feedDate: '2026-09-24', region: 'na', listings: [] } });
   mockListDates.mockResolvedValue({ success: true, data: [{ feedDate: '2026-09-24', count: 3 }] });
-  mockReplaceDay.mockResolvedValue({ success: true, data: { feedDate: '2026-09-24', count: 1, unmatched: [], looseMatches: [], suggestions: [] } });
+  mockReplaceDay.mockResolvedValue({ success: true, data: { feedDate: '2026-09-24', region: 'na', count: 1, unmatched: [], looseMatches: [], suggestions: [] } });
 });
 
 describe('GET /api/feed', () => {
@@ -59,13 +59,24 @@ describe('GET /api/feed', () => {
     expect(json.success).toBe(true);
     expect(json.data.feedDate).toBe('2026-09-24');
     expect(json.data.dates).toEqual([{ feedDate: '2026-09-24', count: 3 }]);
-    expect(mockGetDay).toHaveBeenCalledWith('2026-09-24');
+    expect(mockGetDay).toHaveBeenCalledWith('2026-09-24', 'na');
     expect(mockAuth).not.toHaveBeenCalled();
+  });
+
+  it('reads the requested region', async () => {
+    await GET(makeGet('?date=2026-09-24&region=eu'));
+    expect(mockGetDay).toHaveBeenCalledWith('2026-09-24', 'eu');
+    expect(mockListDates).toHaveBeenCalledWith(60, 'eu');
+  });
+
+  it('rejects an unknown region', async () => {
+    const res = await GET(makeGet('?region=mars'));
+    expect(res.status).toBe(400);
   });
 
   it('defaults to today in US Eastern', async () => {
     await GET(makeGet());
-    expect(mockGetDay).toHaveBeenCalledWith(marketFeedToday());
+    expect(mockGetDay).toHaveBeenCalledWith(marketFeedToday(), 'na');
   });
 
   it('rejects a malformed date', async () => {
@@ -80,9 +91,14 @@ describe('POST /api/feed', () => {
     const res = await POST(makePost({ feedDate: '2026-09-24', listings: [listing] }));
     expect(res.status).toBe(200);
     expect(mockAuth.mock.calls[0][2]).toEqual({ allowOAuth: true });
-    expect(mockReplaceDay).toHaveBeenCalledWith({ feedDate: '2026-09-24', listings: [listing], createdBy: 'admin-1' });
+    expect(mockReplaceDay).toHaveBeenCalledWith({ feedDate: '2026-09-24', region: 'na', listings: [listing], createdBy: 'admin-1' });
     const json = await res.json();
-    expect(json.data).toEqual({ feedDate: '2026-09-24', count: 1, unmatched: [], looseMatches: [], suggestions: [] });
+    expect(json.data).toEqual({ feedDate: '2026-09-24', region: 'na', count: 1, unmatched: [], looseMatches: [], suggestions: [] });
+  });
+
+  it('passes the region through', async () => {
+    await POST(makePost({ feedDate: '2026-08-26', region: 'eu', listings: [listing] }));
+    expect(mockReplaceDay.mock.calls[0][0]).toMatchObject({ feedDate: '2026-08-26', region: 'eu' });
   });
 
   it('defaults feedDate to today in US Eastern', async () => {
