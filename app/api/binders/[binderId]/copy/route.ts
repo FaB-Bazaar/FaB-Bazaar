@@ -104,11 +104,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: `Successfully copied binder to your collection`,
-      newBinder: {
-        id: result.data._id,
-        name: result.data.name,
-        slug: result.data.slug
-      }
+      data: result.data
     });
 
   } catch (error) {
