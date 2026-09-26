@@ -32,7 +32,7 @@ export default defineConfig({
         name: 'node',
         test: {
           environment: 'node',
-          include: ['security/**/*.test.ts', 'app/api/**/*.test.ts', 'app/discord-v2/**/*.test.ts', 'app/stores/**/*.test.ts', 'app/wants/**/*.test.ts', 'app/oauth/**/*.test.ts', 'models/**/*.test.ts', 'lib/**/*.test.ts', 'web-components/src/**/*.test.ts'],
+          include: ['security/**/*.test.ts', 'app/api/**/*.test.ts', 'app/discord-v2/**/*.test.ts', 'app/stores/**/*.test.ts', 'app/wants/**/*.test.ts', 'app/oauth/**/*.test.ts', 'app/overlay/**/*.test.ts', 'models/**/*.test.ts', 'lib/**/*.test.ts', 'web-components/src/**/*.test.ts'],
           setupFiles: ['./vitest.setup.ts'],
           alias: {
             '@': path.resolve(__dirname, './'),
