@@ -59,6 +59,7 @@ import {
   deckFormatToSnake,
 } from './validation';
 import { inferDeckCategory } from '@/lib/deck/classify-deck-zone';
+import { isOverlayVisible } from '@/lib/overlay/deck-overlay';
 
 export class PostgresDeckService implements IDeckService {
   // ====================================
@@ -500,6 +501,79 @@ export class PostgresDeckService implements IDeckService {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to find deck by publicId',
       };
+    }
+  }
+
+  // ====================================
+  // Streaming deck (profile-level stream overlay)
+  // ====================================
+
+  async setStreamingDeck(
+    userId: string,
+    deckPublicId: string | null
+  ): AsyncResult<{ deckPublicId: string | null }> {
+    try {
+      if (deckPublicId === null) {
+        await db.update(users).set({ streamingDeckId: null }).where(eq(users.id, userId));
+        return { success: true, data: { deckPublicId: null } };
+      }
+
+      const [deck] = await db
+        .select({ id: decks.id, visibility: decks.visibility, metafyGuideId: decks.metafyGuideId })
+        .from(decks)
+        .where(and(
+          eq(decks.publicId, deckPublicId),
+          or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)
+        ))
+        .limit(1);
+
+      if (!deck) {
+        return { success: false, error: 'Deck not found', code: 'NOT_FOUND' };
+      }
+      if (!isOverlayVisible(deck)) {
+        return {
+          success: false,
+          error: 'Only public or unlisted decks without a Metafy guide can be shown on stream',
+          code: 'NOT_STREAMABLE',
+        };
+      }
+
+      await db.update(users).set({ streamingDeckId: deck.id }).where(eq(users.id, userId));
+      return { success: true, data: { deckPublicId } };
+    } catch (error) {
+      console.error('[PostgresDeckService.setStreamingDeck] Error:', error);
+      return { success: false, error: 'Failed to set streaming deck' };
+    }
+  }
+
+  async getStreamingDeckPublicId(userId: string): AsyncResult<string | null> {
+    try {
+      const [row] = await db
+        .select({ publicId: decks.publicId })
+        .from(users)
+        .innerJoin(decks, eq(decks.id, users.streamingDeckId))
+        .where(eq(users.id, userId))
+        .limit(1);
+      return { success: true, data: row?.publicId ?? null };
+    } catch (error) {
+      console.error('[PostgresDeckService.getStreamingDeckPublicId] Error:', error);
+      return { success: false, error: 'Failed to get streaming deck' };
+    }
+  }
+
+  async findStreamingDeckByUsername(username: string): AsyncResult<DeckDTO | null> {
+    try {
+      const [row] = await db
+        .select({ publicId: decks.publicId })
+        .from(users)
+        .innerJoin(decks, eq(decks.id, users.streamingDeckId))
+        .where(sql`lower(${users.username}) = lower(${username})`)
+        .limit(1);
+      if (!row) return { success: true, data: null };
+      return this.findByPublicId(row.publicId);
+    } catch (error) {
+      console.error('[PostgresDeckService.findStreamingDeckByUsername] Error:', error);
+      return { success: false, error: 'Failed to find streaming deck' };
     }
   }
 

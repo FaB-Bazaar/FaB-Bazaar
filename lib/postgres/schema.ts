@@ -129,6 +129,10 @@ export const users = pgTable('users', {
   // Logged-in landing page: 'volzar' | 'collection' | 'decks'; NULL = /volzar
   landingPage: text('landing_page'),
 
+  // Deck shown by the profile-level stream overlay (/overlay/u/<username>/deck).
+  // FK to decks.id ON DELETE SET NULL is declared in migration 0120 (circular ref here).
+  streamingDeckId: text('streaming_deck_id'),
+
   // Roles
   isAdmin: boolean('is_admin').default(false).notNull(),
   isSuperAdmin: boolean('is_super_admin').default(false).notNull(),

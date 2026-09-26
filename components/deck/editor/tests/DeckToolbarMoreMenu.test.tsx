@@ -47,6 +47,23 @@ describe('DeckToolbarMoreMenu', () => {
     expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
   });
 
+  it('shows Stream overlay when onStreamOverlay is provided and fires it', async () => {
+    const user = userEvent.setup();
+    const onStreamOverlay = vi.fn();
+    render(<DeckToolbarMoreMenu {...baseProps} onStreamOverlay={onStreamOverlay} />);
+    await user.click(screen.getByRole('button', { name: /more/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /stream overlay/i }));
+    expect(onStreamOverlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Stream overlay when onStreamOverlay is not provided', async () => {
+    const user = userEvent.setup();
+    render(<DeckToolbarMoreMenu {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: /more/i }));
+    expect(await screen.findByRole('menuitem', { name: /copy list/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /stream overlay/i })).not.toBeInTheDocument();
+  });
+
   it('fires onStickers when QR sticker sheet item clicked', async () => {
     const user = userEvent.setup();
     const onStickers = vi.fn();

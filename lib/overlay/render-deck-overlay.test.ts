@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderDeckOverlayHtml, parseOverlayOptions } from './render-deck-overlay';
+import { renderDeckOverlayHtml, renderNoDeckOverlayHtml, parseOverlayOptions } from './render-deck-overlay';
 import type { DeckOverlayModel, OverlayCard } from './deck-overlay';
 
 const c = (name: string, pitch: 1 | 2 | 3 | null, quantity = 1, imageUrl: string | null = `https://imagedelivery.net/x/${encodeURIComponent(name)}/public`): OverlayCard =>
@@ -136,6 +136,39 @@ describe('renderDeckOverlayHtml', () => {
         opts
       );
       expect(html).not.toContain('<b>x</b>');
+    });
+  });
+
+  describe('live reload polling', () => {
+    const poll = { url: '/overlay/u/m1stercakes/deck?check=1', version: 'deck123:2026-09-26T00:00:00.000Z' };
+
+    it.each(['spotlight', 'list', 'pages'] as const)('embeds the poll URL and current version in the %s layout', layout => {
+      const html = renderDeckOverlayHtml(model(), { layout, intervalSec: 6, poll });
+      expect(html).toContain('data-poll-url="/overlay/u/m1stercakes/deck?check=1"');
+      expect(html).toContain('data-version="deck123:2026-09-26T00:00:00.000Z"');
+      expect(html).toContain('location.reload');
+    });
+
+    it('does not poll when no poll option is given', () => {
+      const html = renderDeckOverlayHtml(model(), { layout: 'list', intervalSec: 6 });
+      expect(html).not.toContain('data-poll-url');
+      expect(html).not.toContain('location.reload');
+    });
+
+    it('escapes the poll URL and version', () => {
+      const html = renderDeckOverlayHtml(model(), { layout: 'list', intervalSec: 6, poll: { url: '/x?"><script>', version: '"><b>' } });
+      expect(html).not.toContain('"><script>');
+      expect(html).not.toContain('"><b>');
+    });
+  });
+
+  describe('renderNoDeckOverlayHtml', () => {
+    it('renders a branded idle panel that keeps polling for a deck', () => {
+      const html = renderNoDeckOverlayHtml({ url: '/overlay/u/m1stercakes/deck?check=1', version: '' });
+      expect(html).toMatch(/html,\s*body\s*\{[^}]*background:\s*transparent/);
+      expect(html.replace(/<[^>]+>/g, '')).toContain('fabbazaar.app');
+      expect(html).toContain('data-poll-url="/overlay/u/m1stercakes/deck?check=1"');
+      expect(html).toContain('location.reload');
     });
   });
 

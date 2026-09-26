@@ -16,6 +16,7 @@ import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCa
 import DeckUpgradePrintingsDialog from "@/components/deck/editor/DeckUpgradePrintingsDialog";
 import DeckLanguageConversionDialog from "@/components/deck/editor/DeckLanguageConversionDialog";
 import DeckExportImageDialog from "@/components/deck/editor/DeckExportImageDialog";
+import DeckStreamOverlayDialog from "@/components/deck/editor/DeckStreamOverlayDialog";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
@@ -293,6 +294,8 @@ export default function DeckEditorPage() {
 
   // Export image (shareable PNG) dialog
   const [exportImageOpen, setExportImageOpen] = useState(false);
+  // Stream overlay (OBS links + "use as my streaming deck") dialog
+  const [streamOverlayOpen, setStreamOverlayOpen] = useState(false);
 
   // Deck settings
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1872,6 +1875,7 @@ export default function DeckEditorPage() {
                     onSettings={() => setSettingsOpen(true)}
                     onUpdateOwnedPrintings={canEdit ? handleUpgradePrintings : undefined}
                     onConvertLanguage={canEdit ? handleConvertLanguage : undefined}
+                    onStreamOverlay={canEdit ? () => setStreamOverlayOpen(true) : undefined}
                   />
                 )}
                 {!canEdit && state.deck && (
@@ -2434,6 +2438,14 @@ export default function DeckEditorPage() {
       </div>
 
       <DeckExportImageDialog open={exportImageOpen} onOpenChange={setExportImageOpen} deck={state.deck} />
+      {canEdit && state.deck && (
+        <DeckStreamOverlayDialog
+          open={streamOverlayOpen}
+          onOpenChange={setStreamOverlayOpen}
+          deckPublicId={state.deck.publicId}
+          visibility={state.deck.visibility}
+        />
+      )}
 
       {state.deck && (
         <MobileDeckActionsSheet

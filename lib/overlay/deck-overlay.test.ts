@@ -33,6 +33,10 @@ describe('isOverlayVisible', () => {
     expect(isOverlayVisible(deck({ visibility: 'private' }))).toBe(false);
   });
 
+  it('hides friends-only decks — OBS has no viewer to check friendship against', () => {
+    expect(isOverlayVisible(deck({ visibility: 'friends' as any }))).toBe(false);
+  });
+
   it('hides Metafy-gated decks even when public', () => {
     expect(isOverlayVisible(deck({ visibility: 'public', metafyGuideId: 'guide-1' }))).toBe(false);
   });

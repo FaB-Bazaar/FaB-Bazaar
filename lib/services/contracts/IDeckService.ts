@@ -711,6 +711,26 @@ export interface IDeckService {
   ): AsyncResult<DeckDTO | null>;
 
   // ====================================
+  // Streaming deck (profile-level stream overlay)
+  // ====================================
+
+  /**
+   * Choose (or clear with null) the deck the user's stream overlay shows.
+   * The deck must be owned or co-owned by the user (else code NOT_FOUND) and
+   * link-viewable — public/unlisted and not Metafy-gated (else code NOT_STREAMABLE).
+   */
+  setStreamingDeck(
+    userId: string,
+    deckPublicId: string | null
+  ): AsyncResult<{ deckPublicId: string | null }>;
+
+  /** The publicId of the user's streaming deck, or null when none is set. */
+  getStreamingDeckPublicId(userId: string): AsyncResult<string | null>;
+
+  /** The full streaming deck for a username (case-insensitive), or null. */
+  findStreamingDeckByUsername(username: string): AsyncResult<DeckDTO | null>;
+
+  // ====================================
   // CRUD Operations
   // ====================================
 

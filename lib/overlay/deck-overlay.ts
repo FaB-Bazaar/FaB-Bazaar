@@ -47,8 +47,11 @@ const PITCH_GROUPS: { pitch: OverlayPitchGroup['pitch']; label: OverlayPitchGrou
  * viewable by anyone with the link. Metafy-gated decks are paid guide content and never
  * render, even when their visibility is public.
  */
-export function isOverlayVisible(deck: OverlayDeckInput): boolean {
-  return deck.visibility !== 'private' && !deck.metafyGuideId;
+// Takes a plain string visibility: DB rows carry the full enum (incl. 'friends'),
+// which DeckDTO's DeckVisibility type doesn't list.
+export function isOverlayVisible(deck: { visibility: string; metafyGuideId?: string | null }): boolean {
+  // An allowlist, not `!== 'private'`: the DB enum also has 'friends', which is not link-viewable.
+  return (deck.visibility === 'public' || deck.visibility === 'unlisted') && !deck.metafyGuideId;
 }
 
 function normalizePitch(pitch: unknown): 1 | 2 | 3 | null {

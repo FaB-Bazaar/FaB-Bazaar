@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, Download, ImageDown, Eye, Tv, Settings, ArrowLeftRight, Languages, QrCode } from "lucide-react";
+import { MoreHorizontal, Copy, Download, ImageDown, Eye, Tv, Settings, ArrowLeftRight, Languages, QrCode, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DeckToolbarMoreMenuProps {
@@ -25,6 +25,8 @@ interface DeckToolbarMoreMenuProps {
   onUpdateOwnedPrintings?: () => void;
   /** Optional — owner-only: convert every deck card to a specific printing language where available. */
   onConvertLanguage?: () => void;
+  /** Optional — editors only: OBS stream overlay URLs + "use as my streaming deck". */
+  onStreamOverlay?: () => void;
   isOwner: boolean;
 }
 
@@ -38,6 +40,7 @@ export default function DeckToolbarMoreMenu({
   onSettings,
   onUpdateOwnedPrintings,
   onConvertLanguage,
+  onStreamOverlay,
   isOwner,
 }: DeckToolbarMoreMenuProps) {
   return (
@@ -83,6 +86,12 @@ export default function DeckToolbarMoreMenu({
           <QrCode className="h-4 w-4 mr-2" aria-hidden="true" />
           QR sticker sheet
         </DropdownMenuItem>
+        {onStreamOverlay && (
+          <DropdownMenuItem onClick={onStreamOverlay}>
+            <Radio className="h-4 w-4 mr-2" aria-hidden="true" />
+            Stream overlay
+          </DropdownMenuItem>
+        )}
         {isOwner && onUpdateOwnedPrintings && (
           <>
             <DropdownMenuSeparator />

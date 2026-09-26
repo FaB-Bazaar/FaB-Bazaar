@@ -5,6 +5,15 @@ export interface OverlayOptions {
   intervalSec: number;
   /** Include the sideboard (inventory) page in the pages layout. Default true. */
   showInventory?: boolean;
+  /** Reload the page when the deck behind it changes (profile-level overlay). */
+  poll?: OverlayPoll;
+}
+
+export interface OverlayPoll {
+  /** Same-origin URL returning { version } JSON. */
+  url: string;
+  /** Version the page was rendered with; a different value triggers a reload. */
+  version: string;
 }
 
 const LAYOUTS: readonly OverlayOptions['layout'][] = ['spotlight', 'list', 'pages'];
@@ -305,8 +314,57 @@ function renderPages(model: DeckOverlayModel, intervalSec: number, showInventory
   );
 }
 
+const POLL_INTERVAL_MS = 30_000;
+
+/**
+ * Asks the server every 30s which deck version it would render now and reloads when it
+ * changes — how a streamer switching decks on the site reaches OBS without touching it.
+ * Network errors are ignored (the next tick retries).
+ */
+function pollSnippet(poll: OverlayPoll): string {
+  return `<div hidden id="poll" data-poll-url="${escapeHtml(poll.url)}" data-version="${escapeHtml(poll.version)}"></div>
+<script>
+  (function () {
+    var el = document.getElementById('poll');
+    setInterval(function () {
+      fetch(el.dataset.pollUrl, { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && (d.version || '') !== el.dataset.version) location.reload(); })
+        .catch(function () {});
+    }, ${POLL_INTERVAL_MS});
+  })();
+</script>`;
+}
+
+function withPoll(html: string, poll: OverlayPoll | undefined): string {
+  return poll ? html.replace('</body>', `${pollSnippet(poll)}\n</body>`) : html;
+}
+
 export function renderDeckOverlayHtml(model: DeckOverlayModel, options: OverlayOptions): string {
-  if (options.layout === 'list') return renderList(model);
-  if (options.layout === 'pages') return renderPages(model, options.intervalSec, options.showInventory ?? true);
-  return renderSpotlight(model, options.intervalSec);
+  const html =
+    options.layout === 'list' ? renderList(model)
+    : options.layout === 'pages' ? renderPages(model, options.intervalSec, options.showInventory ?? true)
+    : renderSpotlight(model, options.intervalSec);
+  return withPoll(html, options.poll);
+}
+
+/** Placeholder for a profile overlay with no (showable) streaming deck; picks one up when set. */
+export function renderNoDeckOverlayHtml(poll: OverlayPoll): string {
+  const css = `
+    .idle { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1.5vmin; text-align: center; padding: 0 6vmin; }
+    .idle .title { font-weight: 800; font-size: 6vmin; }
+    .idle .hint { color: #c9cfdc; font-size: 3.8vmin; line-height: 1.4; }
+  `;
+  return withPoll(
+    documentShell(
+      'Stream deck',
+      css,
+      `<div class="panel"><div class="idle">
+        <div class="title">No deck selected</div>
+        <div class="hint">Pick one on the deck page:<br>More → Stream overlay</div>
+      </div>${FOOTER}</div>`
+    ),
+    poll
+  );
 }
