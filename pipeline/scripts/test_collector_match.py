@@ -174,6 +174,25 @@ class ResolveMissingProductIdsTests(unittest.TestCase):
         self.assertNotIn("tcgplayer_product_id", marvel)
         self.assertEqual([u["id"] for u in stats["unmatched"]], ["IAR145"])
 
+    def test_sole_product_is_never_paired_across_marvel_and_base(self):
+        # The real IAR feed carries ONLY the Runechant Marvel (C/V/FA) and the
+        # IAR group only the plain token — sole-to-sole paired them, pointing
+        # the Marvel's buy link at the regular token.
+        products = [_product(706701, "Runechant of Greed", "IAR145", "Majestic")]
+        cards = _cards(_printing("IAR145", rarity="V", foiling="C", art=["FA"]))
+        stats = enhancer_mod.resolve_missing_product_ids(cards, {"iar": products})
+        self.assertNotIn("tcgplayer_product_id", cards[0]["printings"][0])
+        self.assertEqual([u["id"] for u in stats["unmatched"]], ["IAR145"])
+
+    def test_mv_suffixed_number_matches_the_marvel_printing(self):
+        # The IAR Runechant Marvels were sold in OMN packs: TCGplayer lists
+        # them in the OMN group as "IAR145-MV", "... (Yellow)(Marvel)".
+        products = [_product(706701, "Runechant of Greed", "IAR145", "Majestic"),
+                    _product(696172, "Runechant of Greed (Yellow)(Marvel)", "IAR145-MV", "Marvel")]
+        cards = _cards(_printing("IAR145", rarity="V", foiling="C", art=["FA"]))
+        enhancer_mod.resolve_missing_product_ids(cards, {"iar": products})
+        self.assertEqual(cards[0]["printings"][0]["tcgplayer_product_id"], "696172")
+
     def test_two_same_class_products_is_ambiguous(self):
         products = IAR_PRODUCTS + [_product(706999, "Arknight Shard", "IAR001")]
         cards = _cards(_printing("IAR001"))

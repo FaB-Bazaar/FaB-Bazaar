@@ -102,10 +102,19 @@ def printing_variant(printing):
     return "base"
 
 
+# Marvels sold in an earlier set's packs are listed in THAT set's group under
+# the owning set's number + "-MV" (IAR Runechant Marvels: OMN group,
+# "IAR145-MV"). The name's "(Marvel)" already carries the variant.
+_MARVEL_NUMBER_SUFFIX = "-MV"
+
+
 def _product_number(product):
     for entry in product.get("extendedData") or []:
         if entry.get("name") == "Number":
-            return str(entry.get("value") or "").strip().upper()
+            number = str(entry.get("value") or "").strip().upper()
+            if number.endswith(_MARVEL_NUMBER_SUFFIX):
+                number = number[:-len(_MARVEL_NUMBER_SUFFIX)]
+            return number
     return ""
 
 
@@ -180,8 +189,13 @@ def resolve_missing_product_ids(cards, products_by_set):
             candidates = by_variant.get(variant, [])
             if not candidates:
                 all_products = [pr for prs in by_variant.values() for pr in prs]
-                if len(all_products) == 1 and feed_variants.get((code, number)) == {variant}:
-                    candidates = all_products  # sole product ↔ sole feed variant
+                # sole product ↔ sole feed variant — but never across Marvel ↔
+                # non-Marvel: the IAR feed carried only the Runechant Marvels,
+                # the IAR group only the plain tokens.
+                sole_marvel = len(all_products) == 1 and product_variant(all_products[0].get("name")) == "marvel"
+                if (len(all_products) == 1 and feed_variants.get((code, number)) == {variant}
+                        and sole_marvel == (variant == "marvel")):
+                    candidates = all_products
             detail = {"id": printing.get("id"), "printing_id": printing.get("unique_id"),
                       "card_name": card.get("name"), "variant": variant, "foiling": printing.get("foiling")}
             if not candidates:
