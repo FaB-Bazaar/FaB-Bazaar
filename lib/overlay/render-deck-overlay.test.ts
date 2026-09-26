@@ -20,18 +20,25 @@ function model(overrides: Partial<DeckOverlayModel> = {}): DeckOverlayModel {
       { pitch: 3, label: 'Blue', count: 2, cards: blue },
     ],
     maindeckCount: 5,
+    inventoryGroups: [{ pitch: 1, label: 'Red', count: 2, cards: [c('Gas Up', 1, 2)] }],
+    inventoryCount: 2,
     spotlight: [hero, ...red, ...blue],
     ...overrides,
   };
 }
 
 describe('parseOverlayOptions', () => {
-  it('defaults to the spotlight layout with a 6 second interval', () => {
-    expect(parseOverlayOptions(new URLSearchParams())).toEqual({ layout: 'spotlight', intervalSec: 6 });
+  it('defaults to the spotlight layout with a 6 second interval, inventory shown', () => {
+    expect(parseOverlayOptions(new URLSearchParams())).toEqual({ layout: 'spotlight', intervalSec: 6, showInventory: true });
   });
 
-  it('accepts the list layout', () => {
+  it('accepts the list and pages layouts', () => {
     expect(parseOverlayOptions(new URLSearchParams('layout=list')).layout).toBe('list');
+    expect(parseOverlayOptions(new URLSearchParams('layout=pages')).layout).toBe('pages');
+  });
+
+  it('hides the inventory with inventory=0', () => {
+    expect(parseOverlayOptions(new URLSearchParams('inventory=0')).showInventory).toBe(false);
   });
 
   it('falls back to spotlight for an unknown layout', () => {
@@ -97,6 +104,39 @@ describe('renderDeckOverlayHtml', () => {
     expect(html).toContain('data-interval="9"');
     expect(html).toContain('https://imagedelivery.net/x/Crankshaft/public');
     expect(html).toContain('Zipper Hit');
+  });
+
+  describe('pages layout', () => {
+    const opts = { layout: 'pages' as const, intervalSec: 7, showInventory: true };
+    const pages = (html: string) => [...html.matchAll(/data-page="([^"]+)"/g)].map(m => m[1]);
+
+    it('renders one page per maindeck pitch group, then the inventory', () => {
+      const html = renderDeckOverlayHtml(model(), opts);
+      expect(pages(html)).toEqual(['Red', 'Blue', 'Inventory']);
+      expect(html).toMatch(/data-page="Red"[\s\S]*3[\s\S]*Crankshaft/);
+      expect(html).toMatch(/data-page="Inventory"[\s\S]*2[\s\S]*Gas Up/);
+    });
+
+    it('cycles the pages on the requested interval', () => {
+      expect(renderDeckOverlayHtml(model(), opts)).toContain('data-interval="7"');
+    });
+
+    it('leaves the inventory page out when hidden or empty', () => {
+      expect(pages(renderDeckOverlayHtml(model(), { ...opts, showInventory: false }))).toEqual(['Red', 'Blue']);
+      expect(pages(renderDeckOverlayHtml(model({ inventoryGroups: [], inventoryCount: 0 }), opts))).toEqual(['Red', 'Blue']);
+    });
+
+    it('does not show equipment', () => {
+      expect(renderDeckOverlayHtml(model(), opts)).not.toContain('Galvanic Bender');
+    });
+
+    it('escapes card names', () => {
+      const html = renderDeckOverlayHtml(
+        model({ pitchGroups: [{ pitch: 1, label: 'Red', count: 1, cards: [c('<b>x</b>', 1)] }] }),
+        opts
+      );
+      expect(html).not.toContain('<b>x</b>');
+    });
   });
 
   it('renders a friendly empty state when no card has art', () => {

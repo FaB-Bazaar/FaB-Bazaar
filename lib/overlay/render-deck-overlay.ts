@@ -1,21 +1,25 @@
 import type { DeckOverlayModel, OverlayCard } from './deck-overlay';
 
 export interface OverlayOptions {
-  layout: 'spotlight' | 'list';
+  layout: 'spotlight' | 'list' | 'pages';
   intervalSec: number;
+  /** Include the sideboard (inventory) page in the pages layout. Default true. */
+  showInventory?: boolean;
 }
 
+const LAYOUTS: readonly OverlayOptions['layout'][] = ['spotlight', 'list', 'pages'];
 const DEFAULT_INTERVAL_SEC = 6;
 const MIN_INTERVAL_SEC = 3;
 const MAX_INTERVAL_SEC = 60;
 
 export function parseOverlayOptions(params: URLSearchParams): OverlayOptions {
-  const layout = params.get('layout') === 'list' ? 'list' : 'spotlight';
+  const requestedLayout = params.get('layout') as OverlayOptions['layout'];
+  const layout = LAYOUTS.includes(requestedLayout) ? requestedLayout : 'spotlight';
   const requested = Number.parseInt(params.get('interval') ?? '', 10);
   const intervalSec = Number.isFinite(requested)
     ? Math.min(MAX_INTERVAL_SEC, Math.max(MIN_INTERVAL_SEC, requested))
     : DEFAULT_INTERVAL_SEC;
-  return { layout, intervalSec };
+  return { layout, intervalSec, showInventory: params.get('inventory') !== '0' };
 }
 
 function escapeHtml(value: string): string {
@@ -217,6 +221,92 @@ function renderSpotlight(model: DeckOverlayModel, intervalSec: number): string {
   );
 }
 
+/**
+ * One pitch group per page (then the sideboard), cycling — reads well in narrow sources
+ * like a side panel where the full list would be too small. Equipment is left out.
+ */
+function renderPages(model: DeckOverlayModel, intervalSec: number, showInventory: boolean): string {
+  const css = `
+    .pages { position: relative; flex: 1; min-height: 0; margin: 0 5vmin; }
+    .page { position: absolute; inset: 0; overflow: hidden; font-size: 6vmin;
+      opacity: 0; transition: opacity 500ms ease; }
+    .page.shown { opacity: 1; }
+    .page h2 { font-size: 1.1em; font-weight: 800; display: flex; align-items: center; gap: 0.4em;
+      border-bottom: 2px solid rgba(229, 198, 133, 0.35); padding-bottom: 0.25em; margin-bottom: 0.35em; }
+    .page h2 .count { color: var(--gold); margin-left: auto; }
+    .page li { list-style: none; display: flex; align-items: center; gap: 0.5em; line-height: 1.4; }
+    .page .qty { color: var(--gold-bright); font-weight: 800; min-width: 1.4ch; text-align: right; }
+    .page li .pip { width: 0.7em; height: 0.7em; flex: none; }
+    .dots { display: flex; justify-content: center; gap: 1.5vmin; padding-top: 2vmin; }
+    .dots span { width: 2vmin; height: 2vmin; border-radius: 50%; background: rgba(229, 198, 133, 0.35); }
+    .dots span.on { background: var(--gold-bright); }
+  `;
+  const row = (card: OverlayCard, withPip: boolean) =>
+    `<li><span class="qty">${card.quantity}</span>${withPip ? pip(card.pitch) : ''}<span class="name">${escapeHtml(card.name)}</span></li>`;
+
+  const pages: { key: string; heading: string; count: number; rows: string[] }[] = model.pitchGroups.map(group => ({
+    key: group.label,
+    heading: `${pip(group.pitch)}${group.label}`,
+    count: group.count,
+    rows: group.cards.map(card => row(card, false)),
+  }));
+  if (showInventory && model.inventoryCount > 0) {
+    pages.push({
+      key: 'Inventory',
+      heading: 'Inventory',
+      count: model.inventoryCount,
+      rows: model.inventoryGroups.flatMap(group => group.cards.map(card => row(card, true))),
+    });
+  }
+
+  const body = pages
+    .map((page, i) => `<section class="page${i === 0 ? ' shown' : ''}" data-page="${escapeHtml(page.key)}">
+      <h2>${page.heading}<span class="count">${page.count}</span></h2>
+      <ul>${page.rows.join('')}</ul>
+    </section>`)
+    .join('');
+  const dots = pages.length > 1 ? `<div class="dots">${pages.map((_, i) => `<span${i === 0 ? ' class="on"' : ''}></span>`).join('')}</div>` : '';
+
+  // Shrink any page whose list is taller than the space, then rotate through them.
+  const script = `
+    (function () {
+      var root = document.querySelector('.pages');
+      var pages = [].slice.call(document.querySelectorAll('.page'));
+      var dots = [].slice.call(document.querySelectorAll('.dots span'));
+      function fit() {
+        pages.forEach(function (page) {
+          page.style.fontSize = '';
+          var size = parseFloat(getComputedStyle(page).fontSize);
+          while (page.scrollHeight > page.clientHeight + 1 && size > 7) { size -= 0.5; page.style.fontSize = size + 'px'; }
+        });
+      }
+      fit();
+      if (document.fonts) document.fonts.ready.then(fit);
+      window.addEventListener('resize', fit);
+      if (pages.length < 2) return;
+      var i = 0;
+      setInterval(function () {
+        pages[i].classList.remove('shown'); dots[i].classList.remove('on');
+        i = (i + 1) % pages.length;
+        pages[i].classList.add('shown'); dots[i].classList.add('on');
+      }, Number(root.dataset.interval) * 1000);
+    })();
+  `;
+
+  return documentShell(
+    model.name,
+    css,
+    `<div class="panel">${header(model)}
+      <div class="pages" data-interval="${intervalSec}">${body}</div>
+      ${dots}
+      ${FOOTER}
+    </div>
+    <script>${script}</script>`
+  );
+}
+
 export function renderDeckOverlayHtml(model: DeckOverlayModel, options: OverlayOptions): string {
-  return options.layout === 'list' ? renderList(model) : renderSpotlight(model, options.intervalSec);
+  if (options.layout === 'list') return renderList(model);
+  if (options.layout === 'pages') return renderPages(model, options.intervalSec, options.showInventory ?? true);
+  return renderSpotlight(model, options.intervalSec);
 }

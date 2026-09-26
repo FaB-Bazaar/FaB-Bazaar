@@ -3,7 +3,7 @@ import type { DeckDTO } from '@/lib/services/contracts/IDeckService';
 export type OverlayDeckInput = Pick<
   DeckDTO,
   'name' | 'format' | 'heroName' | 'visibility' | 'metafyGuideId' | 'hero' | 'equipment' | 'maindeck'
->;
+> & Partial<Pick<DeckDTO, 'inventory'>>;
 
 export interface OverlayCard {
   name: string;
@@ -27,6 +27,9 @@ export interface DeckOverlayModel {
   equipment: OverlayCard[];
   pitchGroups: OverlayPitchGroup[];
   maindeckCount: number;
+  /** The sideboard (deck zone `inventory`), pitchless equipment left out. */
+  inventoryGroups: OverlayPitchGroup[];
+  inventoryCount: number;
   spotlight: OverlayCard[];
 }
 
@@ -52,6 +55,26 @@ function normalizePitch(pitch: unknown): 1 | 2 | 3 | null {
   return pitch === 1 || pitch === 2 || pitch === 3 ? pitch : null;
 }
 
+/**
+ * Equipment/weapons can be stored in the maindeck or inventory zone depending on how they
+ * were added (see app/decks/[deckId]/CLAUDE.md). Pitchless ones are gear; pitched ones are
+ * Evos, which are played from the deck and stay with the cards.
+ */
+function isGear(entry: DeckEntry): boolean {
+  const details = entry.printingDetails ?? {};
+  const types: string[] = details.types ?? [];
+  return normalizePitch(details.pitch) === null && (types.includes('equipment') || types.includes('weapon'));
+}
+
+function toPitchGroups(cards: OverlayCard[]): OverlayPitchGroup[] {
+  return PITCH_GROUPS.map(({ pitch, label }) => {
+    const inGroup = cards.filter(c => c.pitch === pitch);
+    return { pitch, label, cards: inGroup, count: inGroup.reduce((sum, c) => sum + c.quantity, 0) };
+  }).filter(group => group.cards.length > 0);
+}
+
+const sumCounts = (groups: OverlayPitchGroup[]) => groups.reduce((sum, g) => sum + g.count, 0);
+
 /** Collapses printings of the same card + pitch into one row; the first printing's art wins. */
 function toCards(entries: DeckEntry[] = []): OverlayCard[] {
   const byKey = new Map<string, OverlayCard>();
@@ -76,13 +99,10 @@ function toCards(entries: DeckEntry[] = []): OverlayCard[] {
 
 export function buildDeckOverlayModel(deck: OverlayDeckInput): DeckOverlayModel {
   const hero = toCards(deck.hero)[0] ?? null;
-  const equipment = toCards(deck.equipment);
-  const maindeck = toCards(deck.maindeck);
-
-  const pitchGroups = PITCH_GROUPS.map(({ pitch, label }) => {
-    const cards = maindeck.filter(c => c.pitch === pitch);
-    return { pitch, label, cards, count: cards.reduce((sum, c) => sum + c.quantity, 0) };
-  }).filter(group => group.cards.length > 0);
+  const maindeckEntries = deck.maindeck ?? [];
+  const equipment = toCards([...(deck.equipment ?? []), ...maindeckEntries.filter(isGear)]);
+  const pitchGroups = toPitchGroups(toCards(maindeckEntries.filter(e => !isGear(e))));
+  const inventoryGroups = toPitchGroups(toCards((deck.inventory ?? []).filter(e => !isGear(e))));
 
   const spotlight = [hero, ...equipment, ...pitchGroups.flatMap(g => g.cards)].filter(
     (c): c is OverlayCard => !!c?.imageUrl
@@ -95,7 +115,9 @@ export function buildDeckOverlayModel(deck: OverlayDeckInput): DeckOverlayModel 
     hero,
     equipment,
     pitchGroups,
-    maindeckCount: pitchGroups.reduce((sum, g) => sum + g.count, 0),
+    maindeckCount: sumCounts(pitchGroups),
+    inventoryGroups,
+    inventoryCount: sumCounts(inventoryGroups),
     spotlight,
   };
 }
