@@ -160,6 +160,12 @@ def load_group_mappings(csv_path=HERE / "fab_set_with_db.csv"):
     return mappings
 
 
+def price_group_ids(mappings):
+    """Every mapped group: an admin-set id may point into another set's group
+    (or a price-only code like iar-prerelease), and prices key on product id."""
+    return sorted({g for groups in mappings.values() for g in groups})
+
+
 def fetch_prices_for_groups(group_ids):
     """{productId: {subTypeName: price_info}} in 002's shape. A failed group is
     skipped, so its rows keep their current prices."""
@@ -237,8 +243,7 @@ def run(use_production, dry_run):
         for d in match["name_mismatch"]:
             print(f"   ⚠️ name mismatch {d['collector_number']}: ours {d['card_name']!r}, TCGplayer {d['product_name']!r}")
 
-        priced_sets = sorted({r["set"].lower() for r in by_id.values() if r["tcgplayer_product_id"]})
-        price_data = fetch_prices_for_groups([g for code in priced_sets for g in mappings[code]])
+        price_data = fetch_prices_for_groups(price_group_ids(mappings))
         price_updates = build_price_updates(list(by_id.values()), price_data)
         priced = sum(1 for _, p in price_updates if p["tcg_low"] is not None)
         print(f"💰 price rows: {len(price_updates)} ({priced} with a low price)")

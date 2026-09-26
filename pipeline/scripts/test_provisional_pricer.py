@@ -139,6 +139,14 @@ class MatchProductsTest(unittest.TestCase):
         self.assertEqual(result["assignments"], {})
 
 
+class PriceGroupsTest(unittest.TestCase):
+    def test_prices_come_from_every_mapped_group_not_just_the_rows_set(self):
+        # An admin-set id can point into another set's group (IAR159 rainbow
+        # Baalghor lives in the price-only pre-release group 24776).
+        mappings = {"iar": [24762, 24640], "iar-prerelease": [24776], "omn": [24640]}
+        self.assertEqual(pricer.price_group_ids(mappings), [24640, 24762, 24776])
+
+
 class BuildPriceUpdatesTest(unittest.TestCase):
     def test_row_is_priced_from_its_treatments_subtype(self):
         rows = [_row("rf", "IAR010", foiling="r", product_id="700")]
