@@ -1,5 +1,5 @@
 export interface StreamOverlayLink {
-  layout: 'pages' | 'spotlight' | 'list';
+  layout: 'pages' | 'spotlight' | 'grid' | 'list';
   label: string;
   url: string;
   /** Suggested OBS browser-source size. */
@@ -10,7 +10,8 @@ export interface StreamOverlayLink {
 const LAYOUTS: Omit<StreamOverlayLink, 'url'>[] = [
   { layout: 'pages', label: 'Side panel — one pitch group at a time', width: 260, height: 480 },
   { layout: 'spotlight', label: 'Card spotlight — cycles card art', width: 260, height: 480 },
-  { layout: 'list', label: 'Full decklist — pop-up or full scene', width: 1000, height: 900 },
+  { layout: 'grid', label: 'Card grid — every card image with counts', width: 1000, height: 900 },
+  { layout: 'list', label: 'Full decklist — names by pitch', width: 1000, height: 900 },
 ];
 
 /** Copyable OBS browser-source URLs for a user's profile-level overlay. */

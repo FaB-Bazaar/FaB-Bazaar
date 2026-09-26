@@ -32,9 +32,10 @@ describe('parseOverlayOptions', () => {
     expect(parseOverlayOptions(new URLSearchParams())).toEqual({ layout: 'spotlight', intervalSec: 6, showInventory: true });
   });
 
-  it('accepts the list and pages layouts', () => {
+  it('accepts the list, pages and grid layouts', () => {
     expect(parseOverlayOptions(new URLSearchParams('layout=list')).layout).toBe('list');
     expect(parseOverlayOptions(new URLSearchParams('layout=pages')).layout).toBe('pages');
+    expect(parseOverlayOptions(new URLSearchParams('layout=grid')).layout).toBe('grid');
   });
 
   it('hides the inventory with inventory=0', () => {
@@ -53,6 +54,55 @@ describe('parseOverlayOptions', () => {
 });
 
 describe('renderDeckOverlayHtml', () => {
+  describe('grid layout', () => {
+    const opts = { layout: 'grid' as const, intervalSec: 6 };
+    const sections = (html: string) => [...html.matchAll(/<section[^>]*data-pitch="(\d)"/g)].map(m => m[1]);
+
+    it('renders one section per maindeck pitch group with its label and count', () => {
+      const html = renderDeckOverlayHtml(model(), opts);
+      expect(sections(html)).toEqual(['1', '3']);
+      expect(html).toMatch(/data-pitch="1"[\s\S]*Red[\s\S]*3/);
+      expect(html).toMatch(/data-pitch="3"[\s\S]*Blue[\s\S]*2/);
+    });
+
+    it('shows each card as its image, named in alt text, with a count badge', () => {
+      const html = renderDeckOverlayHtml(model(), opts);
+      expect(html).toMatch(/<img[^>]*src="https:\/\/imagedelivery\.net\/x\/Crankshaft\/public"[^>]*alt="Crankshaft"/);
+      expect(html).toMatch(/Crankshaft[\s\S]*×3/);
+      expect(html).toMatch(/Zipper Hit[\s\S]*×2/);
+    });
+
+    it('puts the hero card in the header', () => {
+      const html = renderDeckOverlayHtml(model(), opts);
+      expect(html).toMatch(/class="hero-card"[^>]*src="https:\/\/imagedelivery\.net\/x\/Maxx/);
+      expect(html).toContain('Midrange Maxx');
+    });
+
+    it('falls back to a name tile when a card has no usable art', () => {
+      const html = renderDeckOverlayHtml(
+        model({ pitchGroups: [{ pitch: 1, label: 'Red', count: 1, cards: [c('No Art', 1, 1, 'javascript:alert(1)')] }] }),
+        opts
+      );
+      expect(html).not.toContain('javascript:alert');
+      expect(html).toMatch(/class="tile noart"[\s\S]*No Art/);
+    });
+
+    it('leaves out equipment and the inventory', () => {
+      const html = renderDeckOverlayHtml(model(), { ...opts, showInventory: true });
+      expect(html).not.toContain('Galvanic Bender');
+      expect(html).not.toContain('Gas Up');
+    });
+
+    it('escapes card names in text and attributes', () => {
+      const evil = '"><script>alert(1)</script>';
+      const html = renderDeckOverlayHtml(
+        model({ name: evil, pitchGroups: [{ pitch: 1, label: 'Red', count: 1, cards: [c(evil, 1)] }] }),
+        opts
+      );
+      expect(html).not.toContain('<script>alert(1)');
+    });
+  });
+
   it('renders a complete document with a transparent page background', () => {
     const html = renderDeckOverlayHtml(model(), { layout: 'list', intervalSec: 6 });
     expect(html.startsWith('<!doctype html>')).toBe(true);

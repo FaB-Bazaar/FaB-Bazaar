@@ -4,10 +4,11 @@ import { buildStreamOverlayLinks } from './stream-overlay-links';
 describe('buildStreamOverlayLinks', () => {
   const links = buildStreamOverlayLinks('https://fabbazaar.app', '/overlay/u/m1stercakes/deck');
 
-  it('offers the paged list, spotlight and full list layouts on the profile overlay URL', () => {
+  it('offers the paged list, spotlight, card grid and full list layouts on the profile overlay URL', () => {
     expect(links.map(l => l.url)).toEqual([
       'https://fabbazaar.app/overlay/u/m1stercakes/deck?layout=pages',
       'https://fabbazaar.app/overlay/u/m1stercakes/deck?layout=spotlight',
+      'https://fabbazaar.app/overlay/u/m1stercakes/deck?layout=grid',
       'https://fabbazaar.app/overlay/u/m1stercakes/deck?layout=list',
     ]);
   });

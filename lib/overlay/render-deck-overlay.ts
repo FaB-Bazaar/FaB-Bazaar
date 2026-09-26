@@ -1,7 +1,7 @@
 import type { DeckOverlayModel, OverlayCard } from './deck-overlay';
 
 export interface OverlayOptions {
-  layout: 'spotlight' | 'list' | 'pages';
+  layout: 'spotlight' | 'list' | 'pages' | 'grid';
   intervalSec: number;
   /** Include the sideboard (inventory) page in the pages layout. Default true. */
   showInventory?: boolean;
@@ -16,7 +16,7 @@ export interface OverlayPoll {
   version: string;
 }
 
-const LAYOUTS: readonly OverlayOptions['layout'][] = ['spotlight', 'list', 'pages'];
+const LAYOUTS: readonly OverlayOptions['layout'][] = ['spotlight', 'list', 'pages', 'grid'];
 const DEFAULT_INTERVAL_SEC = 6;
 const MIN_INTERVAL_SEC = 3;
 const MAX_INTERVAL_SEC = 60;
@@ -314,6 +314,88 @@ function renderPages(model: DeckOverlayModel, intervalSec: number, showInventory
   );
 }
 
+/**
+ * Card images in a grid per pitch group with ×N badges (a visual decklist). Cards start
+ * large and shrink until the whole maindeck fits the source. Equipment and the sideboard
+ * are left out, like the list layout's card groups.
+ */
+function renderGrid(model: DeckOverlayModel): string {
+  const css = `
+    .gheader { display: flex; align-items: center; gap: 3vmin; padding: 3vmin 4vmin 1.5vmin; }
+    .gheader .hero-card { height: 16vmin; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 0.9vmin;
+      box-shadow: 0 0.8vmin 2vmin rgba(0,0,0,.6); }
+    .gheader .meta { color: #c9cfdc; font-weight: 600; font-size: 3vmin; margin-top: 0.6vmin; }
+    /* Row wrapping makes the best fit leave spare height; split it above and below. */
+    .grid-body { --w: 20vmin; flex: 1; min-height: 0; overflow: hidden; padding: 0 4vmin;
+      display: flex; flex-direction: column; justify-content: safe center; }
+    .grid-body section { margin-bottom: calc(var(--w) * 0.12); }
+    .grid-body h2 { font-size: max(12px, calc(var(--w) * 0.17)); font-weight: 800; display: flex; align-items: center;
+      gap: 0.4em; margin-bottom: 0.3em; }
+    .grid-body h2 .count { color: var(--gold); }
+    .cards { display: flex; flex-wrap: wrap; gap: calc(var(--w) * 0.06); }
+    .tile { position: relative; width: var(--w); aspect-ratio: 5 / 7; flex: none; }
+    .tile img { width: 100%; height: 100%; object-fit: cover; border-radius: 4.5% / 3.2%;
+      box-shadow: 0 0.4vmin 1vmin rgba(0,0,0,.55); }
+    .tile.noart { display: flex; align-items: center; justify-content: center; text-align: center;
+      padding: 8%; border-radius: 4.5% / 3.2%; background: #2e3550; border: 1px solid rgba(229,198,133,.4);
+      font-weight: 700; font-size: calc(var(--w) * 0.11); }
+    .badge { position: absolute; right: 5%; bottom: 4%; padding: 0.1em 0.45em; border-radius: 999px;
+      background: rgba(15, 19, 32, 0.92); border: 2px solid var(--gold); color: var(--gold-bright);
+      font-weight: 800; font-size: max(11px, calc(var(--w) * 0.15)); line-height: 1.2; }
+  `;
+  const heroArt = safeImageUrl(model.hero?.imageUrl ?? null);
+  const heroName = model.hero?.name ?? model.heroName;
+  const tile = (card: OverlayCard) => {
+    const art = safeImageUrl(card.imageUrl);
+    const badge = `<span class="badge">×${card.quantity}</span>`;
+    return art
+      ? `<div class="tile"><img src="${escapeHtml(art)}" alt="${escapeHtml(card.name)}" loading="eager">${badge}</div>`
+      : `<div class="tile noart"><span>${escapeHtml(card.name)}</span>${badge}</div>`;
+  };
+  const sections = model.pitchGroups
+    .map(group => `<section data-pitch="${group.pitch ?? 0}">
+      <h2>${pip(group.pitch)}${group.label} <span class="count">${group.count}</span></h2>
+      <div class="cards">${group.cards.map(tile).join('')}</div>
+    </section>`)
+    .join('');
+
+  // Shrink the card width until every section fits; re-fit as images and fonts load.
+  const fitScript = `
+    (function () {
+      var body = document.querySelector('.grid-body');
+      function fit() {
+        body.style.setProperty('--w', '');
+        var w = parseFloat(getComputedStyle(body).getPropertyValue('--w')) || 150;
+        var unit = getComputedStyle(body).getPropertyValue('--w').indexOf('vmin') > -1 ? Math.min(innerWidth, innerHeight) / 100 : 1;
+        w = w * unit;
+        while (body.scrollHeight > body.clientHeight + 1 && w > 24) { w -= 2; body.style.setProperty('--w', w + 'px'); }
+      }
+      fit();
+      if (document.fonts) document.fonts.ready.then(fit);
+      window.addEventListener('load', fit);
+      window.addEventListener('resize', fit);
+    })();
+  `;
+
+  return documentShell(
+    model.name,
+    css,
+    `<div class="panel">
+      <div class="gheader">
+        ${heroArt ? `<img class="hero-card" src="${escapeHtml(heroArt)}" alt="${escapeHtml(heroName ?? '')}">` : ''}
+        <div>
+          ${heroName ? `<div class="hero-name">${escapeHtml(heroName)}</div>` : ''}
+          <div class="deck-name">${escapeHtml(model.name)}</div>
+          <div class="meta">${escapeHtml(model.format ?? '')} · ${model.maindeckCount} cards</div>
+        </div>
+      </div>
+      <div class="grid-body">${sections}</div>
+      ${FOOTER}
+    </div>
+    <script>${fitScript}</script>`
+  );
+}
+
 const POLL_INTERVAL_MS = 30_000;
 
 /**
@@ -344,6 +426,7 @@ export function renderDeckOverlayHtml(model: DeckOverlayModel, options: OverlayO
   const html =
     options.layout === 'list' ? renderList(model)
     : options.layout === 'pages' ? renderPages(model, options.intervalSec, options.showInventory ?? true)
+    : options.layout === 'grid' ? renderGrid(model)
     : renderSpotlight(model, options.intervalSec);
   return withPoll(html, options.poll);
 }
