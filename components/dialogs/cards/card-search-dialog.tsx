@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -30,6 +31,7 @@ import {
 import { sortPrintingsByLanguage, languageFlag } from "@/lib/utils/printing-language"
 import { FoilingChip } from "@/components/shared/FoilingChip"
 import { TcgAffiliateLink } from '@/components/tracking'
+import { CardDetailsLightbox } from "@/components/cards/CardDetailsLightbox"
 
 // --- MODIFICATION START ---
 // 1. Import the new FABShorthandParser
@@ -58,6 +60,8 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
   const [cards, setCards] = useState<any[]>([])
   const [selectedCard, setSelectedCard] = useState<any | null>(null)
   const [selectedPrinting, setSelectedPrinting] = useState<any | null>(null)
+  // Card-details lightbox over the Select Printing step (opened from the printing image)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -369,7 +373,23 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     } else {
       setSelectedPrinting(null)
     }
+    setLightboxOpen(false)
   }, [selectedCard])
+
+  // A printing picked inside the lightbox becomes the dialog's selection. Rows from the
+  // lightbox are raw search rows (it also lists other languages), so prefer the dialog's
+  // own copy and otherwise add the camelCase price fields the dialog reads.
+  const selectPrintingFromLightbox = (printing: any) => {
+    const own = (selectedCard?.printings || []).find((p: any) => p.printing_id === printing.printing_id)
+    setSelectedPrinting(own ?? {
+      ...printing,
+      unique_id: printing.printing_id,
+      tcgMarket: printing.tcg_market,
+      tcgLow: printing.tcg_low,
+      tcgMid: printing.tcg_mid,
+      tcgHigh: printing.tcg_high,
+    })
+  }
 
   useEffect(() => {
     if (open && activeTab === "search") {
@@ -379,7 +399,13 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => { onOpenChange(newOpen); if (!newOpen) handleDialogClose() }}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+      <DialogContent
+        className="sm:max-w-[600px] max-h-[90vh] flex flex-col"
+        onEscapeKeyDown={(e) => { if (lightboxOpen) { e.preventDefault(); setLightboxOpen(false) } }}
+        // The lightbox is portaled outside this content (see below), so Radix would treat
+        // clicks on it as outside clicks and close the whole dialog.
+        onInteractOutside={(e) => { if (lightboxOpen) e.preventDefault() }}
+      >
         <DialogHeader><DialogTitle>Search Cards</DialogTitle></DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "search" | "printing")} className="flex-1 overflow-hidden flex flex-col">
@@ -496,7 +522,19 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                         </div>
                       )}
                    </div>
-                   {selectedPrinting?.image_url && (<div className="flex-shrink-0 w-full flex justify-center md:w-[150px] items-start p-2 md:p-0"><img src={selectedPrinting.image_url} alt={selectedCard.name} className="max-w-[90px] md:max-w-[120px] max-h-[120px] md:max-h-[160px] w-auto h-auto object-contain border rounded shadow bg-white dark:bg-gray-900" /></div>)}
+                   {selectedPrinting?.image_url && (
+                     <div className="flex-shrink-0 w-full flex justify-center md:w-[150px] items-start p-2 md:p-0">
+                       <button
+                         type="button"
+                         onClick={() => setLightboxOpen(true)}
+                         aria-label={`View ${selectedCard.name} details`}
+                         title="View card details"
+                         className="rounded cursor-zoom-in transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                       >
+                         <img src={selectedPrinting.image_url} alt={selectedCard.name} className="max-w-[90px] md:max-w-[120px] max-h-[120px] md:max-h-[160px] w-auto h-auto object-contain border rounded shadow bg-white dark:bg-gray-900" />
+                       </button>
+                     </div>
+                   )}
                  </div>
                </div>
 
@@ -537,7 +575,20 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
             ) : (<div className="text-center text-gray-500 dark:text-gray-400 py-4">No card selected.</div>)}
           </TabsContent>
         </Tabs>
-        
+
+        {/* Portaled to <body>: this DialogContent is centred with a CSS transform, which
+            would make the lightbox's `fixed inset-0` backdrop only as big as the 600px
+            dialog. pointer-events: auto because a modal Radix dialog disables them on body. */}
+        {lightboxOpen && selectedCard && selectedPrinting && createPortal(
+          <div style={{ pointerEvents: "auto" }}>
+            <CardDetailsLightbox
+              card={{ printing: selectedPrinting, name: selectedCard.name }}
+              onClose={() => setLightboxOpen(false)}
+              onSelectPrinting={selectPrintingFromLightbox}
+            />
+          </div>,
+          document.body
+        )}
       </DialogContent>
     </Dialog>
   )
