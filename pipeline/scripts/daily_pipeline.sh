@@ -4,7 +4,7 @@
 # Daily Automated Pipeline for FAB Card Data Processing
 #
 # Pipeline order:
-#   01 → 02 → 03 → 03B (images) → 04 → 08 (PG, price diff vs old DB) → 05 (PG, full upsert) → 11 (analysis) → 12 (discord)
+#   01 → 02 → 03 → 03B (images) → 04 → 08 (PG, price diff vs old DB) → 05 (PG, full upsert) → 05b (provisional prices) → 11 (analysis) → 12 (discord)
 #
 # Database: PostgreSQL (local Docker staging by default)
 #   Staging    = POSTGRES_URL_STAGING  (local Docker, fabbazaar_dev)
@@ -335,6 +335,20 @@ if [ "${DRY_RUN}" = true ]; then
 else
     run_script "05" "Weekly Printings Updater - Upsert cards + printings to PostgreSQL" \
         "python3 005_weekly_printings_updater.py --file ${PRINTINGS_SEED} ${DB_FLAG}"
+fi
+
+################################################################################
+# Step 05b: TCGplayer ids + prices for provisional (not-yet-in-feed) printings.
+# After 05 so tonight's adoptions are excluded. Non-fatal: an unpriced night
+# for a new set beats skipping movers + the Discord post.
+################################################################################
+
+if [ "${DRY_RUN}" = true ]; then
+    run_script "05b" "Provisional TCG Pricer - ids + prices for provisional printings (DRY RUN)" \
+        "python3 009_provisional_tcg_pricer.py --dry-run ${DB_FLAG} || echo '⚠️  provisional pricer failed (non-fatal)'"
+else
+    run_script "05b" "Provisional TCG Pricer - ids + prices for provisional printings" \
+        "python3 009_provisional_tcg_pricer.py ${DB_FLAG} || echo '⚠️  provisional pricer failed (non-fatal)'"
 fi
 
 ################################################################################
