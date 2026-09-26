@@ -378,6 +378,21 @@ else
 fi
 
 ################################################################################
+# Step 13: Warm the app's /opt search cache.
+# Tonight's price update invalidated every cached search; re-run the common
+# ones (the app picks them, paced over ~2 min) so visitors hit warm entries.
+# Production runs only (it calls the live app). Non-fatal: a cold cache is
+# just slower first loads.
+################################################################################
+
+if [ "${DRY_RUN}" = true ] || [ "${DB_FLAG}" != "--production" ]; then
+    log "⏭️  Step 13 skipped (search cache warm-up runs on production runs only)"
+else
+    run_script "13" "Search Cache Warm-up - refill /opt search cache after the price update" \
+        "python3 011_warm_search_cache.py || echo '⚠️  search cache warm-up failed (non-fatal)'"
+fi
+
+################################################################################
 # Pipeline Complete
 ################################################################################
 

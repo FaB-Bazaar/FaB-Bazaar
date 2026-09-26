@@ -14,8 +14,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type Dis
 import { useDebounce } from 'use-debounce';
 import { optSearchReducer, type OptAction } from '@/lib/search/opt-search-reducer';
 import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
-import { buildServerFilters } from '@/lib/search/build-server-filters';
 import { effectiveSearchQuery } from '@/lib/search/effective-query';
+import { optStateToFilters } from '@/lib/search/opt-search-request';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 
 export interface OptSearchState {
@@ -71,12 +71,7 @@ export function useOptSearchState(): OptSearchState {
     window.history.replaceState(null, '', url);
   }, [urlReady, state, debouncedQuery]);
 
-  const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
-    ...state,
-    query: effectiveSearchQuery(state.searchMode, debouncedQuery),
-    selectedTcgGroups: state.selectedPacks,
-    selectedFormat: (state.selectedFormat ?? null) as PrintingsSearchFilters['format'] | null,
-  }), [state, debouncedQuery]);
+  const filters = useMemo<PrintingsSearchFilters>(() => optStateToFilters(state, debouncedQuery), [state, debouncedQuery]);
 
   const hasAnyFilter = Object.keys(filters).length > 0;
 

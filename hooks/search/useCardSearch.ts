@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { searchPrintingsPost } from '@/lib/client/search-client';
 import { PAGE_SIZE } from '@/lib/search/build-server-filters';
+import { buildSearchRequest } from '@/lib/search/opt-search-request';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 
 interface UseCardSearchParams {
@@ -62,10 +63,8 @@ export function useCardSearch({
     const id = ++reqIdRef.current;
     setLoading(true);
     setError(null);
-    searchPrintingsPost(
-      { ...filters, languages: languageFilter },
-      { page: 1, limit: pageSize, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: matchMode, groupByCard },
-    )
+    const req = buildSearchRequest({ filters, languages, sortBy, sortOrder, groupByCard, page: 1, limit: pageSize, matchMode });
+    searchPrintingsPost(req.filters, req.options)
       .then(res => {
         if (id !== reqIdRef.current) return;
         if (res.success) {
@@ -90,10 +89,8 @@ export function useCardSearch({
     const id = reqIdRef.current;
     const next = page + 1;
     setLoadingMore(true);
-    searchPrintingsPost(
-      { ...filters, languages: languageFilter },
-      { page: next, limit: pageSize, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: matchMode, groupByCard },
-    )
+    const req = buildSearchRequest({ filters, languages, sortBy, sortOrder, groupByCard, page: next, limit: pageSize, matchMode });
+    searchPrintingsPost(req.filters, req.options)
       .then(res => {
         if (id !== reqIdRef.current) return;
         if (res.success) {

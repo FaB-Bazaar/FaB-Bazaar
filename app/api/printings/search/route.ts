@@ -1,17 +1,13 @@
 // app/api/printings/search/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'crypto';
 import { printingsService } from '@/lib/services';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 import { TalentUtils } from '@/lib/talent-constants';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { authenticateRequest, hasAuthParams } from '@/lib/auth/multi-auth';
-import { getRedisClient } from '@/lib/redis';
 import { rateLimit } from '@/lib/rate-limit';
-import { db } from '@/lib/postgres/db';
-import { printings } from '@/lib/postgres/schema';
-import { sql } from 'drizzle-orm';
+import { runCachedSearch } from '@/lib/search/cached-search';
 
 const shorthandParser = new FABShorthandParser();
 
@@ -44,33 +40,6 @@ async function enforceSearchRateLimit(): Promise<NextResponse | null> {
   );
 }
 
-function sortedKeys<T extends object>(obj: T): T {
-  return Object.fromEntries(
-    Object.entries(obj).sort(([a], [b]) => a.localeCompare(b))
-  ) as T;
-}
-
-// Bump when search RESULT SHAPE or ORDERING logic changes (not on data changes —
-// those are handled by _priceVersion). Without this, a sort/logic change keeps
-// serving stale cached results for up to the 24h TTL after deploy.
-//   v2 — pitch tiebreak (red→yellow→blue) on name sorts
-//   v3 — Marvels demoted globally (not just within their set) in the
-//        canonical printing cascade
-//   v4 — hero legality: non-hybrid multi-class cards need EVERY class
-//        (Pirate Necromancer no longer in a Necromancer-only pool)
-//   v6 — migration 0113 swapped DTD164 non-foil faces/images outside a
-//        nightly run (cached bodies carry other_face_* / image_url)
-//   v7 — rarity sort uses a rank (Promo → Fabled → Marvel → … → Token),
-//        not the alphabetical rarity code
-const SEARCH_CACHE_VERSION = 'v7';
-
-function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
-  const hash = createHash('sha256')
-    .update(JSON.stringify({ filters: sortedKeys(filters), options: sortedKeys(options) }))
-    .digest('hex')
-    .slice(0, 16);
-  return `search:${SEARCH_CACHE_VERSION}:${hash}`;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -314,7 +283,7 @@ export async function POST(request: NextRequest) {
     // (below the community threshold). The viewer id is derived from auth ONLY —
     // always strip the client-supplied field (spoofing another user's view), and
     // only set it alongside a facetTags filter so unrelated searches keep a
-    // shared cache key. Must happen BEFORE buildSearchCacheKey (per-viewer keys).
+    // shared cache key. Must happen BEFORE runCachedSearch (per-viewer keys).
     delete filters.facetTagsViewerId;
     if (authResult?.success && authResult.userId && Array.isArray(filters.facetTags) && filters.facetTags.length > 0) {
       filters.facetTagsViewerId = authResult.userId;
@@ -332,67 +301,13 @@ export async function POST(request: NextRequest) {
     }
     delete filters.ownedOnly;
 
-    // Fetch current price version (MAX price_updated_at) to detect stale cache
-    let currentPriceVersion = 'unknown';
-    try {
-      const [{ maxTs }] = await db
-        .select({ maxTs: sql<string>`MAX(price_updated_at)::text` })
-        .from(printings);
-      currentPriceVersion = maxTs ?? 'unknown';
-    } catch (err) {
-      console.error('[Printings Search POST] Price version query error:', err);
+    const cachedResult = await runCachedSearch(filters, options);
+    if (!cachedResult.success) {
+      console.error('[Printings Search POST] Service error:', cachedResult.error);
+      console.error('[Printings Search POST] Filters:', JSON.stringify(filters, null, 2));
+      return NextResponse.json({ success: false, error: cachedResult.error }, { status: 500 });
     }
-
-    // Personalized searches (viewer id set) NEVER touch the cache: the cache
-    // invalidates on price changes only, but the user's own votes change their
-    // results instantly — a cached personal entry is stale the moment they vote.
-    const personalized = Boolean(filters.facetTagsViewerId || filters.ownedByUserId);
-
-    // Try Redis cache first
-    const cacheKey = buildSearchCacheKey(filters, options);
-    const redis = personalized ? null : getRedisClient();
-    let searchData = null;
-
-    if (redis) {
-      try {
-        const cached = await redis.get(cacheKey);
-        if (cached !== null) {
-          const parsed = JSON.parse(cached);
-          if (parsed._priceVersion === currentPriceVersion) {
-            searchData = parsed; // Fresh — use cache
-          }
-          // else: stale prices — fall through to DB query
-        }
-      } catch (err) {
-        console.error('[Printings Search POST] Cache read error:', err);
-      }
-    }
-
-
-    if (searchData === null) {
-      // Cache miss — query the database
-      const result = await printingsService.searchPrintings(filters, options);
-      if (!result.success) {
-        console.error('[Printings Search POST] Service error:', result.error);
-        console.error('[Printings Search POST] Filters:', JSON.stringify(filters, null, 2));
-        return NextResponse.json({ success: false, error: result.error }, { status: 500 });
-      }
-      searchData = result.data;
-
-      // Cache only non-empty results (empty results may be transient)
-      if (redis && searchData.total > 0) {
-        try {
-          await redis.set(
-            cacheKey,
-            JSON.stringify({ ...searchData, _priceVersion: currentPriceVersion }),
-            'EX',
-            86400
-          );
-        } catch (err) {
-          console.error('[Printings Search POST] Cache write error:', err);
-        }
-      }
-    }
+    const { data: searchData, cacheKey } = cachedResult;
 
     // Return results - only include debug info in development
     const isDev = process.env.NODE_ENV === 'development';
