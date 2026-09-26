@@ -37,6 +37,7 @@ export {
 // Rarities
 export {
   RARITY_MAP,
+  RARITY_SORT_ORDER,
   type RarityCode,
 } from './rarities';
 

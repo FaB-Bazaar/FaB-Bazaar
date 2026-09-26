@@ -60,7 +60,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //        (Pirate Necromancer no longer in a Necromancer-only pool)
 //   v6 — migration 0113 swapped DTD164 non-foil faces/images outside a
 //        nightly run (cached bodies carry other_face_* / image_url)
-const SEARCH_CACHE_VERSION = 'v6';
+//   v7 — rarity sort uses a rank (Promo → Fabled → Marvel → … → Token),
+//        not the alphabetical rarity code
+const SEARCH_CACHE_VERSION = 'v7';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

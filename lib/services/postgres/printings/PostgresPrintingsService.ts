@@ -31,6 +31,7 @@ import type { AsyncResult } from '@/lib/services/contracts/common';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
 import { getHeroInfo } from '@/lib/fab-constants/heroes';
 import { KEYWORDS } from '@/lib/fab-constants/keywords';
+import { RARITY_SORT_ORDER } from '@/lib/fab-constants/rarities';
 import { OFFICIAL_TALENTS } from '@/lib/talent-constants';
 
 export class PostgresPrintingsService implements IPrintingsService {
@@ -348,7 +349,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       case 'defense': return [orderFn(repr.defense), asc(repr.name)];
       // Release order (oldest set first), then collector number within the set.
       case 'set':     return [orderFn(sql`COALESCE(${repr.setReleaseOrder}, 2147483647)`), orderFn(repr.collectorNumber), asc(repr.name)];
-      case 'rarity':  return [orderFn(repr.rarity), asc(repr.name)];
+      case 'rarity':  return [orderFn(this.rarityRank(repr.rarity)), asc(repr.name)];
       case 'collector_number': return [orderFn(repr.collectorNumber), asc(repr.name)];
       // Pitch order; non-pitch (color='') always last in BOTH directions.
       case 'color':   return [asc(this.colorPitchRank(repr.color, options?.sortOrder)), asc(repr.name)];
@@ -2138,6 +2139,12 @@ export class PostgresPrintingsService implements IPrintingsService {
     return sql`CASE ${col} WHEN 's' THEN 0 WHEN 'n' THEN 0 WHEN 'r' THEN 1 WHEN 'c' THEN 2 WHEN 'g' THEN 3 ELSE 4 END`;
   }
 
+  /** Rarity rank per RARITY_SORT_ORDER (Promo → Fabled → … → Token); unknown codes last. */
+  private rarityRank(col: any): any {
+    const whens = RARITY_SORT_ORDER.map((code, i) => sql`WHEN ${code} THEN ${sql.raw(String(i))}`);
+    return sql`CASE ${col} ${sql.join(whens, sql` `)} ELSE ${sql.raw(String(RARITY_SORT_ORDER.length))} END`;
+  }
+
   /**
    * Pitch-color rank. Always evaluated ASC by the caller so non-pitch cards
    * (color='') stay last in both directions: asc = red→yellow→blue,
@@ -2207,7 +2214,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           orderFn(cards.name),
         ];
       case 'rarity':
-        return [orderFn(printings.rarity), orderFn(cards.name)];
+        return [orderFn(this.rarityRank(printings.rarity)), orderFn(cards.name)];
       case 'collector_number':
         return [orderFn(printings.collectorNumber), orderFn(cards.name)];
       // Pitch order; non-pitch (color='') always last in BOTH directions.

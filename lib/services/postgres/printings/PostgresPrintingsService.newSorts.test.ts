@@ -18,6 +18,8 @@ const COLOR_RANK_DESC: Record<string, number> = { blue: 1, yellow: 2, red: 3, ''
 const EDITION_RANK: Record<string, number> = { a: 1, f: 2, u: 3, n: 4 };
 // canonical foiling order (mirrors canonicalPrintingOrder): non-foil → rainbow → cold → gold
 const FOILING_RANK: Record<string, number> = { s: 0, n: 0, r: 1, c: 2, g: 3 };
+// rarity asc: Promo → Fabled → Marvel → Legendary → Majestic → Super Rare → Rare → Common → Basic → Token
+const RARITY_RANK: Record<string, number> = { p: 0, f: 1, v: 2, l: 3, m: 4, s: 5, r: 6, c: 7, b: 8, t: 9 };
 
 const nonDecreasing = (arr: number[]) => arr.every((v, i) => i === 0 || arr[i - 1] <= v);
 
@@ -141,9 +143,43 @@ describe('PostgresPrintingsService — new sort options (flat)', () => {
     const vals = def.filter((d): d is number => d != null);
     expect(nonDecreasing(vals)).toBe(true);
   });
+
+  it('rarity asc orders Promo → Fabled → Marvel → … → Common → Basic → Token', async () => {
+    const res = await service.searchPrintings(
+      { talents: ['draconic'] },
+      { limit: 5000, searchMode: 'strict', sortBy: 'rarity', sortOrder: 'asc' },
+    );
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    const ranks = res.data.printings.map((p) => RARITY_RANK[p.rarity ?? ''] ?? 10);
+    expect(new Set(res.data.printings.map((p) => p.rarity)).size).toBeGreaterThan(3);
+    expect(nonDecreasing(ranks)).toBe(true);
+  });
+
+  it('rarity desc reverses the order (Token first)', async () => {
+    const res = await service.searchPrintings(
+      { talents: ['draconic'] },
+      { limit: 5000, searchMode: 'strict', sortBy: 'rarity', sortOrder: 'desc' },
+    );
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    const ranks = res.data.printings.map((p) => RARITY_RANK[p.rarity ?? ''] ?? 10);
+    expect(nonDecreasing([...ranks].reverse())).toBe(true);
+  });
 });
 
 describe('PostgresPrintingsService — new sort options (grouped)', () => {
+  it('rarity asc orders Promo → Fabled → Marvel → … → Common → Basic → Token', async () => {
+    const res = await service.searchPrintings(
+      { talents: ['draconic'] },
+      { limit: 2000, searchMode: 'strict', sortBy: 'rarity', sortOrder: 'asc', groupByCard: true },
+    );
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    const ranks = res.data.printings.map((p) => RARITY_RANK[p.rarity ?? ''] ?? 10);
+    expect(new Set(res.data.printings.map((p) => p.rarity)).size).toBeGreaterThan(2);
+    expect(nonDecreasing(ranks)).toBe(true);
+  });
   it('color asc orders red → yellow → blue → non-pitch', async () => {
     const res = await service.searchPrintings(
       { classes: ['runeblade'] },

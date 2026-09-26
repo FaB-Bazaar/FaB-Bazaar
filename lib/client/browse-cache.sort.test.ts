@@ -89,3 +89,12 @@ describe('sortPrintings — name sort secondary order', () => {
     expect(result.map((x) => x.printing_id)).toEqual(['p3', 'p2', 'p1']);
   });
 });
+
+describe('sortPrintings — rarity order', () => {
+  test('asc: Promo → Fabled → Marvel → Legendary → Majestic → Super Rare → Rare → Common → Basic → Token', () => {
+    const codes = ['t', 'b', 'c', 'r', 's', 'm', 'l', 'v', 'f', 'p'];
+    const input = codes.map((rarity) => p({ printing_id: rarity, display_name: 'X', rarity }));
+    const result = sortPrintings(input, 'rarity', 'asc');
+    expect(result.map((x) => x.rarity)).toEqual(['p', 'f', 'v', 'l', 'm', 's', 'r', 'c', 'b', 't']);
+  });
+});

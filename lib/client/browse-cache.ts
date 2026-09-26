@@ -6,6 +6,8 @@
  * All search/filter operations run client-side against this in-memory dataset.
  */
 
+import { RARITY_SORT_ORDER } from '@/lib/fab-constants/rarities';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface BrowsePrinting {
@@ -81,9 +83,9 @@ export interface BrowseFilters {
 
 // ─── Rarity ordering for sort ─────────────────────────────────────────────────
 
-const RARITY_ORDER: Record<string, number> = {
-  v: 0, f: 1, l: 2, m: 3, p: 4, s: 5, r: 6, c: 7, t: 8, b: 9,
-};
+const RARITY_ORDER: Record<string, number> = Object.fromEntries(
+  RARITY_SORT_ORDER.map((code, i) => [code, i]),
+);
 
 // ─── Module-level singleton ───────────────────────────────────────────────────
 
