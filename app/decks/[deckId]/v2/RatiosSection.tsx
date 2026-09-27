@@ -9,7 +9,7 @@ import { X } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import { KIND_NAME, measureLabel, measureSuggestions, ratioRow, type DeckRatio, type Measure } from "@/lib/deck/ratios";
 
-const FIELD = "rounded-sm border border-gray-400 bg-white px-1.5 py-0.5 text-sm dark:border-gray-600 dark:bg-gray-900";
+const FIELD = "rounded-sm border border-gray-400 bg-white px-1.5 py-0.5 text-sm dark:border-gray-600 dark:bg-gray-800";
 
 /** One side of a ratio: type a word, pick what it means from suggestions
  *  (card type / keyword / pitch the deck has, then card text), each with its

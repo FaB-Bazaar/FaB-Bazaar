@@ -150,7 +150,7 @@ export default function FindPanel({ deck, deckId, active, setActive, brewing = f
             value={draft}
             onChange={e => setDraft(e.target.value)}
             placeholder="e.g. discard"
-            className="w-full rounded-sm border border-gray-400 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-600 focus:outline-none dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100"
+            className="w-full rounded-sm border border-gray-400 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-600 focus:outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
           />
         </form>
         {live && (

@@ -20,7 +20,7 @@ function Side({ measure, rows, style }: { measure: Measure; rows: DeckTableRow[]
   const label = `${measureLabel(measure)} · ${copies} ${copies === 1 ? "copy" : "copies"}`;
   return (
     <div role="group" aria-label={label} className="min-w-0 flex-1 border border-gray-300 dark:border-gray-700">
-      <h3 className="border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">{label}</h3>
+      <h3 className="border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">{label}</h3>
       {rows.length === 0 ? (
         <p className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">No cards.</p>
       ) : style === "tiles" ? (
@@ -64,7 +64,7 @@ function Side({ measure, rows, style }: { measure: Measure; rows: DeckTableRow[]
   );
 }
 
-const FIELD = "rounded-sm border border-gray-400 bg-white px-1 py-0.5 text-sm dark:border-gray-600 dark:bg-gray-900";
+const FIELD = "rounded-sm border border-gray-400 bg-white px-1 py-0.5 text-sm dark:border-gray-600 dark:bg-gray-800";
 const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
 
 /** "Odds in a [4]-card hand: [at least] [3] Boost and [at least] [1] Item → 11.0%"

@@ -79,7 +79,7 @@ export default function DeckTable({ deck, active, ownershipMap, canEdit, onChang
   return (
     <>
       <table aria-label="Deck cards" className="w-full border-collapse text-sm text-gray-800 dark:text-gray-200">
-        <thead className="sticky top-16 z-10 bg-gray-100 dark:bg-gray-900">
+        <thead className="sticky top-16 z-10 bg-gray-100 dark:bg-gray-800">
           <tr className="border-b border-gray-300 dark:border-gray-700">
             {COLUMNS.map(c => {
               const sorted = sort?.key === c.key ? sort.dir : null;
@@ -105,7 +105,7 @@ export default function DeckTable({ deck, active, ownershipMap, canEdit, onChang
           {groups.map(g => (
             <Fragment key={g.label || "all"}>
               {g.label && (
-                <tr className={cn("border-b border-gray-300 dark:border-gray-700", g.match ? "bg-amber-100 dark:bg-amber-900/30" : "bg-gray-50 dark:bg-gray-900/60")}>
+                <tr className={cn("border-b border-gray-300 dark:border-gray-700", g.match ? "bg-amber-100 dark:bg-amber-900/30" : "bg-gray-50 dark:bg-gray-800/60")}>
                   <th scope="rowgroup" colSpan={colCount} className="px-2 py-1 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">{g.label}</th>
                 </tr>
               )}

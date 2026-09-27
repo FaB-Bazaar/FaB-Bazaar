@@ -276,7 +276,7 @@ export default function DeckV2Page() {
   const heroName = deck.heroName || deck.hero?.[0]?.printingDetails?.display_name;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-950 min-h-[calc(100vh-4rem)]">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-[calc(100vh-4rem)]">
       {/* Phones: the rail layout needs width; send people to the classic page. */}
       <div className="md:hidden px-4 py-10 text-center text-sm text-gray-700 dark:text-gray-300">
         This layout is a desktop experiment.{" "}
@@ -285,7 +285,7 @@ export default function DeckV2Page() {
 
       <div className="hidden md:flex">
         {/* Rail */}
-        <nav aria-label="Deck tools" className="sticky top-16 flex h-[calc(100vh-4rem)] w-20 shrink-0 flex-col items-stretch border-r border-gray-300 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
+        <nav aria-label="Deck tools" className="sticky top-16 flex h-[calc(100vh-4rem)] w-20 shrink-0 flex-col items-stretch border-r border-gray-300 bg-gray-50 dark:border-gray-800 dark:bg-gray-800">
           {rail.map(item => {
             const Icon = item.icon;
             const selected = (item.kind === "panel" && panel === item.id) || (item.kind === "main" && mainMode === item.id);
@@ -299,8 +299,8 @@ export default function DeckV2Page() {
             const cls = cn(
               "flex w-full flex-col items-center gap-1 border-b border-l-[3px] border-b-gray-200 px-1 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:border-b-gray-800",
               selected
-                ? "-mr-px border-l-blue-600 bg-white text-gray-900 dark:bg-gray-950 dark:text-white"
-                : "border-l-transparent text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+                ? "-mr-px border-l-blue-600 bg-white text-gray-900 dark:bg-gray-900 dark:text-white"
+                : "border-l-transparent text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
             );
             if (item.kind === "main") {
               return (
@@ -336,12 +336,12 @@ export default function DeckV2Page() {
             type="button"
             onClick={() => setChordMode("select")}
             aria-label="Tools (Cmd+K)"
-            className="flex w-full flex-col items-center gap-1 border-b border-l-[3px] border-b-gray-200 border-l-transparent px-1 py-3 text-gray-700 hover:bg-gray-100 dark:border-b-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="flex w-full flex-col items-center gap-1 border-b border-l-[3px] border-b-gray-200 border-l-transparent px-1 py-3 text-gray-700 hover:bg-gray-100 dark:border-b-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             <Command className="h-5 w-5" />
             <span className="text-[11px] leading-tight text-center">Tools <span className="text-gray-500">⌘K</span></span>
           </button>
-          <Link href={`/decks/${deckId}`} className="mt-auto flex w-full flex-col items-center gap-1 border-t border-gray-200 px-1 py-3 text-gray-600 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">
+          <Link href={`/decks/${deckId}`} className="mt-auto flex w-full flex-col items-center gap-1 border-t border-gray-200 px-1 py-3 text-gray-600 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-700">
             <ArrowLeft className="h-5 w-5" />
             <span className="text-[11px] leading-tight">Classic view</span>
           </Link>
@@ -363,7 +363,7 @@ export default function DeckV2Page() {
               <button
                 type="button"
                 aria-label="Options"
-                className="flex w-full flex-col items-center gap-1 border-t border-gray-200 px-1 py-3 text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+                className="flex w-full flex-col items-center gap-1 border-t border-gray-200 px-1 py-3 text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 <MoreHorizontal className="h-5 w-5" aria-hidden />
                 <span className="text-[11px] leading-tight">Options</span>
@@ -374,7 +374,7 @@ export default function DeckV2Page() {
 
         {/* Flyout panel */}
         {panel && (
-          <aside aria-label="Deck tool panel" className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-r border-gray-300 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950">
+          <aside aria-label="Deck tool panel" className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-r border-gray-300 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-900">
             {panel === "find" && (
               <FindPanel
                 key={findKey}
@@ -425,7 +425,7 @@ export default function DeckV2Page() {
                 onClick={() => chooseView(v)}
                 className={cn(
                   "px-3 py-1 border-l border-gray-300 first:border-l-0 dark:border-gray-700",
-                  view === v ? "bg-gray-200 font-semibold text-gray-900 dark:bg-gray-800 dark:text-white" : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900",
+                  view === v ? "bg-gray-200 font-semibold text-gray-900 dark:bg-gray-800 dark:text-white" : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800",
                 )}
               >
                 {VIEW_LABEL[v]}
@@ -504,7 +504,7 @@ export default function DeckV2Page() {
             nothing while empty, so other views keep the full width. */}
         <div
           id={BREW_DETAILS_SLOT}
-          className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-l border-gray-300 bg-white empty:hidden dark:border-gray-800 dark:bg-gray-950"
+          className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-l border-gray-300 bg-white empty:hidden dark:border-gray-800 dark:bg-gray-900"
         />
       </div>
 

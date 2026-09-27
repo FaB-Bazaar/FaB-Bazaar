@@ -134,7 +134,7 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
             <select
               value={kitId}
               onChange={e => onKitChange(e.target.value)}
-              className="rounded-sm border border-gray-400 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-900"
+              className="rounded-sm border border-gray-400 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800"
             >
               <option value="">All legal cards</option>
               {kits.map(k => (
@@ -153,7 +153,7 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
         </div>
       )}
       <section aria-label={label} className="border border-gray-300 dark:border-gray-700">
-        <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+        <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
           <span>{label}</span>
           {/* The previous pool stays up while a new filter loads — say so, and dim it. */}
           {search.loading && cards.length > 0 && (
@@ -301,7 +301,7 @@ function BrewDetails({ card, siblings, inDeck, canEdit, onPick, onClose, onAdd }
 
   return (
     <aside aria-label="Card details" className="text-sm text-gray-800 dark:text-gray-200">
-      <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+      <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800">
         <h2 className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">{card.name}</h2>
         <button type="button" onClick={onClose} aria-label="Close details" className="rounded-sm p-0.5 text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800">
           <X className="h-4 w-4" aria-hidden />
@@ -331,7 +331,7 @@ function BrewDetails({ card, siblings, inDeck, canEdit, onPick, onClose, onAdd }
               <select
                 value={copies}
                 onChange={e => setCopies(Number(e.target.value))}
-                className="rounded-sm border border-gray-400 bg-white px-1 py-0.5 text-sm dark:border-gray-600 dark:bg-gray-900"
+                className="rounded-sm border border-gray-400 bg-white px-1 py-0.5 text-sm dark:border-gray-600 dark:bg-gray-800"
               >
                 {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
