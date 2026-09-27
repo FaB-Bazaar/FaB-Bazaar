@@ -25,6 +25,7 @@ import { pitchSplit, playableCount } from "@/lib/deck/deck-lens";
 import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./FindPanel";
 import DeckTable from "./DeckTable";
+import MatchesStrip from "./MatchesStrip";
 
 type PanelId = "add" | "find" | "stats";
 
@@ -231,6 +232,14 @@ export default function DeckV2Page() {
               onChangeQty={(printingId, zone, delta) => setQty(printingId, zone, 0, delta)}
             />
           ) : (
+          <>
+          {active && (
+            <MatchesStrip
+              deck={deck}
+              active={active}
+              onClear={() => { window.dispatchEvent(new CustomEvent("deck-highlight-clear")); setActive(null); }}
+            />
+          )}
           <DeckEditorListView
             deck={deck}
             ownershipMap={state.ownershipMap}
@@ -246,7 +255,9 @@ export default function DeckV2Page() {
             onAddOneTile={(id, category, qty) => setQty(id, category, qty, 1)}
             onAddCard={category => setAddTarget(category)}
             inPlaceHighlight
+            onHighlightCleared={() => setActive(null)}
           />
+          </>
           )}
         </main>
       </div>

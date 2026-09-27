@@ -1661,9 +1661,12 @@ interface DeckEditorListViewProps {
   /** Highlights ring/dim tiles in place instead of opening the full-screen focus overlay —
    *  for pages whose own controls (deck v2's Find panel) must stay clickable while highlighting. */
   inPlaceHighlight?: boolean;
+  /** Called when the highlight goes from active to empty by ANY route (toolbar Clear all,
+   *  chip ×, Escape, a clear event) — lets a page's own highlight UI stay in sync. */
+  onHighlightCleared?: () => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover, inPlaceHighlight }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover, inPlaceHighlight, onHighlightCleared }: DeckEditorListViewProps) {
   // Gates the Pimp My Deck toolbar button (viewer-collection-scoped page).
   const { user } = useAuth();
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
@@ -1885,6 +1888,13 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
   }, [onMoveSingle, deck]);
 
   const [highlightFilters, setHighlightFilters] = useState<Array<{ stat: string; value: number | string }>>([]);
+  const hadHighlightRef = useRef(false);
+  useEffect(() => {
+    const has = highlightFilters.length > 0;
+    if (hadHighlightRef.current && !has) onHighlightCleared?.();
+    hadHighlightRef.current = has;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire on the filter transition only
+  }, [highlightFilters]);
 
   /** Mobile lane grouping: by card type (the lane header is then the type cue) or by pitch. */
   const [laneMode, setLaneMode] = useState<LaneMode>('type');
