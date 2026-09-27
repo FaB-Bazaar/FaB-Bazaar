@@ -5,7 +5,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Library, Search } from "lucide-react";
-import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
+import { PrintingMetaChips, SetLogo } from "@/components/shared/PrintingMetaChips";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import type {
@@ -224,7 +224,10 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
           >
             {m.displayName}
           </Link>
-          <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" />
+          <div className="flex items-center gap-1.5">
+            <SetLogo set={m.set} size="md" className="sm:hidden" />
+            <PrintingMetaChips foiling={m.foiling} rarity={m.rarity} showSet={false} />
+          </div>
         </div>
         <div className="mt-1 text-sm font-medium text-gray-800 dark:text-gray-200">
           {m.signals.map((s) => SIGNAL_META[s].tag).join(" · ")}
@@ -240,6 +243,9 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
         </div>
         <HoldingLine m={m} />
       </div>
+
+      {/* The row's spare width: a readable set logo instead of an empty gap. */}
+      <SetLogo set={m.set} size="lg" className="hidden sm:block self-center shrink-0" />
 
       <div className="shrink-0 flex flex-col items-end text-right">
         {m.dollarImpact != null && (

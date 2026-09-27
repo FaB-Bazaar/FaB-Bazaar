@@ -249,4 +249,12 @@ describe('/daily your movers — a row reads as a sentence', () => {
     render(<DailyMoversView signedIn={true} userMovers={one(userMover({ decks: [deck(1)] }))} market={marketDto([])} error={null} />)
     expect(screen.getByRole('link', { name: 'Deck 1' })).toHaveAttribute('href', '/decks/p1')
   })
+
+  it('puts a large set logo in the gap before the gain column (small one stays inline on phones)', () => {
+    render(<DailyMoversView signedIn={true} userMovers={one(userMover())} market={marketDto([])} error={null} />)
+    const logos = [...rowFor('Enlightened Strike').querySelectorAll('img[alt="WTR"]')]
+    expect(logos.map((l) => /\bh-14\b/.test(l.className))).toEqual([false, true])
+    expect(logos[0].className).toMatch(/sm:hidden/)
+    expect(logos[1].className).toMatch(/hidden sm:block/)
+  })
 })
