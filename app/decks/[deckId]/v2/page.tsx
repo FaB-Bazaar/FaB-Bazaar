@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, Command, FileText, Loader2, Search, Swords } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, Command, FileText, Loader2, Search, Swords, Trophy, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -26,6 +26,7 @@ import { resolveDefaultDeckViewMode } from "@/lib/deck/deckViewMode";
 import { pitchSplit, playableCount } from "@/lib/deck/deck-lens";
 import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./FindPanel";
+import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
 import BrewView, { BREW_DETAILS_SLOT } from "./BrewView";
@@ -43,7 +44,11 @@ const VIEW_KEY = "deckV2View";
 
 type RailItem =
   | { kind: "panel"; id: PanelId; label: string; icon: ComponentType<{ className?: string }> }
-  | { kind: "link"; href: string; label: string; icon: ComponentType<{ className?: string }> };
+  | { kind: "link"; href: string; label: string; icon: ComponentType<{ className?: string }> }
+  /** Replaces the deck views in the main area (classic in-page tabs, e.g. Results). */
+  | { kind: "main"; id: MainMode; label: string; icon: ComponentType<{ className?: string }> };
+
+type MainMode = "deck" | "results";
 
 export default function DeckV2Page() {
   const params = useParams();
@@ -72,7 +77,10 @@ export default function DeckV2Page() {
   // kit, ratio comparison, owned/unowned view and the Find box all reset
   // (pinned Find words stay; remounting the panel clears its box).
   const [findKey, setFindKey] = useState(0);
+  // Main area: the deck views, or a classic in-page tab (Results).
+  const [mainMode, setMainMode] = useState<MainMode>("deck");
   const resetToDeck = () => {
+    setMainMode("deck");
     setPanel("find");
     setActive(null);
     setFacets({});
@@ -241,7 +249,9 @@ export default function DeckV2Page() {
     { kind: "panel", id: "find", label: "Deck", icon: Search },
     { kind: "panel", id: "stats", label: "Stats", icon: BarChart3 },
     { kind: "link", href: `/decks/${deckId}/matchups`, label: "Matchups", icon: Swords },
+    ...(canEdit ? [{ kind: "main" as const, id: "results" as const, label: "Results", icon: Trophy }] : []),
     ...(canEdit ? [{ kind: "link" as const, href: `/decks/${deckId}/notes`, label: "Notes", icon: FileText }] : []),
+    { kind: "link", href: `/decks/${deckId}/present`, label: "Present", icon: Tv },
   ];
 
   if (state.deckLoading || authLoading) {
@@ -271,7 +281,7 @@ export default function DeckV2Page() {
         <nav aria-label="Deck tools" className="sticky top-16 flex h-[calc(100vh-4rem)] w-20 shrink-0 flex-col items-stretch border-r border-gray-300 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
           {rail.map(item => {
             const Icon = item.icon;
-            const selected = item.kind === "panel" && panel === item.id;
+            const selected = (item.kind === "panel" && panel === item.id) || (item.kind === "main" && mainMode === item.id);
             const inner = (
               <>
                 <Icon className="h-5 w-5" />
@@ -285,6 +295,20 @@ export default function DeckV2Page() {
                 ? "-mr-px border-l-blue-600 bg-white text-gray-900 dark:bg-gray-950 dark:text-white"
                 : "border-l-transparent text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
             );
+            if (item.kind === "main") {
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={selected}
+                  // The deck panels (filters, stats) don't apply to Results — close them.
+                  onClick={() => { if (!selected) setPanel(null); setMainMode(selected ? "deck" : item.id); }}
+                  className={cls}
+                >
+                  {inner}
+                </button>
+              );
+            }
             return item.kind === "panel" ? (
               <button
                 key={item.id}
@@ -354,6 +378,12 @@ export default function DeckV2Page() {
               {[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
             </p>
           </header>
+          {mainMode === "results" ? (
+            <section aria-label="Results">
+              <DeckResultsTab deckId={deckId} deck={deck} />
+            </section>
+          ) : (
+          <>
           <div role="group" aria-label="Deck view" className="mb-3 inline-flex overflow-hidden rounded-sm border border-gray-300 text-sm dark:border-gray-700">
             {VIEWS.map(v => (
               <button
@@ -429,6 +459,8 @@ export default function DeckV2Page() {
             onAddToBinder={handleAddToBinder}
             onAddToWants={handleAddToWants}
           />
+          </>
+          )}
           </>
           )}
         </main>
