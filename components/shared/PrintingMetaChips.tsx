@@ -13,10 +13,9 @@ interface SetLogoProps {
   className?: string
 }
 
-// Logos are transparent wordmarks that sink into the tile — dark ones (High
-// Seas) on dark mode especially — so lift them with a shadow / light glow.
-const LG_LOGO =
-  "h-14 w-28 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] dark:drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]"
+// Logos are transparent wordmarks that sink into the tile, so give them a
+// tight dark edge. No light glow — a halo reads as generated-UI styling.
+const LG_LOGO = "h-14 w-28 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
 
 /**
  * Set logo, named for the set. Sets without a logo (most promo/product sets —
