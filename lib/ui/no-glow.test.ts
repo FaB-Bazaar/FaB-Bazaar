@@ -6,6 +6,8 @@
  * pulse, `blur-2xl/3xl` background blobs). State stays visible through the
  * border/ring these used to sit next to.
  *
+ * Also banned: callouts with a thick coloured left bar (CSS `border-left: 4px+`).
+ *
  * Allowed: tight black text outlines over card art (`drop-shadow-[0_0_2px_…]`)
  * and 1px `0_0_0_1px` ring shadows — those aren't glows.
  */
@@ -14,7 +16,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ROOTS = ['app', 'components'];
+const ROOTS = ['app', 'components', 'web-components/src'];
 const SKIP = /(\.test\.|\/api\/|components\/testing\/)/;
 
 function sourceFiles(dir: string): string[] {
@@ -31,10 +33,13 @@ const GLOW_PATTERNS: [string, RegExp][] = [
   ['attention-glow pulse', /attention-glow/],
   ['blur blob', /\bblur-(?:2xl|3xl)\b/],
   ['CSS glow', /box-shadow:\s*0 0 (?:[4-9]|\d{2,})px/],
+  // Tinted callout with a thick coloured bar down its left edge. Thin quote
+  // rules and pitch-colour strips (Tailwind border-l-4) are fine.
+  ['accent-bar callout', /border-left:\s*(?:[4-9]|\d{2,})px solid/],
 ];
 
 describe('no AI glow styling', () => {
-  it('app/ and components/ contain no glow effects', () => {
+  it('app/, components/ and web-components/src contain no glow effects', () => {
     const hits: string[] = [];
     for (const file of ROOTS.flatMap(sourceFiles)) {
       readFileSync(file, 'utf8').split('\n').forEach((line, i) => {

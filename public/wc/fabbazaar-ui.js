@@ -4640,7 +4640,7 @@ FabKeyTakeaways.styles = i$4`
 
     .takeaways {
       background: var(--fab-takeaways-bg);
-      border-left: 4px solid var(--fab-takeaways-border);
+      border: 1px solid color-mix(in srgb, var(--fab-takeaways-border) 35%, transparent);
       border-radius: 0.5rem;
       padding: 1.5rem;
     }
