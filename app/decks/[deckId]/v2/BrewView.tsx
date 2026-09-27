@@ -4,17 +4,17 @@
 // legality the Add Card dialog bakes in) that isn't in the deck yet, narrowed by
 // the Find panel's active lens and Class / Talent / Rarity picks.
 //
-// Adding (editors only): hover or focus a tile for a "+" that puts one copy on
-// the Bench (QUICK_ZONE); 9 / 8 / 7 on a focused tile add to main deck /
-// inventory / bench; clicking the tile opens a details panel with copies and
-// zone buttons. The quick-add printing is the search's representative printing
+// Adding (editors only): each tile carries Main / Inv. / Bench buttons on the
+// art (the Cards view's overlay style, minus remove — it isn't in the deck yet);
+// 9 / 8 / 7 on a focused tile do the same; clicking the tile opens a details
+// panel with copies and zone buttons. The quick-add printing is the search's representative printing
 // (card.printings[0]) — the same default the Add Card dialog uses. Cards added
 // here stay on screen with a "Bench ×1" badge + undo until the filters change.
 // No transitions or animations, on purpose.
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Minus, Plus, X } from "lucide-react";
+import { Minus, X } from "lucide-react";
 import type { DeckCategory, DeckDTO } from "@/lib/services/contracts/IDeckService";
 import { useCardSearch } from "@/hooks/search/useCardSearch";
 import { buildDeckAddFilters } from "@/lib/search/deck-add-filters";
@@ -22,7 +22,7 @@ import { DEFAULT_OPT_STATE } from "@/lib/search/opt-url-state";
 import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
 import { groupSearchPrintingsToCards, type CardResultWithCount } from "@/lib/deck/group-search-results";
 import {
-  deckCopiesByZone, facetsLabel, facetsToSearchFilters, lensToSearchFilters, notInDeck, pitchSiblings, type BrewFacets,
+  deckCopiesByZone, deckHeroName, facetsLabel, facetsToSearchFilters, lensToSearchFilters, notInDeck, pitchSiblings, type BrewFacets,
 } from "@/lib/deck/brew";
 import { lensLabel } from "@/lib/deck/deck-lens";
 import type { Lens } from "@/lib/deck/deck-table";
@@ -31,13 +31,14 @@ import { RulesText } from "@/components/cards/CardDetailsLightbox";
 /** id of the page's right-hand column the details panel renders into. */
 export const BREW_DETAILS_SLOT = "brew-details-slot";
 
-/** Where the tile "+" puts a card. Brewing is trying ideas — the Bench never
- *  disturbs the deck's count or legality. */
-const QUICK_ZONE: DeckCategory = "benched";
-
 const ZONE_LABEL: Partial<Record<DeckCategory, string>> = {
   hero: "Hero", equipment: "Equipment", maindeck: "Main deck", inventory: "Inventory", benched: "Bench",
 };
+const TILE_ZONES: Array<{ zone: DeckCategory; short?: string; title: string }> = [
+  { zone: "maindeck", short: "Main", title: "Add to main deck" },
+  { zone: "inventory", short: "Inv.", title: "Add to inventory" },
+  { zone: "benched", title: "Add to bench" },
+];
 const KEY_ZONE: Record<string, DeckCategory> = { "9": "maindeck", "8": "inventory", "7": "benched" };
 const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
 const PITCH_NAME: Record<number, string> = { 1: "red", 2: "yellow", 3: "blue" };
@@ -59,14 +60,15 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
   // a new object and would otherwise re-run the search (see MobileCardSearch).
   const hero = resolveHeroFilter(deck);
   const heroKey = JSON.stringify(hero);
+  const heroName = deckHeroName(deck);
   const filters = useMemo(
     () => ({
-      ...buildDeckAddFilters(DEFAULT_OPT_STATE, "", { hero, deckFormat: deck.format, targetCategory: "maindeck" }),
+      ...buildDeckAddFilters(DEFAULT_OPT_STATE, "", { hero, deckFormat: deck.format, targetCategory: "maindeck", heroName }),
       ...lensToSearchFilters(active),
       ...facetsToSearchFilters(facets),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hero is keyed by content
-    [heroKey, deck.format, active, facets],
+    [heroKey, heroName, deck.format, active, facets],
   );
   const hasLegality = Object.keys(filters).length > 0;
 
@@ -124,11 +126,6 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
           <p className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">No legal cards left to add{active ? " for this filter" : ""}.</p>
         ) : (
           <>
-            {canEdit && (
-              <p className="px-3 pt-2 text-xs text-gray-600 dark:text-gray-400">
-                Hover a card and press <strong>+</strong> to put it on the Bench, or click it for details. With a card focused, 9 / 8 / 7 add to main deck / inventory / bench.
-              </p>
-            )}
             <ul className={`flex flex-wrap gap-3 p-3 ${search.loading ? "opacity-40" : ""}`} aria-busy={search.loading}>
               {cards.map(c => (
                 <BrewTile
@@ -191,16 +188,23 @@ function BrewTile({ card, inDeck, selected, canEdit, onOpen, onAdd, onUndo }: {
       >
         <img src={printingOf(card)?.image_url || "/cardback.webp"} alt="" loading="lazy" className="w-full rounded-md" />
       </button>
+      {/* Zone buttons on the art — the Cards view's overlay style (faint at rest,
+          full on hover/focus; no transition). No remove: it isn't in the deck yet. */}
       {canEdit && (
-        <button
-          type="button"
-          aria-label={`Add ${name} to ${ZONE_LABEL[QUICK_ZONE]}`}
-          title={`Add to ${ZONE_LABEL[QUICK_ZONE]}`}
-          onClick={() => onAdd(QUICK_ZONE)}
-          className="invisible absolute right-1 top-1 rounded-sm border border-gray-300 bg-white p-0.5 text-gray-900 hover:bg-gray-100 group-hover:visible group-focus-within:visible dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-        </button>
+        <div className="absolute left-1 top-1 flex flex-col gap-1">
+          {TILE_ZONES.map(({ zone, short, title }) => (
+            <button
+              key={zone}
+              type="button"
+              aria-label={`Add ${name} to ${ZONE_LABEL[zone]}`}
+              title={title}
+              onClick={() => onAdd(zone)}
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-black/85 text-[8px] font-bold leading-none text-gray-300 ring-1 ring-white/20 opacity-20 hover:bg-blue-600 hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 group-hover:opacity-100 group-focus-within:opacity-100"
+            >
+              {short ?? <img src="/bench-icon.svg" className="h-3 w-3 invert" alt="" aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
       )}
       <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-800 dark:text-gray-200" title={card.name}>
         {card.pitch != null && PITCH_DOT[card.pitch] && (
