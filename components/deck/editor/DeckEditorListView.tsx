@@ -1667,9 +1667,11 @@ interface DeckEditorListViewProps {
   /** Called when the highlight goes from active to empty by ANY route (toolbar Clear all,
    *  chip ×, Escape, a clear event) — lets a page's own highlight UI stay in sync. */
   onHighlightCleared?: () => void;
+  /** Reports the grid's Tiles / List / Game choice (deck v2 shows its right rail for Tiles and Game only). */
+  onViewModeChange?: (mode: 'list' | 'tile' | 'game') => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover, inPlaceHighlight, onHighlightCleared }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover, inPlaceHighlight, onHighlightCleared, onViewModeChange }: DeckEditorListViewProps) {
   // Gates the Pimp My Deck toolbar button (viewer-collection-scoped page).
   const { user } = useAuth();
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
@@ -1706,6 +1708,8 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
   // onto the new printing once it shows up in the deck.
   const [pendingRetarget, setPendingRetarget] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>(defaultViewMode ?? 'tile');
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- report changes only
+  useEffect(() => { onViewModeChange?.(viewMode); }, [viewMode]);
   // defaultViewMode depends on canEdit, which can resolve after mount (auth
   // often loads slower than the deck). Apply it exactly once when it arrives;
   // a manual view choice (viewModeLocked) always wins.

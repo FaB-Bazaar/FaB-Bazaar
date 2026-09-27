@@ -7,7 +7,7 @@
 // deck itself, QuickAddCardDialog for adds, and the `deck-highlight-*` events
 // for highlighting. Desktop only for now; phones get a link to the classic page.
 
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, FileText, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./FindPanel";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import DeckBulkImport from "@/components/deck/editor/DeckBulkImport";
+import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
 import BrewView, { BREW_DETAILS_SLOT } from "./BrewView";
@@ -199,6 +200,21 @@ export default function DeckV2Page() {
       fail("Couldn't save ratios", e instanceof Error ? e.message : undefined);
     }
   };
+
+  // Classic right rail (hover preview + owned progress) beside the card grid,
+  // only in the grid's Tiles / Game modes.
+  const [gridMode, setGridMode] = useState<"list" | "tile" | "game">("tile");
+  const [hoveredCard, setHoveredCard] = useState<ComponentProps<typeof DeckRightRail>["hoveredCard"]>(null);
+  const railCounts = useMemo(() => {
+    let owned = 0, total = 0;
+    for (const c of [...(deck?.maindeck ?? []), ...(deck?.equipment ?? []), ...(deck?.inventory ?? [])]) {
+      const qty = c.quantity ?? 1;
+      total += qty;
+      owned += Math.min(qty, state.ownershipMap.get(c.printingId)?.owned ?? 0);
+    }
+    return { owned, total };
+  }, [deck, state.ownershipMap]);
+  const hoveredOwnership = hoveredCard?.printingId ? state.ownershipMap.get(hoveredCard.printingId) : null;
 
   // Paste-a-decklist import (shared DeckBulkImport): search the pasted list,
   // stage results, then save the staged cards to the deck.
@@ -537,6 +553,8 @@ export default function DeckV2Page() {
               onClear={() => { window.dispatchEvent(new CustomEvent("deck-highlight-clear")); setActive(null); }}
             />
           )}
+          <div className="flex items-start gap-4">
+          <div className="min-w-0 flex-1">
           <DeckEditorListView
             deck={deck}
             ownershipMap={state.ownershipMap}
@@ -568,7 +586,20 @@ export default function DeckV2Page() {
             onBinderChange={handleBinderChange}
             onAddToBinder={handleAddToBinder}
             onAddToWants={handleAddToWants}
+            onViewModeChange={setGridMode}
+            onCardHover={setHoveredCard}
           />
+          </div>
+          {gridMode !== "list" && (
+            <DeckRightRail
+              ownedCount={railCounts.owned}
+              totalCount={railCounts.total}
+              hoveredCard={hoveredCard && hoveredOwnership
+                ? { ...hoveredCard, ownedInDeck: Math.min(hoveredOwnership.owned, hoveredOwnership.needed), neededInDeck: hoveredOwnership.needed }
+                : hoveredCard}
+            />
+          )}
+          </div>
           </>
           )}
           </>
