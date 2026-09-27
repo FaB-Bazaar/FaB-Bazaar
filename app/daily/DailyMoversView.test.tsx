@@ -266,6 +266,18 @@ describe('/daily your movers — a row reads as a sentence', () => {
     const thumb = screen.getByRole('link', { name: 'View Enlightened Strike' })
     expect(thumb.className).toMatch(/\bw-20\b/)
   })
+
+  // A tall logo used to set the row height; the card image then stretched to
+  // it and cropped its sides. The logo must only fill space the row already has.
+  it('keeps the card image at card proportions and takes the logo out of the row height', () => {
+    render(<DailyMoversView signedIn={true} userMovers={one(userMover())} market={marketDto([])} error={null} />)
+    const thumb = screen.getByRole('link', { name: 'View Enlightened Strike' })
+    expect(thumb.className).toMatch(/\bself-start\b/)
+    const logo = [...rowFor('Enlightened Strike').querySelectorAll('img[alt="WTR"]')][1]
+    expect(logo.className).toMatch(/\babsolute\b/)
+    expect(logo.className).toMatch(/\binset-0\b/)
+    expect((logo.parentElement as HTMLElement).className).toMatch(/\brelative\b/)
+  })
 })
 
 describe('/daily market table — no dead gap after the name', () => {

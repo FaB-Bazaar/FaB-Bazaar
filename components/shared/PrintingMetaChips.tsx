@@ -20,7 +20,9 @@ const LOGO_SIZE = {
   sm: "h-5 w-5",
   md: "h-7 w-16 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
   lg: "h-14 w-28 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
-  fill: "h-full w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
+  // Absolutely positioned so the logo's natural height never sets the size of
+  // its container — the parent must be `relative` and sized by something else.
+  fill: "absolute inset-0 h-full w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
 } as const
 
 /**

@@ -209,7 +209,7 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
     <div data-testid="mover-row" className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3">
       <Link
         href={`/printing/${m.printingId}`}
-        className="shrink-0 w-14 sm:w-20 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        className="shrink-0 self-start w-14 sm:w-20 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         aria-label={`View ${m.displayName}`}
       >
         {m.imageUrl ? (
@@ -247,7 +247,7 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
       </div>
 
       {/* The row's spare width: the set logo, as large as the space allows. */}
-      <div className="hidden sm:flex flex-1 min-w-0 self-stretch items-center justify-center px-2 py-1">
+      <div className="hidden sm:flex relative flex-1 min-w-0 self-stretch items-center justify-center my-1 mx-2">
         <SetLogo set={m.set} size="fill" />
       </div>
 
