@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
 import { CardDetailsLightbox, type LightboxCard } from "@/components/cards/CardDetailsLightbox";
 import { fetchPrintingsForCard, type PrintingResult } from "@/lib/client/hero-pool-cache";
+import { cardTextMatches } from "@/lib/deck/card-text-match";
 
 const PITCH_DOT_CLASS: Record<number, string> = {
   1: "bg-red-500",
@@ -1957,6 +1958,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
       const name = (details?.display_name || details?.name || '') as string;
       return name.toLowerCase().includes(String(f.value).toLowerCase());
     }
+    if (f.stat === 'text') return cardTextMatches(details?.text as string | undefined, String(f.value));
     if (f.stat === 'keyword') {
       const kws: string[] = ((details?.keywords as string[] | undefined) || []).map((k: string) => k.toLowerCase());
       const needle = String(f.value).toLowerCase();
@@ -2037,6 +2039,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     return [...filtersByStat.values()].every(statFilters =>
       statFilters.some(f => {
         if (f.stat === 'name') return card.name.toLowerCase().includes(String(f.value).toLowerCase());
+        if (f.stat === 'text') return cardTextMatches((card as any).text, String(f.value));
         if (f.stat === 'keyword') {
           const kws: string[] = ((card as any).keywords || []).map((k: string) => k.toLowerCase());
           const needle = String(f.value).toLowerCase();
@@ -2208,6 +2211,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     if (f.stat === 'type') return String(f.value);
     if (f.stat === 'pitch') return `pitch ${f.value}`;
     if (f.stat === 'keyword') return String(f.value);
+    if (f.stat === 'text') return `"${f.value}" in text`;
     return `${f.stat} ${f.value}`;
   }).join(' + ');
 

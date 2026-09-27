@@ -606,7 +606,7 @@ export default function DeckEditorPage() {
   const heroTypes: string[] = ((state.deck?.hero?.[0]?.printingDetails as any)?.types || []).map((t: string) => t.toLowerCase());
   const heroClass = heroTypes.find(t => !NON_CLASS_TYPES.has(t)) || '';
 
-  const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'keyword' | 'clear' | 'arcane' | 'nameFilter'>(null);
+  const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'keyword' | 'clear' | 'arcane' | 'nameFilter' | 'textFilter'>(null);
   const [chordExiting, setChordExiting] = useState(false);
   const [keywordBuffer, setKeywordBuffer] = useState('');
   // Tile size — synced from DeckEditorListView via custom events
@@ -659,6 +659,7 @@ export default function DeckEditorPage() {
         else if (e.key === '8') { openQuickAdd({ category: 'inventory' }); resetChord(); }
         else if (e.key === '7') { openQuickAdd({ category: 'benched' as DeckCategory }); resetChord(); }
         else if (e.key.toLowerCase() === 's') { setChordMode('nameFilter'); setKeywordBuffer(''); startTimeout(); }
+        else if (e.key.toLowerCase() === 'x') { setChordMode('textFilter'); setKeywordBuffer(''); startTimeout(); }
         else if (e.key.toLowerCase() === 'm') { router.push(`/decks/${deckId}/matchups`); resetChord(); }
         // Scroll
         else if (e.key === '0') { window.scrollTo({ top: 0, behavior: 'smooth' }); resetChord(); }
@@ -826,7 +827,9 @@ export default function DeckEditorPage() {
         return;
       }
 
-      if (chordMode === 'nameFilter') {
+      // S = card name, X = rules text (effects that aren't keywords: discard,
+      // Gate to I'arathael, Corrupted Corpse…). Same type-then-Enter buffer.
+      if (chordMode === 'nameFilter' || chordMode === 'textFilter') {
         if (e.key === 'Backspace') {
           setKeywordBuffer(prev => prev.slice(0, -1));
           startTimeout();
@@ -834,7 +837,8 @@ export default function DeckEditorPage() {
         }
         if (e.key === 'Enter') {
           if (keywordBuffer.trim()) {
-            window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'name', value: keywordBuffer.trim() } }));
+            const stat = chordMode === 'textFilter' ? 'text' : 'name';
+            window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat, value: keywordBuffer.trim() } }));
           }
           resetChord();
           return;
@@ -1303,6 +1307,7 @@ export default function DeckEditorPage() {
           'F': () => setChordMode('clear'),
           'W': () => setChordMode('arcane'),
           'S': () => { setChordMode('nameFilter'); setKeywordBuffer(''); },
+          'X': () => { setChordMode('textFilter'); setKeywordBuffer(''); },
           'M': () => { router.push(`/decks/${deckId}/matchups`); setChordMode(null); },
           'O': () => { dispatchOwnershipFilter('owned', false); setChordMode(null); },
           'U': () => { dispatchOwnershipFilter('unowned', false); setChordMode(null); },
@@ -1644,6 +1649,7 @@ export default function DeckEditorPage() {
                         { key: 'K', label: 'Keyword', sub: true },
                         { key: 'W', label: 'Arcane damage', sub: true },
                         { key: 'S', label: 'Name search' },
+                        { key: 'X', label: 'Card text' },
                         { key: 'F', label: 'Clear all filters' },
                       ].map(({ key, label, sub }) => (
                         <button key={key} type="button" className={`${hudBtn} w-full mb-1`} onClick={() => SELECT_ACTIONS[key]?.()}>
@@ -1718,7 +1724,7 @@ export default function DeckEditorPage() {
                       <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-mono text-xs border border-gray-600">{modKey}K</kbd>
                       <span className="text-gray-600">→</span>
                       <kbd className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-200 font-mono text-xs border border-gray-500">
-                        {{ attack: 'A', cost: 'C', defense: 'D', type: 'T', keyword: 'K', clear: 'F', arcane: 'W', nameFilter: 'S' }[chordMode!]}
+                        {{ attack: 'A', cost: 'C', defense: 'D', type: 'T', keyword: 'K', clear: 'F', arcane: 'W', nameFilter: 'S', textFilter: 'X' }[chordMode!]}
                       </kbd>
                     </span>
                   </button>
@@ -1760,9 +1766,9 @@ export default function DeckEditorPage() {
                       </div>
                     );
                   })()}
-                  {chordMode === 'nameFilter' && (
+                  {(chordMode === 'nameFilter' || chordMode === 'textFilter') && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Filter by name:</span>
+                      <span className="text-xs text-gray-400">{chordMode === 'textFilter' ? 'Filter by card text:' : 'Filter by name:'}</span>
                       <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-100 font-mono text-xs border border-gray-600 min-w-[120px]">
                         {keywordBuffer || '…'}
                       </kbd>
