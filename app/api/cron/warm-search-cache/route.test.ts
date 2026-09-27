@@ -12,7 +12,7 @@ vi.mock('@/lib/services', () => ({
 vi.mock('@/lib/search/cached-search', () => ({ runCachedSearch: vi.fn() }));
 const mockPing = vi.fn();
 let redisClient: { ping: typeof mockPing } | null = { ping: mockPing };
-vi.mock('@/lib/redis', () => ({ getRedisClient: vi.fn(() => redisClient) }));
+vi.mock('@/lib/redis', () => ({ getReadyRedisClient: vi.fn(async () => redisClient) }));
 
 import { POST } from './route';
 import { setsService, printingsService } from '@/lib/services';

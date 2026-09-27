@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setsService, printingsService } from '@/lib/services';
 import { runCachedSearch } from '@/lib/search/cached-search';
-import { getRedisClient } from '@/lib/redis';
+import { getReadyRedisClient } from '@/lib/redis';
 import { buildWarmTargets } from '@/lib/search/warm-targets';
 import { optQueryToSearchRequest } from '@/lib/search/opt-search-request';
 
@@ -27,9 +27,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Nothing to warm into: with Redis down every search would also wait out a
-  // connection retry per cache read/write — bail before running any.
-  const redis = getRedisClient();
+  // Nothing to warm into with Redis down — bail before running any searches.
+  // (getReadyRedisClient waits out a first connect, so a fresh process isn't
+  // mistaken for a down Redis.)
+  const redis = await getReadyRedisClient();
   const redisUp = redis ? await redis.ping().then(() => true, () => false) : false;
   if (!redisUp) {
     return NextResponse.json({ error: 'Search cache (Redis) unavailable' }, { status: 503 });

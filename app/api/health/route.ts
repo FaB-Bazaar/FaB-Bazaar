@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/postgres/db"
 import { sql } from "drizzle-orm"
-import { getRedisClient } from "@/lib/redis"
+import { getReadyRedisClient } from "@/lib/redis"
 
 export async function GET() {
   const checks: Record<string, string> = {}
@@ -17,13 +17,16 @@ export async function GET() {
   }
 
   // Check Redis
+  // getReadyRedisClient waits out a first connect (fresh process) but never a
+  // reconnect — so the first probe after a deploy isn't a false "degraded".
   try {
-    const redis = getRedisClient()
-    if (redis) {
+    if (!process.env.REDIS_URL) {
+      checks.redis = "not configured"
+    } else {
+      const redis = await getReadyRedisClient()
+      if (!redis) throw new Error("Redis unavailable")
       await redis.ping()
       checks.redis = "ok"
-    } else {
-      checks.redis = "not configured"
     }
   } catch (e) {
     checks.redis = "error"
