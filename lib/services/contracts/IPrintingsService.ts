@@ -241,6 +241,9 @@ export interface PrintingsSearchFilters {
   traits?: string[];
   keywords?: string[];
   textKeywords?: string[];
+  /** Deck hero's full name: drops other heroes' specialization cards
+   *  (keywords "<name> specialization"); the hero's own stay. */
+  specializationHero?: string;
   colors?: string[];
   cardUniqueId?: string;
   cardUniqueIds?: string[];

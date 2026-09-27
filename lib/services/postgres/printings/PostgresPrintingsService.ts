@@ -1531,6 +1531,22 @@ export class PostgresPrintingsService implements IPrintingsService {
       ))!);
     }
 
+    // Hero specializations: keywords carry "<name> specialization" (Singularity →
+    // "teklovossen specialization"; "dromai or fai specialization" names two).
+    // A card is legal only for the hero whose full name IS <name> or starts with
+    // <name> + " " / "," — so drop every specialization no name part matches.
+    if (filters.specializationHero) {
+      const hero = filters.specializationHero.toLowerCase();
+      conditions.push(sql`NOT EXISTS (
+        SELECT 1 FROM unnest(${cards.keywords}) AS kw
+        WHERE kw LIKE '% specialization'
+          AND NOT EXISTS (
+            SELECT 1 FROM unnest(string_to_array(regexp_replace(kw, ' specialization$', ''), ' or ')) AS who
+            WHERE ${hero} = who OR ${hero} LIKE who || ' %' OR ${hero} LIKE who || ',%'
+          )
+      )`);
+    }
+
     // Class and talent are both card affiliations. By default each constrains
     // independently (AND). With classTalentUnion set (the search UI), they OR
     // into a single affiliation set — a hero's pool is class ∪ talent ∪ generic,

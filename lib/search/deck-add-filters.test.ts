@@ -122,3 +122,19 @@ describe('buildDeckAddFilters — equipment slots', () => {
     expect(f).not.toHaveProperty('subtypes');
   });
 });
+
+describe('buildDeckAddFilters — hero specializations', () => {
+  it("passes the deck hero's name so other heroes' specializations drop out", () => {
+    const f = buildDeckAddFilters(state(), '', ctx({ heroName: "Maxx 'The Hype' Nitro" }));
+    expect(f.specializationHero).toBe("Maxx 'The Hype' Nitro");
+  });
+
+  it('sends nothing without a hero name', () => {
+    expect(buildDeckAddFilters(state(), '', ctx())).not.toHaveProperty('specializationHero');
+  });
+
+  it('the hero picker is unrestricted — no specialization filter', () => {
+    const f = buildDeckAddFilters(state(), '', ctx({ heroName: 'Maxx Nitro', targetCategory: 'hero' }));
+    expect(f).not.toHaveProperty('specializationHero');
+  });
+});

@@ -21,6 +21,8 @@ export interface DeckAddContext {
   /** Deck format display name (e.g. "Classic Constructed"); unknown names are omitted. */
   deckFormat?: string;
   targetCategory: DeckCategory;
+  /** Deck hero's full name — other heroes' specialization cards drop out. */
+  heroName?: string;
 }
 
 export function buildDeckAddFilters(
@@ -44,6 +46,7 @@ export function buildDeckAddFilters(
     delete f.heroEssences;
   } else {
     if (ctx.targetCategory === 'equipment') f.types = ['equipment', 'weapon'];
+    if (ctx.heroName) f.specializationHero = ctx.heroName;
     if (ctx.hero) {
       if (ctx.hero.heroClasses.length) f.heroClasses = ctx.hero.heroClasses;
       if (ctx.hero.heroTalents.length) f.heroTalents = ctx.hero.heroTalents;

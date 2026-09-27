@@ -121,3 +121,9 @@ export function brewFacetRows(deck: DeckDTO, hero: HeroFilter | null): { classes
   const rarities = RARITY_ROWS.map(r => ({ ...r, copies: count(d => String(d.rarity ?? '').toLowerCase() === r.value) }))
   return { classes, talents, rarities }
 }
+
+/** The deck hero's full name (hero card first, then the deck's saved heroName). */
+export function deckHeroName(deck: DeckDTO | null | undefined): string | undefined {
+  const d = deck?.hero?.[0]?.printingDetails
+  return ((d?.display_name || d?.name) as string | undefined) || deck?.heroName || undefined
+}

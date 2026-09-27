@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
-import { brewFacetRows, deckCopiesByZone, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck, pitchSiblings } from './brew'
+import { brewFacetRows, deckCopiesByZone, deckHeroName, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck, pitchSiblings } from './brew'
 
 const card = (id: string, cardId: string): DeckPrintingDTO => ({
   printingId: id,
@@ -139,5 +139,14 @@ describe('pitchSiblings', () => {
       { unique_id: 'y', name: 'Sink Below', pitch: 2 },
     ]
     expect(pitchSiblings(cards, cards[0]).map(c => c.unique_id)).toEqual(['r', 'y', 'b'])
+  })
+})
+
+describe('deckHeroName', () => {
+  it("reads the hero card's name, falling back to the deck's heroName", () => {
+    const withHero = { hero: [withDetails('h', 1, { display_name: "Maxx 'The Hype' Nitro", name: "maxx 'the hype' nitro" })], heroName: 'x' } as unknown as DeckDTO
+    expect(deckHeroName(withHero)).toBe("Maxx 'The Hype' Nitro")
+    expect(deckHeroName({ hero: [], heroName: 'Dash I/O' } as unknown as DeckDTO)).toBe('Dash I/O')
+    expect(deckHeroName({ hero: [] } as unknown as DeckDTO)).toBeUndefined()
   })
 })

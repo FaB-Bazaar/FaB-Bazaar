@@ -13,6 +13,7 @@ import { getApiFormatCode } from "@/lib/format-constants";
 import { sortPrintings } from "@/lib/fab-constants/sets";
 import { groupSearchPrintingsToCards } from "@/lib/deck/group-search-results";
 import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
+import { deckHeroName } from "@/lib/deck/brew";
 import { heroPoolChips } from "@/lib/deck/hero-pool-chips";
 import { availableTypeChips } from "@/lib/deck/available-type-chips";
 import { useHeroPoolTypes } from "@/hooks/deck/useHeroPoolTypes";
@@ -487,6 +488,7 @@ export default function QuickAddCardDialog({
 
   // Hero legality context — shared derivation with the deck editor.
   const heroFilter = useMemo(() => resolveHeroFilter(currentDeck ?? null), [currentDeck]);
+  const heroName = deckHeroName(currentDeck);
   // Hero-pool quick filter (class / talent / Generic chips) — hero zone has
   // no pool to slice.
   const poolChips = useMemo(
@@ -536,8 +538,9 @@ export default function QuickAddCardDialog({
       hero: heroFilter,
       deckFormat,
       targetCategory,
+      heroName,
     }),
-    [state, debouncedQuery, heroFilter, deckFormat, targetCategory],
+    [state, debouncedQuery, heroFilter, deckFormat, targetCategory, heroName],
   );
   // Legality keys make filters non-empty for any deck with a hero or format,
   // so the dialog opens onto the full legal pool. Hero-less + format-less
