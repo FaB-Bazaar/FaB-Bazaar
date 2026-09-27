@@ -196,7 +196,7 @@ export default function DiscordPage() {
                   This is where the magic happens. Run <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/trade @username</code> and the bot analyzes both collections instantly. You'll see every card you have that they want, and every card they have that you want. No more spreadsheets, no more cross-referencing—just matches.
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Instant two-way analysis. Shows exact printings that match. Makes negotiating trades effortless.
+                  Instant two-way analysis. Shows exact printings that match.
                 </p>
               </div>
               <div className="relative w-full aspect-video bg-gray-800 dark:bg-gray-900 rounded-lg overflow-hidden">

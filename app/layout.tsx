@@ -32,7 +32,7 @@ export const viewport: Viewport = {
 // Your metadata object is perfect and remains unchanged.
 export const metadata: Metadata = {
   title: {
-    default: "FaB Bazaar - The Ultimate Flesh and Blood Trading Platform",
+    default: "FaB Bazaar - Trade Flesh and Blood cards with players near you",
     template: "%s | FaB Bazaar"
   },
   description: "Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners. Fully integrated with Discord and Claude MCP. Join the FaB trading community with Discord OAuth authentication.",
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://fabbazaar.app',
-    title: 'FaB Bazaar - The Ultimate Flesh and Blood Trading Platform',
+    title: 'FaB Bazaar - Trade Flesh and Blood cards with players near you',
     description: 'Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners. Fully integrated with Discord and Claude MCP.',
     siteName: 'FaB Bazaar',
     images: [
@@ -73,7 +73,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'FaB Bazaar - The Ultimate Flesh and Blood Trading Platform',
+    title: 'FaB Bazaar - Trade Flesh and Blood cards with players near you',
     description: 'Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners.',
     images: ['/icon-512x512.png'], // Optimal size for social media
   },
@@ -160,7 +160,7 @@ export default async function RootLayout({
               "name": "FaB Bazaar",
               "url": "https://fabbazaar.app",
               "logo": "https://fabbazaar.app/icon-512x512.png", // Updated to use new icon
-              "description": "The Ultimate Flesh and Blood Trading Platform",
+              "description": "Trade Flesh and Blood cards with players near you",
               "sameAs": [],
               "contactPoint": {
                 "@type": "ContactPoint",

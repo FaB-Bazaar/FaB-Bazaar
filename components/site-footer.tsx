@@ -44,7 +44,7 @@ export function SiteFooter() {
           <div className="col-span-1 lg:col-span-2">
             <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">FaB Bazaar</h3>
             <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-              The ultimate fan-made trading platform for the Flesh and Blood TCG community.
+              A fan-made site for tracking and trading Flesh and Blood cards.
               Find cards, manage your collection, and connect with local traders.
             </p>
           </div>
