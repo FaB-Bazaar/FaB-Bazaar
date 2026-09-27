@@ -12,21 +12,17 @@ import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
 import { decksClient } from "@/lib/client";
 import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCardsCache } from "@/lib/client/banned-cards-client";
-import DeckUpgradePrintingsDialog from "@/components/deck/editor/DeckUpgradePrintingsDialog";
-import DeckLanguageConversionDialog from "@/components/deck/editor/DeckLanguageConversionDialog";
-import DeckExportImageDialog from "@/components/deck/editor/DeckExportImageDialog";
-import DeckStreamOverlayDialog from "@/components/deck/editor/DeckStreamOverlayDialog";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
 import { DeckStatsPopover } from "@/components/deck/editor/DeckStatsPopover";
 import { useDeckCommandHud } from "@/components/deck/editor/useDeckCommandHud";
 import { useBinderWantsActions } from "@/hooks/deck/useBinderWantsActions";
+import { useDeckOptions } from "@/hooks/deck/useDeckOptions";
 import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
 import MobileDeckActionsSheet from "@/components/deck/mobile/MobileDeckActionsSheet";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import DeckSettings from "@/components/deck/DeckSettings";
 import OmensReleaseNotice from "@/components/deck/OmensReleaseNotice";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import DeckNotesTab from "@/components/deck/DeckNotesTab";
@@ -201,26 +197,6 @@ function PackageCardItem({
   );
 }
 
-const PITCH_LABEL: Record<number, string> = { 1: "(red)", 2: "(yel)", 3: "(blu)" };
-
-function buildDeckExportText(deck: DeckDTO): string {
-  const totals = new Map<string, number>();
-  const keyOrder: string[] = [];
-  for (const category of ["equipment", "maindeck", "inventory"] as const) {
-    const cards = (deck[category] ?? []) as DeckPrintingDTO[];
-    for (const card of cards) {
-      const qty = card.quantity ?? 1;
-      const name = card.printingDetails?.display_name || card.printingDetails?.name || card.printingId;
-      const pitch = card.printingDetails?.pitch;
-      const pitchStr = pitch ? ` ${PITCH_LABEL[pitch]}` : "";
-      const key = `${name}${pitchStr}`;
-      if (!totals.has(key)) keyOrder.push(key);
-      totals.set(key, (totals.get(key) ?? 0) + qty);
-    }
-  }
-  return keyOrder.map(key => `${totals.get(key)} ${key}`).join("\n");
-}
-
 export default function DeckEditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -286,104 +262,22 @@ export default function DeckEditorPage() {
   const [buildProgressDismissed, setBuildProgressDismissed] = useState(false);
   const buildProgress = useBuildProgress(state.deck, state.deck?.format);
 
-  // Export/copy state
-  const [copySuccess, setCopySuccess] = useState(false);
 
-  // Export image (shareable PNG) dialog
-  const [exportImageOpen, setExportImageOpen] = useState(false);
-  // Stream overlay (OBS links + "use as my streaming deck") dialog
-  const [streamOverlayOpen, setStreamOverlayOpen] = useState(false);
-
-  // Deck settings
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSaving, setSettingsSaving] = useState(false);
+  // Options ("More") menu actions + their dialogs — shared with deck v2.
+  const {
+    setExportImageOpen, exportImageOpen, setSettingsOpen, setStreamOverlayOpen,
+    handleCopyList, handleExportList, handleUpgradePrintings, handleConvertLanguage,
+    dialogs: optionsDialogs,
+  } = useDeckOptions({ deck: state.deck ?? null, deckId, canEdit, isOwner, refreshDeck: handlers.refreshDeck });
 
   // Mobile actions bottom sheet (header action cluster is desktop-only)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
 
-  const handleCopyList = () => {
-    if (!state.deck) return;
-    const text = buildDeckExportText(state.deck);
-    navigator.clipboard.writeText(text).then(() => {
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-      toast({ title: "Copied!", description: "Deck list copied to clipboard." });
-    });
-  };
-
-  const handleExportList = () => {
-    if (!state.deck) return;
-    const text = buildDeckExportText(state.deck);
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${state.deck.name || "deck"}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   // Banned-card detection (populates after deck + format are known)
   const [bannedCardIds, setBannedCardIds] = useState<Set<string>>(new Set());
   const [switchingFormat, setSwitchingFormat] = useState(false);
 
-  const handleSaveSettings = async (settings: {
-    name: string;
-    description: string;
-    format: string;
-    hero?: string;
-    visibility: 'private' | 'unlisted' | 'public';
-    isPublic: boolean;
-    availableOnTalishar: boolean;
-    metafyGuideId: string | null;
-    eventName: string | null;
-    eventDate: string | null;
-    placing: number | null;
-    folder: string | null;
-  }) => {
-    setSettingsSaving(true);
-    try {
-      const result = await decksClient.updateDeck(deckId, {
-        name: settings.name,
-        description: settings.description,
-        format: settings.format,
-        heroName: settings.hero,
-        visibility: settings.visibility,
-        availableOnTalishar: settings.availableOnTalishar,
-        metafyGuideId: settings.metafyGuideId,
-        eventName: settings.eventName,
-        eventDate: settings.eventDate,
-        placing: settings.placing,
-        folder: settings.folder,
-      } as any);
-      if (!result.success) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
-        throw new Error(result.error);
-      }
-      handlers.refreshDeck();
-      toast({ title: "Settings saved" });
-    } finally {
-      setSettingsSaving(false);
-    }
-  };
-
-  const handleToggleFeatured = async (_id: string, value: boolean) => {
-    const result = await decksClient.toggleFeatured(deckId, value);
-    if (!result.success) {
-      toast({ title: "Error", description: "Failed to update featured status.", variant: "destructive" });
-      return;
-    }
-    handlers.refreshDeck();
-  };
-
-  const handleToggleSystemDeck = async (_id: string, value: boolean) => {
-    const result = await decksClient.toggleSystemDeck(deckId, value);
-    if (!result.success) {
-      toast({ title: "Error", description: "Failed to update system deck status.", variant: "destructive" });
-      return;
-    }
-    handlers.refreshDeck();
-  };
 
   // Tracks whether the one-time auto-search from curated builds has fired
   const autoSearchedRef = useRef(false);
@@ -720,16 +614,6 @@ export default function DeckEditorPage() {
     await handlers.refreshDeck();
   };
 
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-
-  const handleUpgradePrintings = async () => {
-    setShowUpgradeDialog(true);
-  };
-
-  const [showLanguageDialog, setShowLanguageDialog] = useState(false);
-  const handleConvertLanguage = async () => {
-    setShowLanguageDialog(true);
-  };
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
@@ -1562,15 +1446,8 @@ export default function DeckEditorPage() {
         </div>
       </div>
 
-      <DeckExportImageDialog open={exportImageOpen} onOpenChange={setExportImageOpen} deck={state.deck} />
-      {canEdit && state.deck && (
-        <DeckStreamOverlayDialog
-          open={streamOverlayOpen}
-          onOpenChange={setStreamOverlayOpen}
-          deckPublicId={state.deck.publicId}
-          visibility={state.deck.visibility}
-        />
-      )}
+
+      {optionsDialogs}
 
       {state.deck && (
         <MobileDeckActionsSheet
@@ -1589,37 +1466,6 @@ export default function DeckEditorPage() {
         />
       )}
 
-      {isOwner && state.deck && (
-        <DeckSettings
-          deck={{
-            _id: deckId,
-            name: state.deck.name,
-            description: state.deck.description,
-            format: state.deck.format,
-            hero: state.deck.heroName,
-            visibility: state.deck.visibility,
-            isPublic: state.deck.visibility === 'public',
-            availableOnTalishar: state.deck.availableOnTalishar,
-            metafyGuideId: state.deck.metafyGuideId,
-            eventName: state.deck.eventName,
-            eventDate: state.deck.eventDate,
-            placing: state.deck.placing,
-            folder: state.deck.folder,
-          }}
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          onSave={handleSaveSettings}
-          loading={settingsSaving}
-          deckId={deckId}
-          fullDeck={state.deck}
-          isCurator={user?.isCurator || user?.isSuperAdmin}
-          isSuperAdmin={user?.isSuperAdmin}
-          featured={state.deck.featured}
-          onToggleFeatured={handleToggleFeatured}
-          isSystemDeck={state.deck.isSystemDeck}
-          onToggleSystemDeck={handleToggleSystemDeck}
-        />
-      )}
 
       {/* Dialog: swap printing for staged (search tab) cards */}
       <ViewPrintingsDialog
@@ -1742,19 +1588,6 @@ export default function DeckEditorPage() {
         currentDeck={state.deck ?? undefined}
       />
 
-      <DeckUpgradePrintingsDialog
-        open={showUpgradeDialog}
-        onOpenChange={setShowUpgradeDialog}
-        deckId={deckId}
-        onApplied={handlers.refreshDeck}
-      />
-
-      <DeckLanguageConversionDialog
-        open={showLanguageDialog}
-        onOpenChange={setShowLanguageDialog}
-        deckId={deckId}
-        onApplied={handlers.refreshDeck}
-      />
 
       {/* Package preview modal */}
       {previewBuild && (

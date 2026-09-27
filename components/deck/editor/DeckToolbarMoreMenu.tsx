@@ -17,7 +17,8 @@ interface DeckToolbarMoreMenuProps {
   onExport: () => void;
   /** Render the deck as a shareable PNG (opens the export-image dialog). */
   onExportImage: () => void;
-  onAnalyze: () => void;
+  /** Optional — deck v2 leaves it out (it never links to the analyze / mat view). */
+  onAnalyze?: () => void;
   onPresent: () => void;
   onStickers: () => void;
   onSettings: () => void;
@@ -28,6 +29,11 @@ interface DeckToolbarMoreMenuProps {
   /** Optional — editors only: OBS stream overlay URLs + "use as my streaming deck". */
   onStreamOverlay?: () => void;
   isOwner: boolean;
+  /** Custom trigger element (deck v2 renders it as a rail item); defaults to the "More" pill. */
+  trigger?: React.ReactElement;
+  /** Where the menu opens relative to the trigger (defaults: below, end-aligned). */
+  side?: "top" | "right" | "bottom" | "left";
+  align?: "start" | "center" | "end";
 }
 
 export default function DeckToolbarMoreMenu({
@@ -42,11 +48,14 @@ export default function DeckToolbarMoreMenu({
   onConvertLanguage,
   onStreamOverlay,
   isOwner,
+  trigger,
+  side,
+  align = "end",
 }: DeckToolbarMoreMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        {trigger ?? <button
           type="button"
           aria-label="More actions"
           className={cn(
@@ -58,9 +67,9 @@ export default function DeckToolbarMoreMenu({
         >
           <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
           <span>More</span>
-        </button>
+        </button>}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent side={side} align={align} className="w-48">
         <DropdownMenuItem onClick={onCopyList}>
           <Copy className="h-4 w-4 mr-2" aria-hidden="true" />
           Copy list
@@ -74,10 +83,12 @@ export default function DeckToolbarMoreMenu({
           Export image
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onAnalyze}>
-          <Eye className="h-4 w-4 mr-2" aria-hidden="true" />
-          Analyze
-        </DropdownMenuItem>
+        {onAnalyze && (
+          <DropdownMenuItem onClick={onAnalyze}>
+            <Eye className="h-4 w-4 mr-2" aria-hidden="true" />
+            Analyze
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={onPresent}>
           <Tv className="h-4 w-4 mr-2" aria-hidden="true" />
           Present
