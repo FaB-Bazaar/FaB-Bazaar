@@ -5,7 +5,7 @@
 
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
 import { cardTextMatches } from './card-text-match'
-import { cardKeywords, formatRatio, lensLabel, playableCount, typeBucketMatches } from './deck-lens'
+import { cardKeywords, formatRatio, keywordTally, lensLabel, playableCount, TYPE_OPTIONS, typeBucketMatches } from './deck-lens'
 
 export type MeasureKind = 'text' | 'type' | 'keyword' | 'pitch'
 export interface Measure { kind: MeasureKind; value: string }
@@ -74,5 +74,31 @@ export function sanitizeRatios(input: unknown): DeckRatio[] | null {
     if (mb === null) continue
     out.push(mb ? { id, a: ma, b: mb } : { id, a: ma })
   }
+  return out
+}
+
+export const KIND_NAME: Record<MeasureKind, string> = { text: 'card text', type: 'card type', keyword: 'keyword', pitch: 'pitch' }
+
+export interface MeasureSuggestion { measure: Measure; label: string; kindName: string; count: number }
+
+/**
+ * What a typed word could mean, most specific first: a card type the deck has
+ * ("item" → Item), a keyword the deck has ("boost" → Boost), a pitch colour
+ * ("blue"), and always — last — the words as card text. So "Item" isn't
+ * silently counted as text that mentions items.
+ */
+export function measureSuggestions(query: string, deck: DeckDTO): MeasureSuggestion[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const out: MeasureSuggestion[] = []
+  const push = (measure: Measure, onlyIfPresent: boolean) => {
+    const count = countMeasure(deck, measure)
+    if (onlyIfPresent && count === 0) return
+    out.push({ measure, label: measureLabel(measure), kindName: KIND_NAME[measure.kind], count })
+  }
+  for (const t of TYPE_OPTIONS) if (t.label.toLowerCase().includes(q)) push({ kind: 'type', value: t.value }, true)
+  for (const k of keywordTally(deck)) if (k.keyword.toLowerCase().includes(q)) push({ kind: 'keyword', value: k.keyword.toLowerCase() }, true)
+  for (const [value, name] of Object.entries(PITCH_NAME)) if (name.toLowerCase().startsWith(q)) push({ kind: 'pitch', value }, true)
+  push({ kind: 'text', value: query.trim() }, false)
   return out
 }

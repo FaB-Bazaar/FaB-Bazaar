@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
-import { countMeasure, measureLabel, ratioRow, sanitizeRatios, type DeckRatio } from './ratios'
+import { countMeasure, measureLabel, measureSuggestions, ratioRow, sanitizeRatios, type DeckRatio } from './ratios'
 
 const card = (qty: number, details: Record<string, unknown>): DeckPrintingDTO => ({ printingId: Math.random().toString(), quantity: qty, printingDetails: details })
 const deck = {
@@ -72,5 +72,34 @@ describe('sanitizeRatios', () => {
 
   it('rejects a non-array', () => {
     expect(sanitizeRatios({ a: 1 })).toBeNull()
+  })
+})
+
+describe('measureSuggestions', () => {
+  const kinds = (q: string) => measureSuggestions(q, deck).map(s => `${s.measure.kind}:${s.measure.value}:${s.count}`)
+
+  it('offers a card type before plain text when the word names a type ("item" → Item)', () => {
+    const d = {
+      ...deck,
+      maindeck: [...deck.maindeck, card(2, { text: 'Put an item into play.', types: ['mechanologist', 'action', 'item'] })],
+    } as unknown as DeckDTO
+    expect(measureSuggestions('item', d).map(s => `${s.measure.kind}:${s.measure.value}:${s.count}`)).toEqual(['type:item:2', 'text:item:2'])
+  })
+
+  it("offers the deck's keywords before plain text (\"go\" → Go again)", () => {
+    expect(kinds('go')).toEqual(['keyword:go again:4', 'text:go:0'])
+  })
+
+  it('offers pitch colours by name', () => {
+    expect(kinds('blue')).toEqual(['pitch:3:2', 'text:blue:0'])
+  })
+
+  it('matches type labels anywhere in the word ("reaction" → both reactions present in the deck)', () => {
+    expect(kinds('reaction')).toEqual(['type:defense-reaction:2', 'text:reaction:0'])
+  })
+
+  it('always ends with card text, and returns nothing for a blank query', () => {
+    expect(kinds('gate')).toEqual(['text:gate:3'])
+    expect(measureSuggestions('  ', deck)).toEqual([])
   })
 })

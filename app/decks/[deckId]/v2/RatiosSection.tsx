@@ -4,50 +4,76 @@
 // Click a row to compare both sides side by side above the deck; editors can add
 // (plain inline form) and remove. Traditional table look, no animation.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
-import { ratioRow, type DeckRatio, type Measure, type MeasureKind } from "@/lib/deck/ratios";
-import { TYPE_OPTIONS } from "@/lib/deck/deck-lens";
+import { KIND_NAME, measureLabel, measureSuggestions, ratioRow, type DeckRatio, type Measure } from "@/lib/deck/ratios";
 
-const KIND_LABEL: Record<MeasureKind, string> = { text: "Card text", type: "Card type", keyword: "Keyword", pitch: "Pitch" };
-const PITCH_OPTIONS = [{ value: "1", label: "Red" }, { value: "2", label: "Yellow" }, { value: "3", label: "Blue" }];
 const FIELD = "rounded-sm border border-gray-400 bg-white px-1.5 py-0.5 text-sm dark:border-gray-600 dark:bg-gray-900";
 
-function defaultValue(kind: MeasureKind): string {
-  if (kind === "pitch") return "1";
-  if (kind === "type") return TYPE_OPTIONS[0].value;
-  return "";
-}
-
-function MeasureFields({ which, kind, value, onKind, onValue, allowNone }: {
+/** One side of a ratio: type a word, pick what it means from suggestions
+ *  (card type / keyword / pitch the deck has, then card text), each with its
+ *  count — so "Item" is the type, not text that mentions items. */
+function MeasurePicker({ which, deck, value, onChange, optional }: {
   which: "First" | "Second";
-  kind: MeasureKind | "";
-  value: string;
-  onKind: (k: MeasureKind | "") => void;
-  onValue: (v: string) => void;
-  allowNone?: boolean;
+  deck: DeckDTO;
+  value: Measure | null;
+  onChange: (m: Measure | null) => void;
+  optional?: boolean;
 }) {
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const suggestions = useMemo(() => measureSuggestions(query, deck), [query, deck]);
+  const listId = `${which.toLowerCase()}-measure-options`;
+
+  if (value) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <span>{measureLabel(value)} ({KIND_NAME[value.kind]})</span>
+        <button type="button" onClick={() => { onChange(null); setQuery(""); }} className="text-blue-700 underline hover:no-underline dark:text-blue-400">Change</button>
+      </div>
+    );
+  }
+
+  const pick = (i: number) => { const s = suggestions[i]; if (s) { onChange(s.measure); setQuery(""); } };
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <select aria-label={`${which} measure`} value={kind} onChange={e => onKind(e.target.value as MeasureKind | "")} className={FIELD}>
-        {allowNone && <option value="">Nothing (show share)</option>}
-        {(Object.keys(KIND_LABEL) as MeasureKind[]).map(k => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
-      </select>
-      {kind === "pitch" || kind === "type" ? (
-        <select aria-label={`${which} value`} value={value} onChange={e => onValue(e.target.value)} className={FIELD}>
-          {(kind === "pitch" ? PITCH_OPTIONS : TYPE_OPTIONS).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      ) : kind ? (
-        <input
-          aria-label={`${which} value`}
-          value={value}
-          onChange={e => onValue(e.target.value)}
-          placeholder={kind === "keyword" ? "e.g. go again" : "e.g. discard"}
-          autoComplete="off"
-          className={`${FIELD} w-32`}
-        />
-      ) : null}
+    <div>
+      <input
+        role="combobox"
+        aria-label={`${which} measure`}
+        aria-expanded={suggestions.length > 0}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        value={query}
+        onChange={e => { setQuery(e.target.value); setHighlight(0); }}
+        onKeyDown={e => {
+          if (e.key === "ArrowDown") { e.preventDefault(); setHighlight(h => Math.min(h + 1, suggestions.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)); }
+          else if (e.key === "Enter") { e.preventDefault(); pick(highlight); }
+        }}
+        placeholder={optional ? "e.g. item — or leave empty for a share" : "e.g. boost, item, blue"}
+        autoComplete="off"
+        className={`${FIELD} w-full`}
+      />
+      {suggestions.length > 0 && (
+        <ul id={listId} role="listbox" aria-label={`${which} measure suggestions`} className="mt-1 border border-gray-300 dark:border-gray-700">
+          {suggestions.map((s, i) => (
+            <li
+              key={`${s.measure.kind}:${s.measure.value}`}
+              role="option"
+              aria-selected={i === highlight}
+              aria-label={`${s.label} · ${s.kindName} · ${s.count}`}
+              onMouseDown={e => { e.preventDefault(); pick(i); }}
+              onMouseEnter={() => setHighlight(i)}
+              className={`grid cursor-pointer grid-cols-[1fr_auto_2.5rem] gap-2 border-b border-gray-200 px-1.5 py-1 text-sm last:border-b-0 dark:border-gray-800 ${i === highlight ? "bg-gray-200 dark:bg-gray-800" : ""}`}
+            >
+              <span className="truncate">{s.label}</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">{s.kindName}</span>
+              <span className="text-right tabular-nums">{s.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -61,16 +87,12 @@ export default function RatiosSection({ deck, ratios, canEdit, activeId, onCompa
   onSave: (next: DeckRatio[]) => void;
 }) {
   const [adding, setAdding] = useState(false);
-  const [aKind, setAKind] = useState<MeasureKind>("text");
-  const [aValue, setAValue] = useState("");
-  const [bKind, setBKind] = useState<MeasureKind | "">("text");
-  const [bValue, setBValue] = useState("");
+  const [a, setA] = useState<Measure | null>(null);
+  const [b, setB] = useState<Measure | null>(null);
 
-  const reset = () => { setAdding(false); setAKind("text"); setAValue(""); setBKind("text"); setBValue(""); };
+  const reset = () => { setAdding(false); setA(null); setB(null); };
   const save = () => {
-    if (!aValue.trim()) return;
-    const a: Measure = { kind: aKind, value: aValue.trim() };
-    const b: Measure | undefined = bKind && bValue.trim() ? { kind: bKind, value: bValue.trim() } : undefined;
+    if (!a) return;
     onSave([...ratios, { id: `r-${Date.now().toString(36)}`, a, ...(b ? { b } : {}) }]);
     reset();
   };
@@ -123,11 +145,11 @@ export default function RatiosSection({ deck, ratios, canEdit, activeId, onCompa
           onSubmit={e => { e.preventDefault(); save(); }}
           className="space-y-2 border border-gray-300 p-2 dark:border-gray-700"
         >
-          <MeasureFields which="First" kind={aKind} value={aValue} onKind={k => { setAKind(k as MeasureKind); setAValue(defaultValue(k as MeasureKind)); }} onValue={setAValue} />
+          <MeasurePicker which="First" deck={deck} value={a} onChange={setA} />
           <div className="text-xs text-gray-600 dark:text-gray-400">compared with</div>
-          <MeasureFields which="Second" kind={bKind} value={bValue} allowNone onKind={k => { setBKind(k); setBValue(k ? defaultValue(k) : ""); }} onValue={setBValue} />
+          <MeasurePicker which="Second" deck={deck} value={b} onChange={setB} optional />
           <div className="flex gap-2 pt-1">
-            <button type="submit" className="rounded-sm border border-gray-400 bg-gray-100 px-2.5 py-1 text-sm hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700">Save ratio</button>
+            <button type="submit" disabled={!a} className="rounded-sm border border-gray-400 bg-gray-100 px-2.5 py-1 text-sm hover:bg-gray-200 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700">Save ratio</button>
             <button type="button" onClick={reset} className="text-sm text-blue-700 underline hover:no-underline dark:text-blue-400">Cancel</button>
           </div>
         </form>
