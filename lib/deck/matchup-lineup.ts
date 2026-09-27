@@ -107,7 +107,7 @@ export function lineupCardId(cardName: string, pitch?: number | null): string {
   return suffix ? `${base}_${suffix}` : base;
 }
 
-function printingTalisharId(p: PrintingLike): string {
+export function printingTalisharId(p: PrintingLike): string {
   const name = p.printingDetails?.name || '';
   const base = toTalisharIdentifier(name) || p.printingId || '';
   const pitch = readPitch(p);

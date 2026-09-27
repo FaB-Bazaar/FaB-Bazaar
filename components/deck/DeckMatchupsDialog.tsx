@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
+import { CORE_HERO_ID, STRATEGY_MATCHUP_IDS } from "@/lib/deck/matchup-names";
 import { useExcludedHeroIds } from '@/hooks/banned-cards/useExcludedHeroIds';
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
 import { getStrategyPortraitUrl } from "@/lib/fab-constants/strategyPortraits";
@@ -110,14 +111,6 @@ const TURN_ORDER_OPTIONS = [
   { value: "NoPreference", label: "No Preference" },
 ];
 
-const CORE_HERO_ID = "core";
-
-const STRATEGY_MATCHUP_IDS: Record<string, string> = {
-  aggro:    'Aggro',
-  fatigue:  'Fatigue',
-  combo:    'Combo',
-  midrange: 'Midrange',
-};
 
 // ─────────────────────────────────────────────────────────
 // Config panel — collapsible sidebar on all breakpoints
