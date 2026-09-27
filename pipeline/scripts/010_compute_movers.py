@@ -187,6 +187,31 @@ def fetch_signal(con, sql, params):
     return [dict(zip(cols, row)) for row in rel.fetchall()]
 
 
+# Back faces priced off their FRONT's TCGplayer product (Blasmophet, Levia
+# Consumed = Levia, Redeemed's back) move in lockstep with the front, so they
+# would list the same card twice. dedupe_double_sided only catches faces that
+# share a display_name; this catches the rest. Postgres, not DuckDB: the price
+# snapshots carry no face data.
+DUPLICATE_BACK_FACES_SQL = """
+SELECT back.printing_id
+FROM printings back
+JOIN printings front ON front.printing_id = back.other_face_printing_id
+WHERE back.is_front_face = false
+  AND back.tcgplayer_product_id IS NOT NULL
+  AND back.tcgplayer_product_id = front.tcgplayer_product_id
+"""
+
+
+def fetch_duplicate_back_faces(pg_conn):
+    with pg_conn.cursor() as cur:
+        cur.execute(DUPLICATE_BACK_FACES_SQL)
+        return {row[0] for row in cur.fetchall()}
+
+
+def drop_duplicate_back_faces(records, back_face_ids):
+    return [r for r in records if r["printing_id"] not in back_face_ids]
+
+
 def dedupe_double_sided(records):
     """Collapse double-sided card printings (e.g. Puffin Hightail's two faces)
     into one row by natural key."""
@@ -271,10 +296,16 @@ def main():
     print(f"[010] db file: {args.db} ({args.db.stat().st_size / 1024 / 1024:.1f} MB)")
 
     print("[010] querying DuckDB…")
-    gainers       = dedupe_double_sided(fetch_signal(con, GAINERS_SQL,       [yesterday_d, today_d]))
-    decliners     = dedupe_double_sided(fetch_signal(con, DECLINERS_SQL,     [yesterday_d, today_d]))
-    breakouts     = dedupe_double_sided(fetch_signal(con, BREAKOUTS_SQL,     [window_30d, today_d]))
-    steady_risers = dedupe_double_sided(fetch_signal(con, STEADY_RISERS_SQL, [window_30d, window_30d]))
+    back_faces = fetch_duplicate_back_faces(pg)
+    print(f"[010] skipping {len(back_faces)} back faces priced off their front's product")
+
+    def signal(sql, params):
+        return dedupe_double_sided(drop_duplicate_back_faces(fetch_signal(con, sql, params), back_faces))
+
+    gainers       = signal(GAINERS_SQL,       [yesterday_d, today_d])
+    decliners     = signal(DECLINERS_SQL,     [yesterday_d, today_d])
+    breakouts     = signal(BREAKOUTS_SQL,     [window_30d, today_d])
+    steady_risers = signal(STEADY_RISERS_SQL, [window_30d, window_30d])
 
     print(f"[010]   top_gainers:    {len(gainers):>3}")
     print(f"[010]   top_decliners:  {len(decliners):>3}")
