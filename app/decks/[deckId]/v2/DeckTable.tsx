@@ -17,7 +17,7 @@ const ZONE_LABEL: Record<TableZone, string> = {
   hero: "Hero",
   equipment: "Equipment",
   maindeck: "Main deck",
-  inventory: "Sideboard",
+  inventory: "Inventory",
   benched: "Maybe pile",
 };
 
