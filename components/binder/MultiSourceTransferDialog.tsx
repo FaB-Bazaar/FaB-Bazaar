@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
+import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowRight, Package, AlertCircle } from "lucide-react"
 import { bindersClient } from "@/lib/client"
@@ -183,11 +183,7 @@ export default function MultiSourceTransferDialog({
                             <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                               {card.display_name || card.name}
                             </div>
-                            <div className="flex gap-1 mt-0.5 flex-wrap">
-                              {card.set && <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">{card.set}</Badge>}
-                              {card.rarity && <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">{card.rarity}</Badge>}
-                              {card.foiling && <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">{card.foiling}</Badge>}
-                            </div>
+                            <PrintingMetaChips set={card.set} foiling={card.foiling} rarity={card.rarity} className="mt-0.5" />
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button

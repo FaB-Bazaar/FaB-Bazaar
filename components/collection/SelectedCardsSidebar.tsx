@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { X, ArrowRight, Trash2, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { PrintingMetaChips, SetLogo } from "@/components/shared/PrintingMetaChips"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { bindersClient } from "@/lib/client"
@@ -167,35 +168,36 @@ export function SelectedCardsSidebar({
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {card.set && <Badge variant="outline" className="text-xs px-1.5 py-0 border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300">{card.set}</Badge>}
-                {card.foiling && <Badge variant="outline" className="text-xs px-1.5 py-0 border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300">{card.foiling}</Badge>}
-                {card.rarity && <Badge variant="outline" className="text-xs px-1.5 py-0 border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300">{card.rarity}</Badge>}
-              </div>
-              {card.binderName && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  From: <span className="font-medium">{card.binderName}</span>
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <PrintingMetaChips set={card.set} foiling={card.foiling} rarity={card.rarity} showSet={false} className="mb-2" />
+                  {card.binderName && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      From: <span className="font-medium">{card.binderName}</span>
+                    </div>
+                  )}
+                  {/* Quantity control */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setQty(cardId, qty - 1, max)}
+                      disabled={qty <= 1}
+                      className="h-7 w-7 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      -
+                    </button>
+                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-gray-100 min-w-[3rem] text-center">
+                      {qty} <span className="text-gray-400 dark:text-gray-500">of {max}</span>
+                    </span>
+                    <button
+                      onClick={() => setQty(cardId, qty + 1, max)}
+                      disabled={qty >= max}
+                      className="h-7 w-7 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-              )}
-              {/* Quantity control */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setQty(cardId, qty - 1, max)}
-                  disabled={qty <= 1}
-                  className="h-7 w-7 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                >
-                  -
-                </button>
-                <span className="text-sm font-mono font-medium text-gray-900 dark:text-gray-100 min-w-[3rem] text-center">
-                  {qty} <span className="text-gray-400 dark:text-gray-500">of {max}</span>
-                </span>
-                <button
-                  onClick={() => setQty(cardId, qty + 1, max)}
-                  disabled={qty >= max}
-                  className="h-7 w-7 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                >
-                  +
-                </button>
+                <SetLogo set={card.set} size="lg" className="shrink-0" />
               </div>
             </div>
           )

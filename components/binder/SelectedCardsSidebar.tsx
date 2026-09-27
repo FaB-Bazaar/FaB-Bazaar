@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ShoppingCart, X, ArrowRight, Copy, Check, Package, ChevronRight, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -152,10 +153,8 @@ export default function SelectedCardsSidebar({
                         <p className="font-medium text-sm leading-tight text-gray-900 dark:text-gray-100 mb-1">
                           {card.display_name || card.name}
                         </p>
-                        <div className="flex flex-wrap gap-1">
-                          {card.set && <Badge variant="outline" className="text-xs">{card.set.toUpperCase()}</Badge>}
-                          {card.rarity && <Badge variant="outline" className="text-xs">{card.rarity.toUpperCase()}</Badge>}
-                          {card.foiling && <Badge variant="outline" className="text-xs">{card.foiling.toUpperCase()}</Badge>}
+                        <div className="flex flex-wrap items-center gap-1">
+                          <PrintingMetaChips set={card.set} foiling={card.foiling} rarity={card.rarity} />
                           {card.condition && card.condition !== 'NM' && <Badge variant="outline" className="text-xs">{card.condition}</Badge>}
                         </div>
                       </div>
