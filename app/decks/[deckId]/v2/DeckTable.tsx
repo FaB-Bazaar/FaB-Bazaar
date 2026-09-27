@@ -18,7 +18,7 @@ const ZONE_LABEL: Record<TableZone, string> = {
   equipment: "Equipment",
   maindeck: "Main deck",
   inventory: "Inventory",
-  benched: "Maybe pile",
+  benched: "Bench",
 };
 
 const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };

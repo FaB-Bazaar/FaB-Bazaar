@@ -292,7 +292,7 @@ function deckSizeLabel(deck: NonNullable<ReturnType<typeof useDeckEditor>["state
 const ZONES: Array<{ category: DeckCategory; label: string; hint: string }> = [
   { category: "maindeck", label: "Main deck", hint: "Cards you play every game" },
   { category: "inventory", label: "Inventory", hint: "Extra cards you bring and can swap in before a game" },
-  { category: "benched", label: "Maybe pile (bench)", hint: "Ideas you're considering — never exported" },
+  { category: "benched", label: "Bench", hint: "Ideas you're considering — never exported" },
 ];
 
 const PANEL_H2 = "text-base font-semibold text-gray-900 dark:text-gray-100";
@@ -369,7 +369,7 @@ function StatsPanel({ deck, deckId }: { deck: NonNullable<ReturnType<typeof useD
       </section>
       <section className="space-y-1 text-sm text-gray-800 dark:text-gray-200">
         <h3 className={PANEL_H3}>Zones</h3>
-        {([["Weapons", zones.weapon], ["Equipment", zones.equipment], ["Main deck", zones.maindeck], ["Inventory", zones.inventory], ["Maybe pile", zones.bench]] as const).map(([label, n]) => (
+        {([["Weapons", zones.weapon], ["Equipment", zones.equipment], ["Main deck", zones.maindeck], ["Inventory", zones.inventory], ["Bench", zones.bench]] as const).map(([label, n]) => (
           <div key={label} className="flex justify-between"><span>{label}</span><span className="tabular-nums">{n}</span></div>
         ))}
       </section>
