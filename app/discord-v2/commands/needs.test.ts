@@ -178,3 +178,18 @@ describe('handleNeedsMode — the needs list', () => {
     expect(json.data.content).toContain('own everything');
   });
 });
+
+describe('/needs messages — no toolbox emoji', () => {
+  it('neither picker nor the final list starts with 🧰', async () => {
+    mockListDecks.mockResolvedValue({ success: true, data: [{ _id: 'd1', publicId: 'pub-aaa', name: 'Enigma CC' }] } as any)
+    mockComparison.mockResolvedValue({ success: true, data: { owned: [], partial: [], missing: [{ printingId: 'p', cardName: 'Comet Storm', pitch: 1, needed: 1, tcgLow: 2 }],
+      summary: { totalNeeded: 1, totalOwned: 0, totalMissing: 1, completionPercentage: 0, estimatedMissingValue: 2 } } } as any)
+    const texts = [
+      (await (await handleNeedsCommand(body, 'eph')).json()).data.content,
+      (await (await handleNeedsDeckSelect('needs_deck:eph', { ...body, data: { values: ['pub-aaa'] } })).json()).data.content,
+      (await (await handleNeedsMode('needs_mode:eph:pub-aaa:card', body)).json()).data.content,
+    ]
+    for (const t of texts) expect(t).not.toContain('🧰')
+  })
+})
+

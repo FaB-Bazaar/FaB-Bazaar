@@ -62,7 +62,7 @@ export async function handleNeedsCommand(body, visibility) {
     return NextResponse.json({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: `🧰 **Deck needs** — which deck should I check against your collection?${truncatedNote}`,
+        content: `**Deck needs** — which deck should I check against your collection?${truncatedNote}`,
         components: [{
           type: 1,
           components: [{
@@ -93,7 +93,7 @@ export async function handleNeedsDeckSelect(customId, body) {
   return NextResponse.json({
     type: InteractionResponseType.UPDATE_MESSAGE,
     data: {
-      content: '🧰 **Deck needs** — count any printing you own, or only the exact printings in the deck?',
+      content: '**Deck needs** — count any printing you own, or only the exact printings in the deck?',
       components: [{
         type: 1,
         components: [
@@ -220,7 +220,7 @@ export async function handleNeedsMode(customId, body) {
     ].filter(Boolean);
 
     const header =
-      `🧰 **Needs for ${deckLabel}** · ${modeLabel}\n` +
+      `**Needs for ${deckLabel}** · ${modeLabel}\n` +
       `You own ${summary.totalOwned} of ${summary.totalNeeded} cards. Missing ${summary.totalMissing}, about ${money(summary.estimatedMissingValue)} to finish.\n`;
     const footer = `\n\n[Open ${deckLabel} on FaB Bazaar](${deckUrl})`;
 
