@@ -1053,7 +1053,7 @@ export default function DeckEditorPage() {
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
-  // Breathing-glow attention treatment on the Starter Kits chip, shown until
+  // Stronger-border attention treatment on the Starter Kits chip, shown until
   // the user opens the dropdown once (per browser). Initialized true and
   // downgraded in an effect so SSR/hydration markup stays deterministic.
   const [kitsAttention, setKitsAttention] = useState(true);
@@ -1250,7 +1250,7 @@ export default function DeckEditorPage() {
       type="button"
       onClick={() => setChordMode('select')}
       className={cn(
-        "flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md shadow-[0_0_12px_rgba(96,165,250,0.25)] hover:shadow-[0_0_18px_rgba(96,165,250,0.4)] transition-all duration-200 group",
+        "flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md transition-all duration-200 group",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
         // The floating pill is tuned for sitting over content; inside the rail it needs a
         // solid ground so the light theme keeps its contrast.
@@ -2080,9 +2080,9 @@ export default function DeckEditorPage() {
                         className={cn(
                           "inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60",
                           isEmptyDeck
-                            ? "border-blue-400/70 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25 shadow-[0_0_12px_rgba(59,130,246,0.25)] font-semibold"
+                            ? "border-blue-400/70 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25 font-semibold"
                             : "bg-white dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 border-blue-400/50 dark:border-blue-500/40",
-                          kitsAttention && "animate-attention-glow"
+                          kitsAttention && "border-blue-400 dark:border-blue-400"
                         )}
                       >
                         <Sparkles className={cn("h-3.5 w-3.5", isEmptyDeck ? "text-blue-300" : "text-blue-500 dark:text-blue-400")} aria-hidden="true" />
@@ -2150,7 +2150,7 @@ export default function DeckEditorPage() {
                     className={cn(
                       "inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                       isEmptyDeck
-                        ? "border-blue-400/70 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25 shadow-[0_0_12px_rgba(59,130,246,0.25)] font-semibold"
+                        ? "border-blue-400/70 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25 font-semibold"
                         : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
                     )}
                   >

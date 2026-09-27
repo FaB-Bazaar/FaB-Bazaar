@@ -95,7 +95,7 @@ function CardZone({
       className={`
         relative bg-gray-800/40 rounded-lg border-2 transition-all duration-200 h-full
         ${isEmpty ? 'border-gray-700/30 border-dashed' : 'border-gray-600/50'}
-        ${highlight ? 'border-blue-500 shadow-lg shadow-blue-500/20' : ''}
+        ${highlight ? 'border-blue-500' : ''}
         ${onClick ? 'cursor-pointer hover:border-gray-500 hover:bg-gray-800/60' : ''}
         backdrop-blur-sm
       `}

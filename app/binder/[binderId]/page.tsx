@@ -1324,7 +1324,7 @@ const SuperSlamDisclosure = () => {
           <button
             type="button"
             onClick={() => setChordMode('select')}
-            className="flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md shadow-[0_0_12px_rgba(96,165,250,0.25)] hover:shadow-[0_0_18px_rgba(96,165,250,0.4)] transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             {/* Keyboard hints are desktop-only chrome — meaningless on touch. */}
             <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>

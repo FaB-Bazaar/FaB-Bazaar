@@ -17,7 +17,6 @@ export default function MetafyPage() {
 
         {/* Card art */}
         <div className="flex-shrink-0 w-64 md:w-72 relative">
-          <div className="absolute inset-0 bg-violet-500/20 blur-3xl rounded-full -z-10" />
           <Image
             src={HERO_IMAGE}
             alt="FaB Bazaar hero"

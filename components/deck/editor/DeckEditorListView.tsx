@@ -997,7 +997,7 @@ function DeckTileSection({
                 thisTileDraggable && "cursor-grab active:cursor-grabbing",
                 !thisTileDraggable && onSwap && "cursor-pointer",
                 isBeingDragged && "opacity-30 scale-95",
-                isHighlighted === true && "ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]",
+                isHighlighted === true && "ring-2 ring-amber-400",
                 isHighlighted === false && "opacity-25 scale-95 grayscale",
               )}
               style={{ width: '100%' }}
@@ -2607,7 +2607,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 shrink-0 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                       isActive
-                        ? "border-amber-400 bg-amber-500 text-white shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                        ? "border-amber-400 bg-amber-500 text-white"
                         : count > 0
                         ? "border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 active:bg-gray-200 dark:active:bg-gray-600"
                         : "border-dashed border-gray-300 dark:border-gray-600 opacity-40 cursor-default text-gray-500",
@@ -2650,7 +2650,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                     className={cn(
                       "flex items-center gap-0.5 px-2.5 py-1.5 rounded-full border-2 shrink-0 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                       isActive
-                        ? "border-amber-400 bg-amber-500 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                        ? "border-amber-400 bg-amber-500"
                         : count > 0
                         ? "border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600"
                         : "border-dashed border-gray-300 dark:border-gray-600 opacity-40 cursor-default",
@@ -2676,7 +2676,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                     className={cn(
                       "flex items-center gap-0.5 px-2.5 py-1.5 rounded-full border-2 shrink-0 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                       isActive
-                        ? "border-amber-400 bg-amber-500 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                        ? "border-amber-400 bg-amber-500"
                         : count > 0
                         ? "border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600"
                         : "border-dashed border-gray-300 dark:border-gray-600 opacity-40 cursor-default",
@@ -2872,7 +2872,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                       key={card.name}
                       className={cn(
                         "relative rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500 transition-all duration-150",
-                        gameHighlight === true && "ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]",
+                        gameHighlight === true && "ring-2 ring-amber-400",
                         gameHighlight === false && "opacity-25 scale-95 grayscale",
                       )}
                       style={{ width: tileWidth }}

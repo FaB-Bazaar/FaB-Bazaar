@@ -49,7 +49,6 @@ export default function DiscordPage() {
     <div className="container mx-auto px-4 py-12 max-w-6xl">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#5865F2]/20 via-transparent to-purple-900/20 rounded-2xl p-8 md:p-12 mb-16">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#5865F2]/10 rounded-full blur-3xl -z-10" />
 
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <div>

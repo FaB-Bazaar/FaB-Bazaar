@@ -47,9 +47,10 @@ Project-wide front-end rules. Apply to all interactive components, overlays, and
 
 ## HUD / Overlay Patterns
 
-- **Dormant pill** — `bg-black/40 border border-blue-400/60 backdrop-blur-md` + blue glow shadow, fixed bottom-center
+- **Dormant pill** — `bg-black/40 border border-blue-400/60 backdrop-blur-md`, fixed bottom-center
 - **Chip overlays** — `bg-gray-950 border border-gray-600 rounded-2xl`, bottom-anchored above pill (`bottom: 76px`)
 - **Heatmap backgrounds** — Use inline `rgba(r,g,b, opacity)` style (10%–42% range). Do not use Tailwind opacity modifiers for this — they can't be computed dynamically.
 - **Exit animation** — `chordExiting` state + 160ms delay before clearing mode, paired with `chord-chip-exit` CSS class
 - **Color groups** — 4 muted groups max (combat/gear/support/special or equivalent). Tints at 20% base, not saturated.
+- **No glow effects** (2026-09 — users find them tacky): no coloured/blurred halo shadows, pulsing glows or `blur-3xl` background blobs. Show state with a border or ring. `lib/ui/no-glow.test.ts` scans `app/` + `components/` and fails on them; tight black text outlines over card art (`drop-shadow-[0_0_2px_…]`) are allowed.
 - **Card-details lightbox (`components/cards/CardDetailsLightbox.tsx`) pins the TCGplayer link outside the scroll body** — the panel is `flex-col` with a `min-h-0 flex-1 overflow-y-auto` body and the purchase link as a `shrink-0` footer, so it is visible however many printings a card has (it used to be the last scroll-area child and vanished on 4+ printing rows). Anything appended to the panel goes INSIDE the body div, above the footer. Double-faced cards render two faces beside the 400px panel inside the 92vw dialog, so their face height is additionally capped by `calc((92vw-424px)/2*88/63)` — a wider panel or a bigger gap must update that constant or the panel gets squeezed again (pinned in `e2e/regression/card-lightbox-pinned-purchase-link.spec.ts`).

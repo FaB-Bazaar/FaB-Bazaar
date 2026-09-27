@@ -44,7 +44,7 @@ export default function EmptyDeckHero<K extends KitLike>({
   return (
     <section
       aria-label="Get started with your deck"
-      className="rounded-xl border border-blue-300 dark:border-blue-500/30 bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-blue-950/40 dark:via-gray-900/60 dark:to-gray-900/40 p-6 backdrop-blur-md shadow-[0_0_24px_rgba(59,130,246,0.15)]"
+      className="rounded-xl border border-blue-300 dark:border-blue-500/30 bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-blue-950/40 dark:via-gray-900/60 dark:to-gray-900/40 p-6 backdrop-blur-md"
     >
       <header className="mb-4 flex flex-col gap-1">
         <div className="flex items-center gap-2">
