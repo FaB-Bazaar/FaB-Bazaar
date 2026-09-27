@@ -36,6 +36,14 @@ Project-wide front-end rules. Apply to all interactive components, overlays, and
 - `HoloCard3D` keeps renderer/scene/shader in a module singleton that survives unmounts (also satisfies the ~8-16 WebGL context cap). Open = re-attach canvas; never dispose on close — per-open teardown/rebuild caused a visible stall. `warmHoloCard()` pre-builds it; the presenter page calls it on mount.
 - `HoloCard3D` at rest must render the raw texture EXACTLY (shader strength = hover only; no idle wander, no entrance boost) — any resting glare makes the reveal over the fallback `<img>` read as a blink, and the img must fade out only AFTER the canvas fade completes or the cross-fade dips visibly.
 - Card image CDN (imagedelivery.net) sends `access-control-allow-origin: *` — safe as WebGL textures with `crossOrigin: 'anonymous'`.
+- `FoilCardImage`'s tilt/shine is an opt-in per-device preference, OFF by default (2026-09, after "too many animations" feedback): `lib/ui/foil-effects-pref.ts` + the avatar-menu "Card foil effects" switch. Off = a foil printing renders exactly like a non-foil card (no `data-rarity`, no foil layers, no loop).
+- Its shimmer rAF loop must stop once the springs settle and restart on pointer move/leave — the old always-on loop wrote ~20 CSS vars per frame for every untouched foil card on screen. jsdom tests: `PointerEvent` drops `clientX`, so dispatch `new MouseEvent('pointermove', …)` or the springs go NaN and never settle.
+
+## Navigation
+
+- Nav items are hand-maintained in THREE places: desktop bar + mobile menu (both `navbar.tsx`) and the <640px tab-bar sheets (`navbar/MobileTabBar.tsx`). Change a label or link in all three — separate copies are how labels drifted.
+- Canonical labels (2026-09): top-level plain nouns **Collection / Decks / Stores**; items **Binders**, **My Decks**, **Profile**, **Bulk Import**. `/stores` is the user's FOLLOWED stores ("My Stores"); the directory is `/stores/browse` ("Browse Stores") — desktop used to label `/stores` "Browse Stores".
+- Nav e2e: at mobile width "Collection"/"Decks" buttons exist in both the menu and the tab bar → use `.first()`; run nav specs with `--workers=1` (parallel runs time out on the dev server). Known-red and unrelated: `navbar-mobile-tabbar`, `mobile-nav-slim` tab-order test (stale selectors), `playmats` (fixtures missing locally).
 
 ## HUD / Overlay Patterns
 
