@@ -219,6 +219,8 @@ interface GroupedCardRowProps {
   /** Open the full-card lightbox (tap the thumbnail / "View card" in the sheet). */
   onEnlarge?: (url: string, name: string, otherFaceUrl?: string, printingId?: string) => void;
   isTouchDevice: boolean;
+  /** Active highlight filter: 'match' rows stand out, 'dim' rows fade; null = no filter. */
+  highlight?: 'match' | 'dim' | null;
   /** 'lane' is the phone row (rail · qty · name · cost · pip · owned); 'column'
       is the desktop multi-column row (same scan line, but the cost chip carries
       the resource symbol, the redundant pip is dropped, partial ownership reads
@@ -239,6 +241,7 @@ function GroupedCardRow({
   onEnlarge,
   isTouchDevice,
   variant,
+  highlight,
 }: GroupedCardRowProps) {
   const isColumn = variant === 'column';
   const [expanded, setExpanded] = useState(false);
@@ -293,7 +296,14 @@ function GroupedCardRow({
   };
 
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
+    <div
+      data-highlight={highlight ?? undefined}
+      className={cn(
+        "border-b border-gray-200 dark:border-gray-700/60 last:border-0 transition-opacity duration-150",
+        highlight === 'match' && "bg-amber-50 dark:bg-amber-900/25 ring-1 ring-inset ring-amber-400",
+        highlight === 'dim' && "opacity-30",
+      )}
+    >
       {/* Group header — a fixed 38px scan line: rail · qty · name · cost · owned. */}
       <div
         data-testid="deck-list-row"
@@ -1648,9 +1658,12 @@ interface DeckEditorListViewProps {
   onUpgradePrintings?: () => Promise<void>;
   /** Called whenever the user hovers/leaves a card tile — used by the page to show a preview in the right rail. */
   onCardHover?: (preview: ({ url: string; name: string } & Partial<HoverExtras>) | null) => void;
+  /** Highlights ring/dim tiles in place instead of opening the full-screen focus overlay —
+   *  for pages whose own controls (deck v2's Find panel) must stay clickable while highlighting. */
+  inPlaceHighlight?: boolean;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover, inPlaceHighlight }: DeckEditorListViewProps) {
   // Gates the Pimp My Deck toolbar button (viewer-collection-scoped page).
   const { user } = useAuth();
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
@@ -1906,6 +1919,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
       }}
       onEnlarge={(url, name, otherFaceUrl, printingId) => openCardLightbox(printingId, { url, name, otherFaceUrl })}
       isTouchDevice={isTouchDevice}
+      highlight={matchingPrintingIds ? (group.printings.some(pr => matchingPrintingIds.has(pr.printingId)) ? 'match' : 'dim') : null}
     />
   );
 
@@ -2963,7 +2977,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
 
       {/* Filter focus overlay — dims the deck and shows matching cards floating in from their positions */}
       {/* In hover mode, skip the overlay — tiles show highlight/dim in-place instead */}
-      {focusCards.length > 0 && !hoverMode && (viewMode === 'tile' || viewMode === 'game') && (
+      {focusCards.length > 0 && !hoverMode && !inPlaceHighlight && (viewMode === 'tile' || viewMode === 'game') && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex flex-col"
