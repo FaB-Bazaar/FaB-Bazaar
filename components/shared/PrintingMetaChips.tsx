@@ -13,6 +13,11 @@ interface SetLogoProps {
   className?: string
 }
 
+// Logos are transparent wordmarks that sink into the tile — dark ones (High
+// Seas) on dark mode especially — so lift them with a shadow / light glow.
+const LG_LOGO =
+  "h-14 w-28 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] dark:drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]"
+
 /**
  * Set logo, named for the set. Sets without a logo (most promo/product sets —
  * getSetImageOrFallback returns '') show the upper-cased code as text.
@@ -40,7 +45,7 @@ export function SetLogo({ set, size = "sm", className = "" }: SetLogoProps) {
       src={image}
       alt={label}
       title={name}
-      className={`object-contain ${size === "lg" ? "h-12 w-24" : "h-5 w-5"} ${className}`}
+      className={`object-contain ${size === "lg" ? LG_LOGO : "h-5 w-5"} ${className}`}
     />
   )
 }

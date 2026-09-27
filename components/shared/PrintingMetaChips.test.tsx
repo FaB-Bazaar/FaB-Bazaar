@@ -49,6 +49,7 @@ describe('SetLogo', () => {
     render(<SetLogo set="dtd" size="lg" />);
     const img = screen.getByRole('img', { name: 'DTD' });
     expect(img.getAttribute('title')).toBe('Dusk till Dawn');
-    expect(img.className).toMatch(/h-12/);
+    expect(img.className).toMatch(/h-14/);
+    expect(img.className).toMatch(/drop-shadow/);
   });
 });
