@@ -109,3 +109,53 @@ describe('/daily sparse-day compact rows', () => {
     expect(affiliateFeatures()).toEqual(['mover_compact_top_gainer'])
   })
 })
+
+describe('/daily your movers — one row per card', () => {
+  // 6+ movers used to switch to per-signal sections, repeating a card under
+  // every signal it hit (and once per binder that holds it).
+  const busy = (over: Partial<MoversInCollectionDTO> = {}): MoversInCollectionDTO => ({
+    asOfDate: '2026-09-18',
+    totalCount: 7,
+    totalImpact: 20,
+    gainers: [
+      userMover({ printingId: 'call', displayName: 'Call to the Grave', binderId: 'b1', binderName: 'Pirate' }),
+      ...['a', 'b', 'c'].map((id) => userMover({ printingId: id, displayName: `Card ${id}`, binderId: 'b1' })),
+    ],
+    breakouts: [
+      userMover({ printingId: 'call', displayName: 'Call to the Grave', signalType: 'breakout', binderId: 'b1', binderName: 'Pirate' }),
+    ],
+    steadyRisers: [],
+    decliners: [
+      userMover({ printingId: 'levia', displayName: 'Levia, Redeemed', signalType: 'top_decliner', quantity: 1, dollarImpact: -25, binderId: 'b2', binderName: 'Trade' }),
+      userMover({ printingId: 'levia', displayName: 'Levia, Redeemed', signalType: 'top_decliner', quantity: 1, dollarImpact: -25, binderId: 'b3', binderName: 'Brute' }),
+    ],
+    ...over,
+  })
+
+  it('shows a card that hit two signals once, tagged with both', () => {
+    render(<DailyMoversView signedIn={true} userMovers={busy()} market={marketDto([])} error={null} />)
+    expect(screen.getAllByRole('link', { name: 'Call to the Grave' })).toHaveLength(1)
+    const row = screen.getByRole('link', { name: 'Call to the Grave' }).closest('[data-testid="mover-row"]') as HTMLElement
+    expect(row.textContent).toContain('Gainer')
+    expect(row.textContent).toContain('Breakout')
+  })
+
+  it('shows a card held in two binders once, with the combined count and both binders', () => {
+    render(<DailyMoversView signedIn={true} userMovers={busy()} market={marketDto([])} error={null} />)
+    expect(screen.getAllByRole('link', { name: 'Levia, Redeemed' })).toHaveLength(1)
+    const row = screen.getByRole('link', { name: 'Levia, Redeemed' }).closest('[data-testid="mover-row"]') as HTMLElement
+    expect(row.textContent).toContain('2 copies')
+    expect(row.querySelector('a[href="/binder/b2"]')).not.toBeNull()
+    expect(row.querySelector('a[href="/binder/b3"]')).not.toBeNull()
+  })
+
+  it('has no per-signal section headings for your cards, and no heading icons anywhere', () => {
+    const { container } = render(
+      <DailyMoversView signedIn={true} userMovers={busy()} market={marketDto([marketMover({ printingId: 'm1' })])} error={null} />,
+    )
+    expect(screen.queryByRole('heading', { level: 2, name: 'Top Gainers' })).toBeNull()
+    for (const h of container.querySelectorAll('h1, h2, h3')) {
+      expect(h.parentElement?.querySelector(':scope > svg')).toBeNull()
+    }
+  })
+})

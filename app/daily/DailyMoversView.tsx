@@ -4,10 +4,9 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { TrendingUp, TrendingDown, Zap, LineChart, Library, Search } from "lucide-react";
+import { Library, Search } from "lucide-react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
-import { renderPurchaseLink } from "@/components/wants/utils";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import type {
   DailyMoverDTO,
@@ -27,8 +26,6 @@ const SIGNAL_META: Record<
     title: string;
     blurb: string;
     badge: string;
-    icon: React.ComponentType<{ className?: string }>;
-    accent: string;
     badgeClass: string;
   }
 > = {
@@ -36,32 +33,24 @@ const SIGNAL_META: Record<
     title: "Top Gainers",
     blurb: "Biggest 24-hour price increases",
     badge: "Gainer",
-    icon: TrendingUp,
-    accent: "text-emerald-600 dark:text-emerald-400",
     badgeClass: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300",
   },
   breakout: {
     title: "Breakouts",
     blurb: "Cards crossing above their 30-day high",
     badge: "Breakout",
-    icon: Zap,
-    accent: "text-amber-600 dark:text-amber-400",
     badgeClass: "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300",
   },
   steady_riser: {
     title: "Steady Risers",
     blurb: "Smooth 30-day uptrends — quiet accumulators",
     badge: "Riser",
-    icon: LineChart,
-    accent: "text-blue-600 dark:text-blue-400",
     badgeClass: "bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300",
   },
   top_decliner: {
     title: "Top Decliners",
     blurb: "Biggest 24-hour drops",
     badge: "Decliner",
-    icon: TrendingDown,
-    accent: "text-rose-600 dark:text-rose-400",
     badgeClass: "bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300",
   },
 };
@@ -178,7 +167,7 @@ function DeckLinks({ m }: { m: DailyMoverDTO }) {
   );
 }
 
-function OwnershipLine({ m }: { m: DailyMoverDTO }) {
+function OwnershipLine({ m }: { m: MergedMover }) {
   return (
     <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
       {m.dollarImpact != null && (
@@ -189,17 +178,18 @@ function OwnershipLine({ m }: { m: DailyMoverDTO }) {
       {m.dollarImpact != null && " on "}
       your <span className="font-medium text-gray-700 dark:text-gray-300">{m.quantity}</span>
       {m.quantity === 1 ? " copy" : " copies"}
-      {m.binderName && (
-        <>
-          {" in "}
+      {m.binders.length > 0 && " in "}
+      {m.binders.map((b, i) => (
+        <React.Fragment key={b.binderId}>
+          {i > 0 && ", "}
           <Link
-            href={`/binder/${m.binderId}`}
+            href={`/binder/${b.binderId}`}
             className="font-medium text-gray-700 dark:text-gray-300 hover:underline"
           >
-            {m.binderName}
+            {b.binderName}
           </Link>
-        </>
-      )}
+        </React.Fragment>
+      ))}
       <DeckLinks m={m} />
     </div>
   );
@@ -230,73 +220,51 @@ function CompactBuyLink({ url, feature }: { url: string | null; feature: string 
 }
 
 // ---------------------------------------------------------------------------
-// Your movers — full tile (used when there's enough volume for sections)
-// ---------------------------------------------------------------------------
-
-function MoverCard({ m }: { m: DailyMoverDTO }) {
-  return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3">
-      <Link
-        href={`/printing/${m.printingId}`}
-        className="shrink-0 w-24 sm:w-28 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-        aria-label={`View ${m.displayName}`}
-      >
-        {m.imageUrl ? (
-          <Image
-            src={m.imageUrl}
-            alt={m.displayName}
-            fill
-            sizes="(max-width: 640px) 96px, 112px"
-            className="object-cover"
-            unoptimized
-          />
-        ) : null}
-      </Link>
-
-      <div className="flex-1 min-w-0">
-        <Link
-          href={`/printing/${m.printingId}`}
-          className="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
-        >
-          {m.displayName}
-        </Link>
-        <CardTags m={m} />
-        <div className="mt-2">
-          <PriceLine m={m} />
-        </div>
-        <OwnershipLine m={m} />
-        {renderPurchaseLink(m.tcgplayerUrl ?? undefined, `mover_${m.signalType}`, false, "Buy on TCGplayer")}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Your movers — compact merged row (used on sparse days)
+// Your movers — one row per card: a card that hit several signals, or sits in
+// several binders, is shown once with every signal tagged and every binder listed.
 // ---------------------------------------------------------------------------
 
 interface MergedMover extends DailyMoverDTO {
   signals: SignalType[];
+  binders: Array<{ binderId: string; binderName: string }>;
 }
 
-function mergeSparseMovers(data: MoversInCollectionDTO): MergedMover[] {
-  const byKey = new Map<string, MergedMover>();
+function mergeMovers(data: MoversInCollectionDTO): MergedMover[] {
+  const byPrinting = new Map<string, MergedMover>();
   for (const { userKey, signal } of SECTION_ORDER) {
     for (const m of data[userKey]) {
-      const key = `${m.printingId}-${m.binderId}`;
-      const existing = byKey.get(key);
-      if (existing) existing.signals.push(signal);
-      else byKey.set(key, { ...m, signals: [signal] });
+      const existing = byPrinting.get(m.printingId);
+      if (!existing) {
+        byPrinting.set(m.printingId, {
+          ...m,
+          signals: [signal],
+          binders: m.binderName ? [{ binderId: m.binderId, binderName: m.binderName }] : [],
+        });
+        continue;
+      }
+      if (!existing.signals.includes(signal)) existing.signals.push(signal);
+      // Rows come once per (printing, binder, signal): count a binder's copies once.
+      if (m.binderName && !existing.binders.some((b) => b.binderId === m.binderId)) {
+        existing.binders.push({ binderId: m.binderId, binderName: m.binderName });
+        existing.quantity += m.quantity;
+        existing.dollarImpact =
+          existing.dollarImpact != null || m.dollarImpact != null
+            ? (existing.dollarImpact ?? 0) + (m.dollarImpact ?? 0)
+            : null;
+      }
+      for (const d of m.decks) {
+        if (!existing.decks.some((e) => e.deckId === d.deckId)) existing.decks = [...existing.decks, d];
+      }
     }
   }
-  return [...byKey.values()].sort(
+  return [...byPrinting.values()].sort(
     (a, b) => Math.abs(b.dollarImpact ?? 0) - Math.abs(a.dollarImpact ?? 0)
   );
 }
 
-function MergedMoverRow({ m }: { m: MergedMover }) {
+function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: string }) {
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3 items-center">
+    <div data-testid="mover-row" className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3 items-center">
       <Link
         href={`/printing/${m.printingId}`}
         className="shrink-0 w-14 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -333,7 +301,7 @@ function MergedMoverRow({ m }: { m: MergedMover }) {
           </div>
         )}
         <div className="mt-1">
-          <CompactBuyLink url={m.tcgplayerUrl} feature={`mover_compact_${m.signals[0]}`} />
+          <CompactBuyLink url={m.tcgplayerUrl} feature={`${featurePrefix}${m.signals[0]}`} />
         </div>
       </div>
     </div>
@@ -386,14 +354,12 @@ function MarketMoverTile({ m }: { m: MarketMoverDTO }) {
 function MarketSection({ signal, movers }: { signal: SignalType; movers: MarketMoverDTO[] }) {
   if (movers.length === 0) return null;
   const meta = SIGNAL_META[signal];
-  const Icon = meta.icon;
   const preview = movers.slice(0, MARKET_PREVIEW_COUNT);
   const rest = movers.slice(MARKET_PREVIEW_COUNT);
 
   return (
     <section className="mb-6">
       <div className="flex items-center gap-2 mb-2">
-        <Icon className={`w-4 h-4 ${meta.accent}`} />
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">{meta.title}</h3>
         <span className="text-sm text-gray-600 dark:text-gray-400">({movers.length})</span>
         <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">— {meta.blurb}</span>
@@ -454,8 +420,10 @@ export function DailyMoversView({
       : []
   );
 
+  // Affiliate-click feature names predate the merged list: quiet days were
+  // "mover_compact_*", busy days "mover_*". Keep both so the analytics series continue.
   const sparse = userMovers != null && userMovers.totalCount > 0 && userMovers.totalCount < 6;
-  const mergedMovers = sparse && userMovers ? mergeSparseMovers(userMovers) : [];
+  const mergedMovers = userMovers ? mergeMovers(userMovers) : [];
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -517,38 +485,12 @@ export function DailyMoversView({
                   </Link>
                 </div>
               </div>
-            ) : sparse ? (
+            ) : (
               <div className="grid gap-2 xl:grid-cols-2">
                 {mergedMovers.map((m) => (
-                  <MergedMoverRow key={`${m.printingId}-${m.binderId}`} m={m} />
+                  <MergedMoverRow key={m.printingId} m={m} featurePrefix={sparse ? "mover_compact_" : "mover_"} />
                 ))}
               </div>
-            ) : (
-              SECTION_ORDER.map(({ signal, userKey }) => {
-                const movers = userMovers[userKey];
-                if (movers.length === 0) return null;
-                const meta = SIGNAL_META[signal];
-                const Icon = meta.icon;
-                return (
-                  <section key={signal} className="mb-8">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Icon className={`w-5 h-5 ${meta.accent}`} />
-                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {meta.title}
-                      </h2>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">({movers.length})</span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      {meta.blurb} on cards you own
-                    </p>
-                    <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                      {movers.map((m) => (
-                        <MoverCard key={`${m.signalType}-${m.printingId}-${m.binderId}`} m={m} />
-                      ))}
-                    </div>
-                  </section>
-                );
-              })
             )}
           </div>
         )}
