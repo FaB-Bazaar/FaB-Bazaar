@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, Command, FileText, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, FileText, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -29,6 +29,7 @@ import { pitchSplit, playableCount } from "@/lib/deck/deck-lens";
 import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./FindPanel";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
+import DeckBulkImport from "@/components/deck/editor/DeckBulkImport";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
 import BrewView, { BREW_DETAILS_SLOT } from "./BrewView";
@@ -50,7 +51,7 @@ type RailItem =
   /** Replaces the deck views in the main area (classic in-page tabs, e.g. Results). */
   | { kind: "main"; id: MainMode; label: string; icon: ComponentType<{ className?: string }> };
 
-type MainMode = "deck" | "results";
+type MainMode = "deck" | "results" | "import";
 
 export default function DeckV2Page() {
   const params = useParams();
@@ -199,6 +200,17 @@ export default function DeckV2Page() {
     }
   };
 
+  // Paste-a-decklist import (shared DeckBulkImport): search the pasted list,
+  // stage results, then save the staged cards to the deck.
+  const [searchFormOpen, setSearchFormOpen] = useState(true);
+  const [importPrintingId, setImportPrintingId] = useState<string | null>(null);
+  const importInstance = state.bulkResults.find(c => c.instanceId === importPrintingId);
+  const stagedCount = state.bulkResults.filter(c => c.isStaged).reduce((n, c) => n + c.quantity, 0);
+  const handleImportSearch = async (e: React.FormEvent) => {
+    await handlers.handleBulkSearch(e);
+    setSearchFormOpen(false);
+  };
+
   // Copy someone else's deck into your own (signed-out → sign in first), then
   // open the copy in v2.
   const [copying, setCopying] = useState(false);
@@ -270,6 +282,7 @@ export default function DeckV2Page() {
     { kind: "panel", id: "find", label: "Deck", icon: Search },
     { kind: "panel", id: "stats", label: "Stats", icon: BarChart3 },
     { kind: "link", href: `/decks/${deckId}/matchups`, label: "Matchups", icon: Swords },
+    ...(canEdit ? [{ kind: "main" as const, id: "import" as const, label: "Import list", icon: ClipboardList }] : []),
     ...(canEdit ? [{ kind: "main" as const, id: "results" as const, label: "Results", icon: Trophy }] : []),
     ...(canEdit ? [{ kind: "link" as const, href: `/decks/${deckId}/notes`, label: "Notes", icon: FileText }] : []),
     { kind: "link", href: `/decks/${deckId}/present`, label: "Present", icon: Tv },
@@ -440,7 +453,34 @@ export default function DeckV2Page() {
               </div>
             )}
           </header>
-          {mainMode === "results" ? (
+          {mainMode === "import" ? (
+            <section aria-label="Import list">
+              <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                Paste a decklist (one card per line, e.g. <code>3 Sink Below (blue)</code>), check the matches, stage them, then save.
+              </p>
+              {stagedCount > 0 && (
+                <div className="mb-3 flex items-center justify-between border border-gray-300 bg-gray-100 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800">
+                  <span>{stagedCount} {stagedCount === 1 ? "card" : "cards"} staged</span>
+                  <button
+                    type="button"
+                    onClick={() => handlers.handleSaveToDeck()}
+                    disabled={state.isSaving}
+                    className="rounded-sm bg-blue-600 px-3 py-1 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {state.isSaving ? "Saving…" : `Save ${stagedCount} Card(s) to Deck`}
+                  </button>
+                </div>
+              )}
+              <DeckBulkImport
+                state={state}
+                handlers={handlers}
+                onSearch={handleImportSearch}
+                searchFormOpen={searchFormOpen}
+                setSearchFormOpen={setSearchFormOpen}
+                onPrintingView={setImportPrintingId}
+              />
+            </section>
+          ) : mainMode === "results" ? (
             <section aria-label="Results">
               <DeckResultsTab deckId={deckId} deck={deck} />
             </section>
@@ -553,6 +593,18 @@ export default function DeckV2Page() {
         targetCategory={addTarget ?? "maindeck"}
         deckFormat={deck.format}
         currentDeck={deck}
+      />
+      {/* Printing picker for a staged import row */}
+      <ViewPrintingsDialog
+        open={!!importPrintingId}
+        onOpenChange={isOpen => !isOpen && setImportPrintingId(null)}
+        cardName={importInstance?.selectedPrinting?.display_name || ""}
+        cardUniqueId={importInstance?.card_unique_id || ""}
+        currentPrintingId={importInstance?.selectedPrinting?.printing_id}
+        onSelectPrinting={printing => {
+          if (importInstance) handlers.updateCardPrinting(importInstance.instanceId, printing);
+          setImportPrintingId(null);
+        }}
       />
       <ViewPrintingsDialog
         open={!!swapTarget}
