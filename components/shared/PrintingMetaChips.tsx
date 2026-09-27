@@ -9,8 +9,8 @@ interface SetLogoProps {
   /** Set code as stored on the printing ("dtd", "wtr"…), any case. */
   set?: string | null
   /** sm = inline icon in a chip row; md = readable wordmark in a list row;
-   *  lg = logo filling a tile's spare column. */
-  size?: "sm" | "md" | "lg"
+   *  lg = logo in a tile's spare column; fill = as big as its container allows. */
+  size?: "sm" | "md" | "lg" | "fill"
   className?: string
 }
 
@@ -20,6 +20,7 @@ const LOGO_SIZE = {
   sm: "h-5 w-5",
   md: "h-7 w-16 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
   lg: "h-14 w-28 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
+  fill: "h-full w-full drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
 } as const
 
 /**

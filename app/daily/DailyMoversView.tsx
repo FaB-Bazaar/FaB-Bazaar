@@ -208,15 +208,16 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
     <div data-testid="mover-row" className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3">
       <Link
         href={`/printing/${m.printingId}`}
-        className="shrink-0 w-14 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        className="shrink-0 w-14 sm:w-20 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         aria-label={`View ${m.displayName}`}
       >
         {m.imageUrl ? (
-          <Image src={m.imageUrl} alt={m.displayName} fill sizes="56px" className="object-cover" unoptimized />
+          <Image src={m.imageUrl} alt={m.displayName} fill sizes="(max-width: 640px) 56px, 80px" className="object-cover" unoptimized />
         ) : null}
       </Link>
 
-      <div className="flex-1 min-w-0">
+      {/* Text takes the width it needs; the set logo slot gets the rest. */}
+      <div className="min-w-0 flex-1 sm:flex-none">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Link
             href={`/printing/${m.printingId}`}
@@ -244,8 +245,10 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
         <HoldingLine m={m} />
       </div>
 
-      {/* The row's spare width: a readable set logo instead of an empty gap. */}
-      <SetLogo set={m.set} size="lg" className="hidden sm:block self-center shrink-0" />
+      {/* The row's spare width: the set logo, as large as the space allows. */}
+      <div className="hidden sm:flex flex-1 min-w-0 self-stretch items-center justify-center px-2 py-1">
+        <SetLogo set={m.set} size="fill" />
+      </div>
 
       <div className="shrink-0 flex flex-col items-end text-right">
         {m.dollarImpact != null && (
@@ -287,15 +290,16 @@ function MarketRow({ m }: { m: MarketMoverDTO }) {
           ) : null}
         </Link>
       </td>
-      <td className="py-1.5 pr-3 max-w-0 w-full">
+      <td className="py-1.5 pr-4 whitespace-nowrap">
         <Link
           href={href}
-          className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+          className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block max-w-[18rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
         >
           {m.displayName}
         </Link>
       </td>
-      <td className="py-1.5 pr-3 hidden sm:table-cell">
+      {/* Straight after the name; any spare width sits here, before the price. */}
+      <td className="py-1.5 pr-3 hidden sm:table-cell w-full">
         <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" className="min-w-max" />
       </td>
       <td className="py-1.5 pr-3 text-right text-sm font-semibold tabular-nums whitespace-nowrap text-gray-900 dark:text-gray-100">

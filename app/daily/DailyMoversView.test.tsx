@@ -253,8 +253,28 @@ describe('/daily your movers — a row reads as a sentence', () => {
   it('puts a large set logo in the gap before the gain column (small one stays inline on phones)', () => {
     render(<DailyMoversView signedIn={true} userMovers={one(userMover())} market={marketDto([])} error={null} />)
     const logos = [...rowFor('Enlightened Strike').querySelectorAll('img[alt="WTR"]')]
-    expect(logos.map((l) => /\bh-14\b/.test(l.className))).toEqual([false, true])
     expect(logos[0].className).toMatch(/sm:hidden/)
-    expect(logos[1].className).toMatch(/hidden sm:block/)
+    // Fills whatever width the row has left, rather than a fixed box in an empty gap.
+    expect(logos[1].className).toMatch(/\bw-full\b/)
+    const slot = logos[1].parentElement as HTMLElement
+    expect(slot.className).toMatch(/\bflex-1\b/)
+    expect(slot.className).toMatch(/hidden sm:flex/)
+  })
+
+  it('uses a larger card image', () => {
+    render(<DailyMoversView signedIn={true} userMovers={one(userMover())} market={marketDto([])} error={null} />)
+    const thumb = screen.getByRole('link', { name: 'View Enlightened Strike' })
+    expect(thumb.className).toMatch(/\bw-20\b/)
+  })
+})
+
+describe('/daily market table — no dead gap after the name', () => {
+  it('puts the set logo cell straight after the name, and lets the gap sit before the price', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={marketDto([marketMover()])} error={null} />)
+    const cells = [...screen.getByRole('row', { name: /Enlightened Strike/ }).querySelectorAll('td')]
+    const nameIdx = cells.findIndex((c) => c.textContent === 'Enlightened Strike')
+    expect(cells[nameIdx + 1].querySelector('img[alt="WTR"]')).not.toBeNull()
+    expect(cells[nameIdx].className).not.toMatch(/\bw-full\b/)
+    expect(cells[nameIdx + 1].className).toMatch(/\bw-full\b/)
   })
 })
