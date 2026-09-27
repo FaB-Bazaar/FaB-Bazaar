@@ -5,7 +5,8 @@
 // the classic page (/decks/[id]) are visible and labelled. Reuses the classic
 // page's building blocks: useDeckEditor for data, DeckEditorListView for the
 // deck itself, QuickAddCardDialog for adds, and the `deck-highlight-*` events
-// for highlighting. Desktop only for now; phones get a link to the classic page.
+// for highlighting. On phones the route renders the classic page's mobile
+// experience instead (DeckV2Route).
 
 import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
@@ -30,6 +31,8 @@ import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./FindPanel";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import DeckBulkImport from "@/components/deck/editor/DeckBulkImport";
+import { useIsMobile } from "@/components/ui/use-mobile";
+import ClassicDeckPage from "../page";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
@@ -54,7 +57,23 @@ type RailItem =
 
 type MainMode = "deck" | "results" | "import";
 
-export default function DeckV2Page() {
+/**
+ * /decks/[id]/v2: the rail layout on desktop; on phones the classic deck
+ * page's mobile experience (the same component as /decks/[id], same URL).
+ * Waits for the viewport — useIsMobile reports false until it mounts — so
+ * phones never flash the desktop layout.
+ */
+export default function DeckV2Route() {
+  const isMobile = useIsMobile();
+  const [viewportResolved, setViewportResolved] = useState(false);
+  useEffect(() => { setViewportResolved(true); }, []);
+  if (!viewportResolved) {
+    return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-gray-400" aria-label="Loading deck" /></div>;
+  }
+  return isMobile ? <ClassicDeckPage /> : <DeckV2Page />;
+}
+
+function DeckV2Page() {
   const params = useParams();
   const router = useRouter();
   const deckId = params.deckId as string;
@@ -320,13 +339,7 @@ export default function DeckV2Page() {
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-[calc(100vh-4rem)]">
-      {/* Phones: the rail layout needs width; send people to the classic page. */}
-      <div className="md:hidden px-4 py-10 text-center text-sm text-gray-700 dark:text-gray-300">
-        This layout is a desktop experiment.{" "}
-        <Link href={`/decks/${deckId}`} className="text-blue-700 underline dark:text-blue-400">Open the regular deck page</Link>.
-      </div>
-
-      <div className="hidden md:flex">
+      <div className="flex">
         {/* Rail */}
         <nav aria-label="Deck tools" className="sticky top-16 flex h-[calc(100vh-4rem)] w-20 shrink-0 flex-col items-stretch border-r border-gray-300 bg-gray-50 dark:border-gray-800 dark:bg-gray-800">
           {rail.map(item => {
