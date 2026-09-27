@@ -419,7 +419,7 @@ export default function Navbar() {
           className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/collection") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
         >
           <BookOpen className="h-4 w-4 inline mr-1" />
-          Your Collection
+          Collection
         </Link>
       )
     }
@@ -432,7 +432,7 @@ export default function Navbar() {
             size="sm"
             className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/collection") || pathname.startsWith("/binder/") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
           >
-            Your Collection
+            Collection
             <ChevronDown className="h-4 w-4 ml-1" />
           </Button>
         </DropdownMenuTrigger>
@@ -440,7 +440,7 @@ export default function Navbar() {
           <DropdownMenuItem asChild>
             <Link href="/collection" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <BookOpen className="h-4 w-4 mr-2" />
-              View All Binders
+              Binders
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -546,7 +546,7 @@ export default function Navbar() {
           className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/decks") || pathname.startsWith("/decks/") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
         >
           <Layers className="h-4 w-4 inline mr-1" />
-          Your Decks
+          Decks
         </Link>
       )
     }
@@ -559,7 +559,7 @@ export default function Navbar() {
             size="sm"
             className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/decks") || pathname.startsWith("/decks/") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
           >
-            Your Decks
+            Decks
             <ChevronDown className="h-4 w-4 ml-1" />
           </Button>
         </DropdownMenuTrigger>
@@ -567,7 +567,7 @@ export default function Navbar() {
           <DropdownMenuItem asChild>
             <Link href="/decks" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <Layers className="h-4 w-4 mr-2" />
-              View Your Decks
+              My Decks
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -676,13 +676,19 @@ export default function Navbar() {
             className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/stores") || pathname.startsWith("/stores/") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
           >
             <MapPin className="h-4 w-4 mr-1" />
-            Your Stores
+            Stores
             <ChevronDown className="h-4 w-4 ml-1" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
           <DropdownMenuItem asChild>
             <Link href="/stores" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <MapPin className="h-4 w-4 mr-2" />
+              My Stores
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/stores/browse" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <MapPin className="h-4 w-4 mr-2" />
               Browse Stores
             </Link>
@@ -936,7 +942,7 @@ export default function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                         <User className="h-4 w-4 mr-2" />
-                        View Profile
+                        Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -949,7 +955,7 @@ export default function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link href="/browse" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                         <Plus className="h-4 w-4 mr-2" />
-                        Bulk Imports
+                        Bulk Import
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -1061,14 +1067,14 @@ export default function Navbar() {
                   >
                     <div className="flex items-center">
                       <BookOpen className="h-5 w-5 mr-3" />
-                      My Collection
+                      Collection
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform ${mobileCollectionExpanded ? 'rotate-180' : ''}`} />
                   </button>
                   {mobileCollectionExpanded && (
                     <div className="bg-gray-50 dark:bg-gray-700/50 py-1">
                       <Link href="/collection" onClick={() => setIsMenuOpen(false)}>
-                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">View All Binders</div>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Binders</div>
                       </Link>
                       <Link href="/playmats" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Collectibles</div>
@@ -1109,14 +1115,14 @@ export default function Navbar() {
                   >
                     <div className="flex items-center">
                       <Layers className="h-5 w-5 mr-3" />
-                      Your Decks
+                      Decks
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform ${mobileDecksExpanded ? 'rotate-180' : ''}`} />
                   </button>
                   {mobileDecksExpanded && (
                     <div className="bg-gray-50 dark:bg-gray-700/50 py-1">
                       <Link href="/decks" onClick={() => setIsMenuOpen(false)}>
-                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">View Your Decks</div>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">My Decks</div>
                       </Link>
                       <Link href="/decks/community" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Community Decks</div>
@@ -1150,7 +1156,7 @@ export default function Navbar() {
                     >
                       <div className="flex items-center">
                         <MapPin className="h-5 w-5 mr-3" />
-                        Your Stores
+                        Stores
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${mobileStoresExpanded ? 'rotate-180' : ''}`} />
                     </button>

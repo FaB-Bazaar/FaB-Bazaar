@@ -228,10 +228,10 @@ export default function MobileTabBar({
       <Drawer open={collectionOpen} onOpenChange={setCollectionOpen}>
         <DrawerContent className="max-h-[80vh]">
           <DrawerHeader className="py-3">
-            <DrawerTitle>Your Collection</DrawerTitle>
+            <DrawerTitle>Collection</DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-            <SheetLink href="/collection" icon={BookOpen}>View All Binders</SheetLink>
+            <SheetLink href="/collection" icon={BookOpen}>Binders</SheetLink>
             <SheetLink href="/wants" icon={FileText}>Wants List</SheetLink>
             <SheetLink href="/daily" icon={TrendingUp}>Daily Movers</SheetLink>
 
@@ -275,10 +275,10 @@ export default function MobileTabBar({
       <Drawer open={decksOpen} onOpenChange={setDecksOpen}>
         <DrawerContent className="max-h-[80vh]">
           <DrawerHeader className="py-3">
-            <DrawerTitle>Your Decks</DrawerTitle>
+            <DrawerTitle>Decks</DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-            <SheetLink href="/decks" icon={Layers}>View Your Decks</SheetLink>
+            <SheetLink href="/decks" icon={Layers}>My Decks</SheetLink>
             <SheetLink href="/decks?create=true" icon={Plus}>New Deck</SheetLink>
             <SheetLink href="/decks/community" icon={Users}>Community Decks</SheetLink>
             <SheetLink href="/decks/to-beat" icon={Trophy}>Decks to Beat</SheetLink>
