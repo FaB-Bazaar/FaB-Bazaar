@@ -29,7 +29,7 @@ export default function DiscordPage() {
     },
     {
       question: 'Is my collection automatically synced?',
-      answer: 'Yes! Any changes you make through Discord sync instantly with your FaB Bazaar account on the website.'
+      answer: 'Yes. Anything you add or remove through the bot shows up on the website straight away, and the other way round.'
     },
     {
       question: 'Can other people see my commands?',
@@ -95,10 +95,10 @@ export default function DiscordPage() {
       <div className="mb-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Everything You Need, One Slash Away
+            Six commands, built for trading in chat
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Four powerful commands give you instant access to your collection and the FaB Bazaar community.
+            Each one answers a question you'd otherwise ask the channel: who has it, what do they want, what can we swap? Beyond the four below, <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/deck</code> shows anyone's deck list and <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/needs</code> lists the cards you're still missing for one of your decks.
           </p>
         </div>
 
@@ -116,7 +116,7 @@ export default function DiscordPage() {
                 <code className="text-sm text-[#5865F2] dark:text-[#7983F5] bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                   /search &lt;card name&gt;
                 </code>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">Find Any Card Instantly</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">Every printing, with prices</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   Looking for a Cold Foil Command and Conquer? Type <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/search command and conquer</code> and see every printing in the database. Each result comes with action buttons to add the card to your binder, add it to your wants list, or find out who owns it.
                 </p>
@@ -141,7 +141,7 @@ export default function DiscordPage() {
                 <code className="text-sm text-[#5865F2] dark:text-[#7983F5] bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                   /binder [username]
                 </code>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">Browse Any Collection</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">What someone has</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   Check your own binder or peek at what someone else has. Running <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/binder</code> shows your collection organized by binder, while <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/binder @username</code> lets you see what a trading partner has available. Perfect for checking inventory before proposing a trade.
                 </p>
@@ -166,7 +166,7 @@ export default function DiscordPage() {
                 <code className="text-sm text-[#5865F2] dark:text-[#7983F5] bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                   /wants &lt;username&gt;
                 </code>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">See What People Need</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">What someone is hunting for</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   Every trader has a wishlist. Use <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/wants @username</code> to see exactly what cards someone is looking for, complete with their preferred printings. Found something they need in your collection? You just found a trade.
                 </p>
@@ -191,9 +191,9 @@ export default function DiscordPage() {
                 <code className="text-sm text-[#5865F2] dark:text-[#7983F5] bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                   /trade &lt;username&gt;
                 </code>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">Find Mutual Matches</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-3">What you can swap</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  This is where the magic happens. Run <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/trade @username</code> and the bot analyzes both collections instantly. You'll see every card you have that they want, and every card they have that you want. No more spreadsheets, no more cross-referencing—just matches.
+                  Run <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/trade @username</code> and the bot compares both collections. You'll see every card you have that they want, and every card they have that you want. Or run <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">/trade store:</code> and pick your store to check against everyone who follows it.
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Instant two-way analysis. Shows exact printings that match.
@@ -219,7 +219,7 @@ export default function DiscordPage() {
             Right-Click Trading
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Don't want to type? Right-click any user in Discord and access their collection.
+            Right-click any user in Discord to open their binder, wants list, or deck needs without typing a command.
           </p>
         </div>
 
@@ -258,10 +258,10 @@ export default function DiscordPage() {
       <div className="mb-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            One Search, Four Actions
+            Buttons on every search result
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Every card you find comes with instant action buttons.
+            Add to Binder, Add to Wants, Who Has, Who Wants.
           </p>
         </div>
 
@@ -310,7 +310,7 @@ export default function DiscordPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-gray-600 dark:text-gray-300">
-              Got extras? See who's looking for the card you're viewing. It's like having a buyer list in your pocket.
+              Got extras? See who's looking for the card you're viewing.
             </CardContent>
           </Card>
         </div>
@@ -390,10 +390,10 @@ export default function DiscordPage() {
       {/* Final CTA Section */}
       <div className="text-center py-16 bg-[#5865F2]/10 dark:bg-[#5865F2]/15 rounded-2xl">
         <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-          Ready to Trade Smarter?
+          Try it in the server
         </h2>
         <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
-          Join hundreds of FaB players who manage their collections right from Discord.
+          The bot lives in the FaB Bazaar Discord and uses the same Discord account you sign in with here.
         </p>
         <Button asChild size="lg" className="bg-[#5865F2] hover:bg-[#4752C4] text-white">
           <a href="https://discord.gg/Rx8eBhhQtk" target="_blank" rel="noopener noreferrer">
