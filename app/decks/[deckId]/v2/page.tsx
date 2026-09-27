@@ -99,7 +99,7 @@ export default function DeckV2Page() {
   useEffect(() => {
     if (view !== "cards" || !active) return;
     window.dispatchEvent(new CustomEvent("deck-highlight-clear"));
-    window.dispatchEvent(new CustomEvent("deck-highlight-filter", { detail: active }));
+    window.dispatchEvent(new CustomEvent("deck-highlight-filter", { detail: { ...active, source: "panel" } }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- replay on view switch only
   }, [view]);
   const [addTarget, setAddTarget] = useState<DeckCategory | null>(null);
@@ -107,6 +107,16 @@ export default function DeckV2Page() {
   // Deck Tools HUD (Cmd/Ctrl+K) — the classic page's chords, overlay and
   // ownership views, shared via useDeckCommandHud. 9 / 8 / 7 inside it open the
   // card search for main deck / inventory / bench.
+  // A highlight not from the Deck panel (a Cmd+K chord) takes over: the panel
+  // row lets go, so the grid shows the full-screen overlay for it.
+  useEffect(() => {
+    const onFilter = (e: Event) => {
+      if ((e as CustomEvent<{ source?: string }>).detail?.source !== "panel") setActive(null);
+    };
+    window.addEventListener("deck-highlight-filter", onFilter);
+    return () => window.removeEventListener("deck-highlight-filter", onFilter);
+  }, []);
+
   const { chordMode, setChordMode, hud: commandHud } = useDeckCommandHud({
     deck: state.deck ?? null,
     deckId,
@@ -409,7 +419,9 @@ export default function DeckV2Page() {
             onRemoveTile={(id, category, qty) => setQty(id, category, qty, -1)}
             onAddOneTile={(id, category, qty) => setQty(id, category, qty, 1)}
             onAddCard={category => setAddTarget(category)}
-            inPlaceHighlight
+            // Panel-row highlights stay in place (the panel stays usable); Cmd+K
+            // highlights get the classic full-screen focus overlay.
+            inPlaceHighlight={!!active}
             onHighlightCleared={() => setActive(null)}
             binders={binders}
             selectedBinderId={selectedBinderId}

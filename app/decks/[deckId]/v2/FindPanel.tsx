@@ -33,9 +33,11 @@ function writeLenses(deckId: string, lenses: string[]) {
   try { localStorage.setItem(lensKey(deckId), JSON.stringify(lenses)); } catch { /* per-viewer convenience only */ }
 }
 
+// source: "panel" tells the page this highlight came from the panel (stay in
+// place); untagged highlights (Cmd+K chords) get the full-screen overlay.
 function highlight(stat: string, value: string) {
   window.dispatchEvent(new CustomEvent("deck-highlight-clear"));
-  window.dispatchEvent(new CustomEvent("deck-highlight-filter", { detail: { stat, value } }));
+  window.dispatchEvent(new CustomEvent("deck-highlight-filter", { detail: { stat, value, source: "panel" } }));
 }
 
 function clearHighlight() {
