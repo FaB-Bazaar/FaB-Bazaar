@@ -1,6 +1,6 @@
 // components/shared/FoilCardImage.tsx
 // Shared foil-shimmer card image wrapper.
-// Handles spring physics, idle wobble, pointer events, and the
+// Handles spring physics, pointer events, and the
 // card__translater/rotator/front/shine/glare CSS structure.
 // Only activates foil shimmer for Rainbow Foil ('R'/'r') and Cold Foil ('C'/'c').
 // Click-to-flip popover works for ALL cards when `expandable` is true.
@@ -93,7 +93,6 @@ export default function FoilCardImage({
   const cardRef     = useRef<HTMLDivElement>(null)
   const rafRef      = useRef<number | null>(null)
   const interacting = useRef(false)
-  const phaseRef    = useRef(Math.random() * Math.PI * 2)
   const springsRef  = useRef({
     rotX:   makeSpring(0),
     rotY:   makeSpring(0),
@@ -130,16 +129,20 @@ export default function FoilCardImage({
     flip:  makeSpring(0, 0.045, 0.42),
   })
 
-  // ─── Foil shimmer rAF loop (unchanged from original) ────────────────────
+  // ─── Foil shimmer rAF loop ──────────────────────────────────────────────
+  // Runs only while the springs are moving: a pointer move starts it, and it
+  // stops itself once the card has settled. It used to reschedule every frame
+  // forever, so each untouched foil card on screen wrote ~20 CSS vars per frame.
+  const shimmerEnabled = useRef(false)
+
   useEffect(() => {
-    if (!isFoilCard) return
-    if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) return
-    const el = cardRef.current
-    if (!el) return
+    shimmerEnabled.current =
+      isFoilCard && !(typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches)
+  }, [isFoilCard])
 
-    let r = phaseRef.current
-
-    const loop = () => {
+  const runShimmerLoop = useCallback(() => {
+      const el = cardRef.current
+      if (!el) { rafRef.current = null; return }
       const s = springsRef.current
 
       if (!interacting.current) {
@@ -195,12 +198,22 @@ export default function FoilCardImage({
         portal.style.setProperty('--background-y',        `${s.bgY.current}%`)
       }
 
-      rafRef.current = requestAnimationFrame(loop)
-    }
+      if (Object.values(s).every(springSettled)) {
+        rafRef.current = null
+        return
+      }
+      rafRef.current = requestAnimationFrame(runShimmerLoop)
+  }, [])
 
-    rafRef.current = requestAnimationFrame(loop)
+  const startShimmerLoop = useCallback(() => {
+    if (shimmerEnabled.current && rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(runShimmerLoop)
+    }
+  }, [runShimmerLoop])
+
+  useEffect(() => {
     return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }
-  }, [isFoilCard])
+  }, [])
 
   // ─── Popover rAF loop (translate + scale + flip on the portal element) ──
   const runPopoverLoop = useCallback(() => {
@@ -360,6 +373,8 @@ export default function FoilCardImage({
     s.glareO.target = 1
     s.bgX.target    = 37 + (px / 100) * 26
     s.bgY.target    = 33 + (py / 100) * 34
+
+    startShimmerLoop()
   }
 
   const handlePointerLeave = () => {
@@ -370,6 +385,8 @@ export default function FoilCardImage({
     s.rotX.target = 0;  s.rotY.target = 0
     s.glareX.target = 50; s.glareY.target = 50; s.glareO.target = 0
     s.bgX.target = 50; s.bgY.target = 50
+
+    startShimmerLoop()
   }
 
   // Shared card content (used in both inline card and portal card)
