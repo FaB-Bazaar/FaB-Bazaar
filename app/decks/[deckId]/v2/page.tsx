@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, Command, FileText, Loader2, Search, Swords, Trophy, Tv } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, Command, FileText, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -19,6 +19,8 @@ import { decksClient } from "@/lib/client";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import { useDeckCommandHud } from "@/components/deck/editor/useDeckCommandHud";
 import { useBinderWantsActions } from "@/hooks/deck/useBinderWantsActions";
+import { useDeckOptions } from "@/hooks/deck/useDeckOptions";
+import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
 import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
@@ -136,6 +138,11 @@ export default function DeckV2Page() {
   // shared with the classic page.
   const { binders, selectedBinderId, handleBinderChange, handleAddToBinder, handleAddToWants } =
     useBinderWantsActions({ user, refreshDeck: handlers.refreshDeck, refreshWants: handlers.refreshWants });
+
+  // Options menu (the classic page's "More": copy/export, export image, stream
+  // overlay, settings, owned printings, language) + its dialogs — shared hook.
+  const isOwner = !!(user && deck && deck.userId === user.id);
+  const options = useDeckOptions({ deck: deck ?? null, deckId, canEdit, isOwner, refreshDeck: handlers.refreshDeck });
 
   // A bare "+" (outside a text box, HUD closed) opens the card search for the main deck.
   useEffect(() => {
@@ -338,6 +345,31 @@ export default function DeckV2Page() {
             <ArrowLeft className="h-5 w-5" />
             <span className="text-[11px] leading-tight">Classic view</span>
           </Link>
+          {/* The classic page's "More" menu, at the very bottom (no Analyze on v2). */}
+          <DeckToolbarMoreMenu
+            isOwner={isOwner}
+            side="right"
+            align="end"
+            onCopyList={options.handleCopyList}
+            onExport={options.handleExportList}
+            onExportImage={() => options.setExportImageOpen(true)}
+            onPresent={() => router.push(`/decks/${deckId}/present`)}
+            onStickers={() => router.push(`/decks/${deckId}/stickers`)}
+            onSettings={() => options.setSettingsOpen(true)}
+            onUpdateOwnedPrintings={canEdit ? options.handleUpgradePrintings : undefined}
+            onConvertLanguage={canEdit ? options.handleConvertLanguage : undefined}
+            onStreamOverlay={canEdit ? () => options.setStreamOverlayOpen(true) : undefined}
+            trigger={
+              <button
+                type="button"
+                aria-label="Options"
+                className="flex w-full flex-col items-center gap-1 border-t border-gray-200 px-1 py-3 text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <MoreHorizontal className="h-5 w-5" aria-hidden />
+                <span className="text-[11px] leading-tight">Options</span>
+              </button>
+            }
+          />
         </nav>
 
         {/* Flyout panel */}
@@ -466,6 +498,7 @@ export default function DeckV2Page() {
         </main>
 
         {commandHud}
+        {options.dialogs}
 
         {/* Right-hand column for Brew's card details (portalled in). Collapses to
             nothing while empty, so other views keep the full width. */}
