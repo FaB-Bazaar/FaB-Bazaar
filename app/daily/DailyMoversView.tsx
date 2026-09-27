@@ -154,7 +154,7 @@ function CompactBuyLink({ url, feature }: { url: string | null; feature: string 
       <img
         src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
         alt="on TCGplayer"
-        className="h-3 w-[74px] max-w-none"
+        className="hidden sm:inline h-3 w-[74px] max-w-none"
       />
     </TcgAffiliateLink>
   );
@@ -291,16 +291,16 @@ function MarketRow({ m }: { m: MarketMoverDTO }) {
           ) : null}
         </Link>
       </td>
-      <td className="py-1.5 pr-4 whitespace-nowrap">
+      <td className="py-1.5 pr-3 sm:pr-4 max-w-0 w-full sm:max-w-none sm:w-auto whitespace-nowrap">
         <Link
           href={href}
-          className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block max-w-[18rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+          className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block sm:max-w-[18rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
         >
           {m.displayName}
         </Link>
       </td>
       {/* Straight after the name; any spare width sits here, before the price. */}
-      <td className="py-1.5 pr-3 hidden sm:table-cell w-full">
+      <td className="py-1.5 pr-3 hidden sm:table-cell sm:w-full">
         <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" className="min-w-max" />
       </td>
       <td className="py-1.5 pr-3 text-right text-sm font-semibold tabular-nums whitespace-nowrap text-gray-900 dark:text-gray-100">
@@ -401,7 +401,7 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
         })}
       </div>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{SIGNAL_META[current.signal].blurb}</p>
-      <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="relative bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
         <table className="w-full">
           <thead className="text-left text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/80">
             <tr>

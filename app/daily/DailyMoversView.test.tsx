@@ -286,8 +286,9 @@ describe('/daily market table — no dead gap after the name', () => {
     const cells = [...screen.getByRole('row', { name: /Enlightened Strike/ }).querySelectorAll('td')]
     const nameIdx = cells.findIndex((c) => c.textContent === 'Enlightened Strike')
     expect(cells[nameIdx + 1].querySelector('img[alt="WTR"]')).not.toBeNull()
-    expect(cells[nameIdx].className).not.toMatch(/\bw-full\b/)
-    expect(cells[nameIdx + 1].className).toMatch(/\bw-full\b/)
+    // From sm up the set cell takes the spare width; on phones (set hidden) the name does.
+    expect(cells[nameIdx].className).toMatch(/\bsm:w-auto\b/)
+    expect(cells[nameIdx + 1].className).toMatch(/\bsm:w-full\b/)
   })
 })
 
