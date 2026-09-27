@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./FindPanel";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
-import BrewView from "./BrewView";
+import BrewView, { BREW_DETAILS_SLOT } from "./BrewView";
 import type { BrewFacets } from "@/lib/deck/brew";
 
 type PanelId = "find" | "stats";
@@ -326,6 +326,13 @@ export default function DeckV2Page() {
           </>
           )}
         </main>
+
+        {/* Right-hand column for Brew's card details (portalled in). Collapses to
+            nothing while empty, so other views keep the full width. */}
+        <div
+          id={BREW_DETAILS_SLOT}
+          className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-l border-gray-300 bg-white empty:hidden dark:border-gray-800 dark:bg-gray-950"
+        />
       </div>
 
       <QuickAddCardDialog

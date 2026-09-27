@@ -13,6 +13,7 @@
 // No transitions or animations, on purpose.
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Minus, Plus, X } from "lucide-react";
 import type { DeckCategory, DeckDTO } from "@/lib/services/contracts/IDeckService";
 import { useCardSearch } from "@/hooks/search/useCardSearch";
@@ -26,6 +27,9 @@ import {
 import { lensLabel } from "@/lib/deck/deck-lens";
 import type { Lens } from "@/lib/deck/deck-table";
 import { RulesText } from "@/components/cards/CardDetailsLightbox";
+
+/** id of the page's right-hand column the details panel renders into. */
+export const BREW_DETAILS_SLOT = "brew-details-slot";
 
 /** Where the tile "+" puts a card. Brewing is trying ideas — the Bench never
  *  disturbs the deck's count or legality. */
@@ -83,6 +87,10 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
   const allLoaded = useMemo(() => groupSearchPrintingsToCards(search.results as any), [search.results]);
   const cards = useMemo(() => notInDeck(allLoaded, deck, kept), [allLoaded, deck, kept]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The details panel lives in the page's full-height right column (so its add
+  // buttons sit near the top of the window, not below the card grid's header).
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { setSlot(document.getElementById(BREW_DETAILS_SLOT)); }, []);
   const selected = allLoaded.find(c => c.unique_id === selectedId) ?? null;
 
   const add = async (card: Card, zone: DeckCategory, quantity = 1) => {
@@ -96,8 +104,8 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
   const label = `Legal cards not in your deck${picked ? ` — ${picked}` : ""}`;
 
   return (
-    <div className="flex items-start gap-4">
-      <section aria-label={label} className="min-w-0 flex-1 border border-gray-300 dark:border-gray-700">
+    <>
+      <section aria-label={label} className="border border-gray-300 dark:border-gray-700">
         <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
           <span>{label}</span>
           {/* The previous pool stays up while a new filter loads — say so, and dim it. */}
@@ -142,7 +150,7 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
         )}
       </section>
 
-      {selected && (
+      {selected && slot && createPortal(
         <BrewDetails
           card={selected}
           siblings={pitchSiblings(allLoaded, selected)}
@@ -151,9 +159,10 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
           onPick={id => setSelectedId(id)}
           onClose={() => setSelectedId(null)}
           onAdd={(zone, qty) => add(selected, zone, qty)}
-        />
+        />,
+        slot,
       )}
-    </div>
+    </>
   );
 }
 
@@ -238,7 +247,7 @@ function BrewDetails({ card, siblings, inDeck, canEdit, onPick, onClose, onAdd }
   ].filter(Boolean).join(" · ");
 
   return (
-    <aside aria-label="Card details" className="sticky top-20 w-72 flex-shrink-0 border border-gray-300 bg-white text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200">
+    <aside aria-label="Card details" className="text-sm text-gray-800 dark:text-gray-200">
       <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
         <h2 className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">{card.name}</h2>
         <button type="button" onClick={onClose} aria-label="Close details" className="rounded-sm p-0.5 text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800">
@@ -262,14 +271,8 @@ function BrewDetails({ card, siblings, inDeck, canEdit, onPick, onClose, onAdd }
             ))}
           </div>
         )}
-        <img src={p?.image_url || "/cardback.webp"} alt={cardLabel(card)} className="w-full rounded-md" />
-        {p?.type_text_display && <p className="text-xs text-gray-600 dark:text-gray-400">{p.type_text_display}{stats && ` · ${stats}`}</p>}
-        {p?.text && <RulesText text={p.text} className="text-gray-800 dark:text-gray-200" />}
-        {inDeck.length > 0 && (
-          <p className="text-xs">In this deck: {inDeck.map(z => `${ZONE_LABEL[z.zone]} ×${z.qty}`).join(", ")}</p>
-        )}
         {canEdit && (
-          <div className="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-800">
+          <div className="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-800">
             <label className="flex items-center gap-2 text-xs">
               Copies
               <select
@@ -295,6 +298,12 @@ function BrewDetails({ card, siblings, inDeck, canEdit, onPick, onClose, onAdd }
             </div>
           </div>
         )}
+        {inDeck.length > 0 && (
+          <p className="text-xs">In this deck: {inDeck.map(z => `${ZONE_LABEL[z.zone]} ×${z.qty}`).join(", ")}</p>
+        )}
+        <img src={p?.image_url || "/cardback.webp"} alt={cardLabel(card)} className="w-full rounded-md" />
+        {p?.type_text_display && <p className="text-xs text-gray-600 dark:text-gray-400">{p.type_text_display}{stats && ` · ${stats}`}</p>}
+        {p?.text && <RulesText text={p.text} className="text-gray-800 dark:text-gray-200" />}
       </div>
     </aside>
   );
