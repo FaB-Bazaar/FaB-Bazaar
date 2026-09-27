@@ -1,4 +1,5 @@
 import * as React from "react";
+import { readFoilEffects, subscribeFoilEffects, writeFoilEffects } from "@/lib/ui/foil-effects-pref";
 
 // Mount-guarded reads of browser-only globals.
 //
@@ -56,4 +57,13 @@ export function useIsMac(): boolean {
   }, []);
 
   return isMac;
+}
+
+/**
+ * The "Card foil effects" preference (off by default) and its setter.
+ * False during SSR and first client render; follows changes from any tab.
+ */
+export function useFoilEffects(): [boolean, (on: boolean) => void] {
+  const on = React.useSyncExternalStore(subscribeFoilEffects, readFoilEffects, () => false);
+  return [on, writeFoilEffects];
 }

@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, act } from '@testing-library/react';
 import FoilCardImage from './FoilCardImage';
+import { writeFoilEffects } from '@/lib/ui/foil-effects-pref';
 
 // Manual rAF queue so the test controls every frame.
 let queue: Map<number, FrameRequestCallback>;
@@ -45,6 +46,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  window.localStorage.clear();
 });
 
 const renderFoil = () => {
@@ -57,6 +59,10 @@ const renderFoil = () => {
 };
 
 describe('FoilCardImage shimmer loop', () => {
+  beforeEach(() => {
+    window.localStorage.setItem('fabb:foil-effects', '1');
+  });
+
   it('does not keep scheduling frames while the card is untouched', () => {
     renderFoil();
     runFrames(600);
@@ -78,5 +84,25 @@ describe('FoilCardImage shimmer loop', () => {
     fireEvent.pointerLeave(card);
     runFrames(5000);
     expect(queue.size).toBe(0);
+  });
+});
+
+describe('FoilCardImage with foil effects off (the default)', () => {
+  it('renders a foil printing as a plain image and never animates', () => {
+    const card = renderFoil();
+    expect(card.hasAttribute('data-rarity')).toBe(false);
+    expect(card.querySelector('.card__shine')).toBeNull();
+
+    fireEvent(card, new MouseEvent('pointermove', { bubbles: true, clientX: 150, clientY: 60 }));
+    expect(queue.size).toBe(0);
+  });
+
+  it('turns the effect on when the preference is switched on', () => {
+    const card = renderFoil();
+    act(() => { writeFoilEffects(true); });
+    expect(card.getAttribute('data-rarity')).toBe('rainbow foil');
+
+    fireEvent(card, new MouseEvent('pointermove', { bubbles: true, clientX: 150, clientY: 60 }));
+    expect(queue.size).toBeGreaterThan(0);
   });
 });

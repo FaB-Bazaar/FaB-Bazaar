@@ -11,6 +11,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { getFoilType, resolveFoilInset, type FoilInset } from "@/lib/foil"
+import { useFoilEffects } from "@/components/ui/use-client-env"
 
 // Re-exported for backward compatibility — the policy now lives in lib/foil.
 export { getInsetFromArtStyle } from "@/lib/foil"
@@ -86,7 +87,10 @@ export default function FoilCardImage({
 }: FoilCardImageProps) {
 
   const foilType = getFoilType(foiling)
-  const isFoilCard = foilType !== 'none'
+  const [foilEffectsOn] = useFoilEffects()
+  // The tilt/shine is a user preference (off by default); with it off a foil
+  // printing renders exactly like a non-foil one — no loop, no foil layers.
+  const isFoilCard = foilType !== 'none' && foilEffectsOn
   const isRainbowFoil = foilType === 'rainbow'
   const foilRarity = isRainbowFoil ? 'rainbow foil' : 'cold foil'
 

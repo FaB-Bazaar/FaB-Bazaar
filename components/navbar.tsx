@@ -55,6 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DarkModeToggle } from '@/components/DarkModeToggle'
+import { FoilEffectsToggle } from '@/components/FoilEffectsToggle'
 import MobileSearch from '@/components/search/MobileSearch'
 import MobileTabBar from '@/components/navbar/MobileTabBar'
 import { profileHref, displayUsername } from '@/lib/utils/display-username'
@@ -974,6 +975,15 @@ export default function Navbar() {
                       <div className="flex items-center justify-between w-full">
                         <span className="text-sm font-medium">Theme</span>
                         <DarkModeToggle />
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={e => e.preventDefault()}
+                      className="cursor-pointer text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-sm font-medium">Card foil effects</span>
+                        <FoilEffectsToggle />
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
