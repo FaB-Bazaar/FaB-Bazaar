@@ -432,6 +432,16 @@ export function DailyMoversView({
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Daily Movers</h1>
+          {signedIn && userMovers && (
+            <p data-testid="movers-summary" className="mt-2 flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
+              <span className={`text-2xl font-bold tabular-nums ${impactColor(userMovers.totalImpact)}`}>
+                {formatImpact(userMovers.totalImpact)}
+              </span>
+              {mergedMovers.length === 0
+                ? "— none of your cards moved yesterday"
+                : `across ${mergedMovers.length} card${mergedMovers.length === 1 ? "" : "s"} in your collection`}
+            </p>
+          )}
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{dateLabel(asOfDate)}</p>
         </div>
 
@@ -452,18 +462,6 @@ export function DailyMoversView({
         {/* Your movers tier */}
         {signedIn && userMovers && (
           <div className="mb-10">
-            {/* Hero stat */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-4 sm:p-5 mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className={`text-3xl font-bold ${impactColor(userMovers.totalImpact)}`}>
-                {formatImpact(userMovers.totalImpact)}
-              </span>
-              <span className="text-gray-700 dark:text-gray-300">
-                {userMovers.totalCount === 0
-                  ? "— none of your cards moved yesterday"
-                  : `across ${userMovers.totalCount} mover${userMovers.totalCount === 1 ? "" : "s"} in your collection`}
-              </span>
-            </div>
-
             {userMovers.totalCount === 0 ? (
               <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-6">
                 <p className="text-gray-700 dark:text-gray-300 mb-4">

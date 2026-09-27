@@ -158,4 +158,12 @@ describe('/daily your movers — one row per card', () => {
       expect(h.parentElement?.querySelector(':scope > svg')).toBeNull()
     }
   })
+
+  it('summarises in one line under the title, counting cards rather than signals', () => {
+    render(<DailyMoversView signedIn={true} userMovers={busy()} market={marketDto([])} error={null} />)
+    const summary = screen.getByTestId('movers-summary')
+    // 7 signal rows, but only 5 distinct cards (call ×2 signals, levia ×2 binders)
+    expect(summary.textContent).toMatch(/across 5 cards in your collection/)
+    expect(summary.tagName).toBe('P')
+  })
 })
