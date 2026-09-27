@@ -24,14 +24,15 @@ describe('countTextMatches', () => {
     expect(countTextMatches(d, 'gate')).toEqual({ copies: 3, cards: 1 })
   })
 
-  it('counts the playable deck only — equipment yes, inventory/bench/hero no', () => {
+  // FaB is best-of-one: the inventory is part of what you bring, so it counts.
+  it('counts main deck, equipment and inventory — never hero or bench', () => {
     const d = deck({
       hero: [card('h', 1, { text: 'discard' })],
       equipment: [card('e', 1, { text: 'discard' })],
       inventory: [card('i', 3, { text: 'discard' })],
       benched: [card('x', 3, { text: 'discard' })],
     })
-    expect(countTextMatches(d, 'discard')).toEqual({ copies: 1, cards: 1 })
+    expect(countTextMatches(d, 'discard')).toEqual({ copies: 4, cards: 2 })
   })
 
   it('returns zero for a blank term', () => {
@@ -76,13 +77,13 @@ describe('typeTally', () => {
 })
 
 describe('playableCount', () => {
-  it('sums maindeck + equipment copies', () => {
+  it('sums maindeck + equipment + inventory copies', () => {
     const d = deck({
       maindeck: [card('a', 3, {}), card('b', 2, {})],
       equipment: [card('e', 1, {})],
       inventory: [card('i', 3, {})],
     })
-    expect(playableCount(d)).toBe(6)
+    expect(playableCount(d)).toBe(9)
   })
 })
 
@@ -107,7 +108,7 @@ describe('pitchSplit', () => {
       equipment: [card('e', 1, {})],
       inventory: [card('i', 3, { pitch: 1, cost: 0 })],
     })
-    expect(pitchSplit(d)).toEqual({ red: 3, yellow: 2, blue: 3, none: 1, averageCost: 7 / 8 })
+    expect(pitchSplit(d)).toEqual({ red: 6, yellow: 2, blue: 3, none: 1, averageCost: 7 / 11 })
   })
 
   it('has no average cost when nothing has a cost', () => {

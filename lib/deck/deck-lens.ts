@@ -1,6 +1,7 @@
-// Deck v2 "Find in deck" panel: counts over the playable deck (maindeck +
-// equipment — never hero, inventory or bench) so a builder can see ratios like
-// discard vs Gate at a glance. Type values match the ones the deck highlight
+// Deck v2 "Find in deck" panel: counts over the cards you bring to a match
+// (maindeck + equipment + inventory — FaB is best-of-one, so the inventory is
+// in play; never hero or bench) so a builder can see ratios like discard vs
+// Gate at a glance. Type values match the ones the deck highlight
 // (`deck-highlight-filter` stat 'type') understands, so a tally row can
 // dispatch its own value.
 
@@ -10,7 +11,7 @@ import { cardTextMatches } from './card-text-match'
 type Details = NonNullable<DeckPrintingDTO['printingDetails']>
 
 function playable(deck: DeckDTO): DeckPrintingDTO[] {
-  return [...(deck.maindeck ?? []), ...(deck.equipment ?? [])]
+  return [...(deck.maindeck ?? []), ...(deck.equipment ?? []), ...(deck.inventory ?? [])]
 }
 
 export function countTextMatches(deck: DeckDTO, term: string): { copies: number; cards: number } {

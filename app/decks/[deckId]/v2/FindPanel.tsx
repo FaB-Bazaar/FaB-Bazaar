@@ -113,7 +113,7 @@ export default function FindPanel({ deck, deckId, active, setActive }: {
       <div>
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Find in deck</h2>
         <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-          Counts cover your main deck and equipment ({total} cards). Click a row to highlight those cards.
+          Counts cover your main deck, equipment and inventory ({total} cards). Click a row to highlight those cards.
           {active && (
             <> <button type="button" onClick={clear} className="text-blue-700 underline hover:no-underline dark:text-blue-400">Clear highlight</button></>
           )}

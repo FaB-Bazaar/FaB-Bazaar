@@ -203,7 +203,7 @@ export default function DeckV2Page() {
           <header className="mb-4">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{deck.name}</h1>
             <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-              {[heroName, deck.format, `${playableCount(deck)} cards`].filter(Boolean).join(" · ")}
+              {[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
             </p>
           </header>
           <div role="group" aria-label="Deck view" className="mb-3 inline-flex overflow-hidden rounded-sm border border-gray-300 text-sm dark:border-gray-700">
@@ -271,6 +271,13 @@ export default function DeckV2Page() {
   );
 }
 
+// Header size: the deck proper, with the inventory called out separately.
+function deckSizeLabel(deck: NonNullable<ReturnType<typeof useDeckEditor>["state"]["deck"]>): string {
+  const z = computeDeckSectionCounts(deck);
+  const main = z.weapon + z.equipment + z.maindeck;
+  return z.inventory ? `${main} cards + ${z.inventory} inventory` : `${main} cards`;
+}
+
 const ZONES: Array<{ category: DeckCategory; label: string; hint: string }> = [
   { category: "maindeck", label: "Main deck", hint: "Cards you play every game" },
   { category: "inventory", label: "Sideboard (inventory)", hint: "Swap in between games for a matchup" },
@@ -334,7 +341,7 @@ function StatsPanel({ deck, deckId }: { deck: NonNullable<ReturnType<typeof useD
     <div className="space-y-5 text-sm text-gray-800 dark:text-gray-200">
       <div>
         <h2 className={PANEL_H2}>Stats</h2>
-        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Main deck and equipment ({total} cards).</p>
+        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Main deck, equipment and inventory ({total} cards).</p>
       </div>
       <section className="space-y-2">
         <h3 className={PANEL_H3}>Pitch</h3>
