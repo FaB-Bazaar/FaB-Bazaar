@@ -12,13 +12,13 @@ import { buildDeckAddFilters } from "@/lib/search/deck-add-filters";
 import { DEFAULT_OPT_STATE } from "@/lib/search/opt-url-state";
 import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
 import { groupSearchPrintingsToCards } from "@/lib/deck/group-search-results";
-import { lensToSearchFilters, notInDeck } from "@/lib/deck/brew";
+import { facetsLabel, facetsToSearchFilters, lensToSearchFilters, notInDeck, type BrewFacets } from "@/lib/deck/brew";
 import { lensLabel } from "@/lib/deck/deck-lens";
 import type { Lens } from "@/lib/deck/deck-table";
 
 const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
 
-export default function BrewView({ deck, active }: { deck: DeckDTO; active: Lens | null }) {
+export default function BrewView({ deck, active, facets }: { deck: DeckDTO; active: Lens | null; facets: BrewFacets }) {
   // Keyed on the resolved content, not the deck object — every deck refresh is
   // a new object and would otherwise re-run the search (see MobileCardSearch).
   const hero = resolveHeroFilter(deck);
@@ -27,9 +27,10 @@ export default function BrewView({ deck, active }: { deck: DeckDTO; active: Lens
     () => ({
       ...buildDeckAddFilters(DEFAULT_OPT_STATE, "", { hero, deckFormat: deck.format, targetCategory: "maindeck" }),
       ...lensToSearchFilters(active),
+      ...facetsToSearchFilters(facets),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hero is keyed by content
-    [heroKey, deck.format, active],
+    [heroKey, deck.format, active, facets],
   );
   const hasLegality = Object.keys(filters).length > 0;
 
@@ -43,7 +44,8 @@ export default function BrewView({ deck, active }: { deck: DeckDTO; active: Lens
   });
 
   const cards = useMemo(() => notInDeck(groupSearchPrintingsToCards(search.results as any), deck), [search.results, deck]);
-  const label = `Legal cards not in your deck${active ? ` — ${lensLabel(active)}` : ""}`;
+  const picked = [active && lensLabel(active), facetsLabel(facets)].filter(Boolean).join(" · ");
+  const label = `Legal cards not in your deck${picked ? ` — ${picked}` : ""}`;
 
   return (
     <section aria-label={label} className="border border-gray-300 dark:border-gray-700">

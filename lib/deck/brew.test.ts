@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
-import { lensToSearchFilters, notInDeck } from './brew'
+import { brewFacetRows, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck } from './brew'
 
 const card = (id: string, cardId: string): DeckPrintingDTO => ({
   printingId: id,
@@ -38,5 +38,70 @@ describe('notInDeck', () => {
     } as unknown as DeckDTO
     const results = [{ unique_id: 'in-main' }, { unique_id: 'new-1' }, { unique_id: 'in-inv' }, { unique_id: 'benched-card' }, { unique_id: 'new-2' }]
     expect(notInDeck(results, deck).map(r => r.unique_id)).toEqual(['new-1', 'new-2'])
+  })
+})
+
+const withDetails = (id: string, qty: number, details: Record<string, unknown>): DeckPrintingDTO => ({
+  printingId: id, quantity: qty, printingDetails: details,
+})
+
+describe('facetsToSearchFilters', () => {
+  it('maps class, talent and rarity picks to server filters', () => {
+    expect(facetsToSearchFilters({ class: 'generic' })).toEqual({ classes: ['generic'] })
+    expect(facetsToSearchFilters({ class: 'mechanologist' })).toEqual({ classes: ['mechanologist'] })
+    expect(facetsToSearchFilters({ talent: 'shadow' })).toEqual({ talents: ['shadow'] })
+    expect(facetsToSearchFilters({ talent: 'talentless' })).toEqual({ talentless: true })
+    expect(facetsToSearchFilters({ rarity: 'm' })).toEqual({ rarities: ['m'] })
+  })
+
+  it('combines picks from different sections', () => {
+    expect(facetsToSearchFilters({ class: 'generic', rarity: 'l' })).toEqual({ classes: ['generic'], rarities: ['l'] })
+  })
+})
+
+describe('facetsLabel', () => {
+  it('names the picks for the Brew header', () => {
+    expect(facetsLabel({ class: 'generic', talent: 'talentless', rarity: 'm' })).toBe('Generic · Talentless · Majestic')
+    expect(facetsLabel({})).toBe('')
+  })
+})
+
+describe('brewFacetRows', () => {
+  const deck = {
+    hero: [withDetails('h', 1, { classes: ['necromancer'], talents: ['shadow'] })],
+    equipment: [],
+    benched: [withDetails('b', 3, { classes: ['generic'], talents: [], rarity: 'l' })],
+    maindeck: [
+      withDetails('a', 3, { classes: ['necromancer'], talents: ['shadow'], rarity: 'r' }),
+      withDetails('g', 2, { classes: ['generic'], talents: [], rarity: 'm' }),
+    ],
+    inventory: [withDetails('i', 1, { classes: ['necromancer'], talents: [], rarity: 'c' })],
+  } as unknown as DeckDTO
+
+  it("offers the hero's classes + Generic and talents + Talentless, counted from the deck (not hero/bench)", () => {
+    const rows = brewFacetRows(deck, { heroClasses: ['necromancer'], heroTalents: ['shadow'], heroEssences: [] })
+    expect(rows.classes).toEqual([
+      { value: 'necromancer', label: 'Necromancer', copies: 4 },
+      { value: 'generic', label: 'Generic', copies: 2 },
+    ])
+    expect(rows.talents).toEqual([
+      { value: 'shadow', label: 'Shadow', copies: 3 },
+      { value: 'talentless', label: 'Talentless', copies: 3 },
+    ])
+  })
+
+  it('has no talent rows for a talentless hero', () => {
+    expect(brewFacetRows(deck, { heroClasses: ['necromancer'], heroTalents: [], heroEssences: [] }).talents).toEqual([])
+  })
+
+  it('lists the six card rarities, highest first, with deck counts', () => {
+    expect(brewFacetRows(deck, null).rarities).toEqual([
+      { value: 'f', label: 'Fabled', copies: 0 },
+      { value: 'l', label: 'Legendary', copies: 0 },
+      { value: 'm', label: 'Majestic', copies: 2 },
+      { value: 's', label: 'Super Rare', copies: 0 },
+      { value: 'r', label: 'Rare', copies: 3 },
+      { value: 'c', label: 'Common', copies: 1 },
+    ])
   })
 })

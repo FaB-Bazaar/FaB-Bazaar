@@ -27,6 +27,7 @@ import FindPanel, { type Active } from "./FindPanel";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
 import BrewView from "./BrewView";
+import type { BrewFacets } from "@/lib/deck/brew";
 
 type PanelId = "find" | "stats";
 type View = "table" | "cards" | "brew";
@@ -51,6 +52,7 @@ export default function DeckV2Page() {
   const canEdit = !!(user && deck && (deck.userId === user.id || (deck.coOwners ?? []).includes(user.id)));
   const [panel, setPanel] = useState<PanelId | null>("find");
   const [active, setActive] = useState<Active>(null);
+  const [facets, setFacets] = useState<BrewFacets>({});
   // Table (one spreadsheet, matches lifted to the top) or the classic card views.
   const [view, setView] = useState<View>("table");
   useEffect(() => {
@@ -234,7 +236,7 @@ export default function DeckV2Page() {
         {/* Flyout panel */}
         {panel && (
           <aside aria-label="Deck tool panel" className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-r border-gray-300 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950">
-            {panel === "find" && <FindPanel deck={deck} deckId={deckId} active={active} setActive={setActive} brewing={view === "brew"} />}
+            {panel === "find" && <FindPanel deck={deck} deckId={deckId} active={active} setActive={setActive} brewing={view === "brew"} facets={facets} setFacets={setFacets} />}
             {panel === "stats" && <StatsPanel deck={deck} deckId={deckId} />}
           </aside>
         )}
@@ -264,7 +266,7 @@ export default function DeckV2Page() {
             ))}
           </div>
           {view === "brew" ? (
-            <BrewView deck={deck} active={active} />
+            <BrewView deck={deck} active={active} facets={facets} />
           ) : view === "table" ? (
             <DeckTable
               deck={deck}

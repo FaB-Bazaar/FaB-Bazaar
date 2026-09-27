@@ -9,6 +9,8 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import { X } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import type { Lens } from "@/lib/deck/deck-table";
+import { brewFacetRows, type BrewFacets } from "@/lib/deck/brew";
+import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
 import { countTextMatches, formatRatio, keywordTally, playableCount, typeTally } from "@/lib/deck/deck-lens";
 
 export type Active = Lens | null;
@@ -42,13 +44,16 @@ function clearHighlight() {
 
 // `active` lives on the page so the Table view can lift matches, and so the
 // highlight survives switching panels.
-export default function FindPanel({ deck, deckId, active, setActive, brewing = false }: {
+export default function FindPanel({ deck, deckId, active, setActive, brewing = false, facets = {}, setFacets }: {
   deck: DeckDTO;
   deckId: string;
   active: Active;
   setActive: Dispatch<SetStateAction<Active>>;
   /** Brew tab: the same rows filter the legal pool instead of highlighting the deck. */
   brewing?: boolean;
+  /** Brew-only Class / Talent / Rarity picks (one per section, ANDed). */
+  facets?: BrewFacets;
+  setFacets?: Dispatch<SetStateAction<BrewFacets>>;
 }) {
   const [lenses, setLenses] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
@@ -107,7 +112,13 @@ export default function FindPanel({ deck, deckId, active, setActive, brewing = f
 
   const ratio = lensCounts.length >= 2 ? formatRatio(lensCounts[0].copies, lensCounts[1].copies) : null;
 
-  const clear = () => { clearHighlight(); setActive(null); };
+  const clear = () => { clearHighlight(); setActive(null); setFacets?.({}); };
+  const hasFacets = brewing && Object.values(facets).some(Boolean);
+  const heroKey = JSON.stringify(resolveHeroFilter(deck));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- hero keyed by content
+  const facetRows = useMemo(() => brewFacetRows(deck, resolveHeroFilter(deck)), [deck, heroKey]);
+  const pickFacet = (section: keyof BrewFacets, value: string) =>
+    setFacets?.(prev => ({ ...prev, [section]: prev[section] === value ? undefined : value }));
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
 
   return (
@@ -118,8 +129,8 @@ export default function FindPanel({ deck, deckId, active, setActive, brewing = f
           {brewing
             ? <>Click a row to show legal cards you don&rsquo;t play yet. Numbers are what your deck already has ({total} cards).</>
             : <>Counts cover your main deck, equipment and inventory ({total} cards). Click a row to highlight those cards.</>}
-          {active && (
-            <> <button type="button" onClick={clear} className="text-blue-700 underline hover:no-underline dark:text-blue-400">Clear highlight</button></>
+          {(active || hasFacets) && (
+            <> <button type="button" onClick={clear} className="text-blue-700 underline hover:no-underline dark:text-blue-400">{brewing ? "Clear filters" : "Clear highlight"}</button></>
           )}
         </p>
       </div>
@@ -201,6 +212,34 @@ export default function FindPanel({ deck, deckId, active, setActive, brewing = f
         </p>
       </section>
 
+      {brewing && (
+        <>
+          <TallyTable
+            title="Class"
+            filterName="Class"
+            rows={facetRows.classes.map(r => ({ key: r.value, label: r.label, copies: r.copies }))}
+            isActive={v => facets.class === v}
+            onPick={v => pickFacet("class", v)}
+          />
+          {facetRows.talents.length > 0 && (
+            <TallyTable
+              title="Talent"
+              filterName="Talent"
+              rows={facetRows.talents.map(r => ({ key: r.value, label: r.label, copies: r.copies }))}
+              isActive={v => facets.talent === v}
+              onPick={v => pickFacet("talent", v)}
+            />
+          )}
+          <TallyTable
+            title="Rarity"
+            filterName="Rarity"
+            rows={facetRows.rarities.map(r => ({ key: r.value, label: r.label, copies: r.copies }))}
+            isActive={v => facets.rarity === v}
+            onPick={v => pickFacet("rarity", v)}
+          />
+        </>
+      )}
+
       <TallyTable
         title="Card types"
         rows={types.map(t => ({ key: t.value, label: t.label, copies: t.copies }))}
@@ -227,8 +266,11 @@ const ROW_HOVER = "hover:bg-gray-100 dark:hover:bg-gray-800/70";
 const ROW_BUTTON = "w-full cursor-pointer px-1 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500";
 const LENS_GRID = "grid grid-cols-[1fr_3.5rem_3rem_2.5rem] gap-2";
 
-function TallyTable({ title, rows, isActive, onPick }: {
+function TallyTable({ title, rows, isActive, onPick, filterName }: {
   title: string;
+  /** Brew facet sections name the filter ("Rarity Legendary: …") so a rarity row
+   *  never shares a name with a keyword row ("Highlight Legendary: …"). */
+  filterName?: string;
   rows: Array<{ key: string; label: string; copies: number }>;
   isActive: (value: string) => boolean;
   onPick: (value: string) => void;
@@ -244,7 +286,7 @@ function TallyTable({ title, rows, isActive, onPick }: {
               <button
                 type="button"
                 aria-pressed={on}
-                aria-label={`Highlight ${r.label}: ${r.copies} ${r.copies === 1 ? "copy" : "copies"}`}
+                aria-label={`${filterName ?? "Highlight"} ${r.label}: ${r.copies} ${r.copies === 1 ? "copy" : "copies"}`}
                 onClick={() => onPick(r.key)}
                 className={`grid grid-cols-[1fr_auto] gap-2 ${ROW_BUTTON}`}
               >
