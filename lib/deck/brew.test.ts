@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
-import { brewFacetRows, deckCopiesByZone, deckHeroName, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck, pitchSiblings } from './brew'
+import { brewFacetRows, deckCopiesByZone, deckHeroName, kitSearchFilters, kitSummary, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck, pitchSiblings } from './brew'
 
 const card = (id: string, cardId: string): DeckPrintingDTO => ({
   printingId: id,
@@ -148,5 +148,23 @@ describe('deckHeroName', () => {
     expect(deckHeroName(withHero)).toBe("Maxx 'The Hype' Nitro")
     expect(deckHeroName({ hero: [], heroName: 'Dash I/O' } as unknown as DeckDTO)).toBe('Dash I/O')
     expect(deckHeroName({ hero: [] } as unknown as DeckDTO)).toBeUndefined()
+  })
+})
+
+describe('starter kits', () => {
+  const kit = { id: 'k', name: 'Items', cards: [{ cardUniqueId: 'a' }, { cardUniqueId: 'b' }, { cardUniqueId: 'b' }, { cardUniqueId: 'c' }] }
+
+  it("narrows the pool to the kit's cards", () => {
+    expect(kitSearchFilters(kit)).toEqual({ cardUniqueIds: ['a', 'b', 'c'] })
+    expect(kitSearchFilters(null)).toEqual({})
+  })
+
+  it('counts distinct kit cards and how many the deck already plays (any zone)', () => {
+    const deck = {
+      hero: [], equipment: [], inventory: [],
+      maindeck: [withDetails('p1', 3, { card_unique_id: 'a' })],
+      benched: [withDetails('p2', 1, { card_unique_id: 'c' })],
+    } as unknown as DeckDTO
+    expect(kitSummary(kit, deck)).toEqual({ total: 3, inDeck: 2 })
   })
 })

@@ -22,7 +22,7 @@ import { DEFAULT_OPT_STATE } from "@/lib/search/opt-url-state";
 import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
 import { groupSearchPrintingsToCards, type CardResultWithCount } from "@/lib/deck/group-search-results";
 import {
-  deckCopiesByZone, deckHeroName, facetsLabel, facetsToSearchFilters, lensToSearchFilters, notInDeck, pitchSiblings, type BrewFacets,
+  deckCopiesByZone, deckHeroName, facetsLabel, kitSearchFilters, kitSummary, type StarterKit, facetsToSearchFilters, lensToSearchFilters, notInDeck, pitchSiblings, type BrewFacets,
 } from "@/lib/deck/brew";
 import { lensLabel } from "@/lib/deck/deck-lens";
 import type { Lens } from "@/lib/deck/deck-table";
@@ -47,10 +47,13 @@ type Card = CardResultWithCount;
 const cardLabel = (c: Card) => (c.pitch && PITCH_NAME[c.pitch] ? `${c.name} (${PITCH_NAME[c.pitch]})` : c.name);
 const printingOf = (c: Card) => c.printings[0] as any;
 
-export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemoveOne }: {
+export default function BrewView({ deck, active, facets, kitId, onKitChange, canEdit, onAdd, onRemoveOne }: {
   deck: DeckDTO;
   active: Lens | null;
   facets: BrewFacets;
+  /** Selected starter kit ("" = all legal cards) — held by the page so it survives tab switches. */
+  kitId: string;
+  onKitChange: (kitId: string) => void;
   canEdit: boolean;
   /** Add copies of a printing to a zone; resolves once the deck has refreshed. */
   onAdd: (printingId: string, zone: DeckCategory, quantity: number) => Promise<void>;
@@ -61,14 +64,30 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
   const hero = resolveHeroFilter(deck);
   const heroKey = JSON.stringify(hero);
   const heroName = deckHeroName(deck);
+
+  // Starter kits (curated lists) for this hero — the same source as the
+  // classic page's Starter Kits. No hero → no kits → no dropdown.
+  const [kits, setKits] = useState<StarterKit[]>([]);
+  useEffect(() => {
+    if (!heroName) { setKits([]); return; }
+    let cancelled = false;
+    fetch(`/api/curated-lists?heroName=${encodeURIComponent(heroName)}&view=public`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.success) setKits(d.data ?? []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [heroName]);
+  const kit = kits.find(k => k.id === kitId) ?? null;
+
   const filters = useMemo(
     () => ({
       ...buildDeckAddFilters(DEFAULT_OPT_STATE, "", { hero, deckFormat: deck.format, targetCategory: "maindeck", heroName }),
       ...lensToSearchFilters(active),
       ...facetsToSearchFilters(facets),
+      ...kitSearchFilters(kit),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hero is keyed by content
-    [heroKey, heroName, deck.format, active, facets],
+    [heroKey, heroName, deck.format, active, facets, kit],
   );
   const hasLegality = Object.keys(filters).length > 0;
 
@@ -102,11 +121,37 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
     await onAdd(printing.printing_id, zone, quantity);
   };
 
-  const picked = [active && lensLabel(active), facetsLabel(facets)].filter(Boolean).join(" · ");
+  const picked = [kit && `Kit: ${kit.name}`, active && lensLabel(active), facetsLabel(facets)].filter(Boolean).join(" · ");
+  const summary = kit ? kitSummary(kit, deck) : null;
   const label = `Legal cards not in your deck${picked ? ` — ${picked}` : ""}`;
 
   return (
     <>
+      {kits.length > 0 && (
+        <div className="mb-3 text-sm text-gray-800 dark:text-gray-200">
+          <label className="flex items-center gap-2">
+            <span className="font-semibold">Starter kit</span>
+            <select
+              value={kitId}
+              onChange={e => onKitChange(e.target.value)}
+              className="rounded-sm border border-gray-400 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-900"
+            >
+              <option value="">All legal cards</option>
+              {kits.map(k => (
+                <option key={k.id} value={k.id}>
+                  {k.name} ({new Set(k.cards.map(c => c.cardUniqueId)).size} cards{k.curatorUser ? ` · ${k.curatorUser.displayUsername}` : ""})
+                </option>
+              ))}
+            </select>
+          </label>
+          {kit && summary && (
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+              {kit.curatorUser && <>Curated by {kit.curatorUser.displayUsername} · </>}
+              {summary.total} {summary.total === 1 ? "card" : "cards"} · {summary.inDeck} already in your deck
+            </p>
+          )}
+        </div>
+      )}
       <section aria-label={label} className="border border-gray-300 dark:border-gray-700">
         <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
           <span>{label}</span>
@@ -123,7 +168,11 @@ export default function BrewView({ deck, active, facets, canEdit, onAdd, onRemov
         ) : search.loading && cards.length === 0 ? (
           <p className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">Loading legal cards…</p>
         ) : cards.length === 0 ? (
-          <p className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">No legal cards left to add{active ? " for this filter" : ""}.</p>
+          <p className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
+            {summary && summary.inDeck >= summary.total
+              ? "You already play every card in this kit."
+              : `No legal cards left to add${active || kit ? " for this filter" : ""}.`}
+          </p>
         ) : (
           <>
             <ul className={`flex flex-wrap gap-3 p-3 ${search.loading ? "opacity-40" : ""}`} aria-busy={search.loading}>

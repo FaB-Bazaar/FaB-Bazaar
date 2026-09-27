@@ -53,6 +53,7 @@ export default function DeckV2Page() {
   const [panel, setPanel] = useState<PanelId | null>("find");
   const [active, setActive] = useState<Active>(null);
   const [facets, setFacets] = useState<BrewFacets>({});
+  const [kitId, setKitId] = useState("");
   // Table (one spreadsheet, matches lifted to the top) or the classic card views.
   const [view, setView] = useState<View>("table");
   useEffect(() => {
@@ -281,6 +282,8 @@ export default function DeckV2Page() {
               deck={deck}
               active={active}
               facets={facets}
+              kitId={kitId}
+              onKitChange={setKitId}
               canEdit={canEdit}
               onAdd={addToZone}
               onRemoveOne={async (printingId, zone) => {

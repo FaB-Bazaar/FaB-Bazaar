@@ -127,3 +127,31 @@ export function deckHeroName(deck: DeckDTO | null | undefined): string | undefin
   const d = deck?.hero?.[0]?.printingDetails
   return ((d?.display_name || d?.name) as string | undefined) || deck?.heroName || undefined
 }
+
+/** A curated starter kit (curated_lists) as the Brew dropdown needs it. */
+export interface StarterKit {
+  id: string
+  name: string
+  cards: Array<{ cardUniqueId: string }>
+  curatorUser?: { displayUsername: string } | null
+}
+
+const kitCardIds = (kit: StarterKit) => [...new Set(kit.cards.map(c => c.cardUniqueId).filter(Boolean))]
+
+/** Narrow the Brew pool to the kit's cards (legality still applies on top). */
+export function kitSearchFilters(kit: StarterKit | null): Partial<PrintingsSearchFilters> {
+  return kit ? { cardUniqueIds: kitCardIds(kit) } : {}
+}
+
+/** Distinct cards in the kit, and how many of them the deck already has (any zone). */
+export function kitSummary(kit: StarterKit, deck: DeckDTO): { total: number; inDeck: number } {
+  const ids = kitCardIds(kit)
+  const inDeck = new Set<string>()
+  for (const zone of DECK_ZONES) {
+    for (const c of ((deck[zone] as DeckPrintingDTO[] | undefined) ?? [])) {
+      const id = c.printingDetails?.card_unique_id as string | undefined
+      if (id) inDeck.add(id)
+    }
+  }
+  return { total: ids.length, inDeck: ids.filter(id => inDeck.has(id)).length }
+}
