@@ -56,6 +56,10 @@ export function useCardSearch({
 
   // ── Page 1 (replace) on query change ──
   useEffect(() => {
+    // A load-more for the PREVIOUS query may still be in flight; its finally
+    // skips cleanup once reqIdRef moves on, so reset here or loadingMore stays
+    // true and blocks paging for this query forever.
+    setLoadingMore(false);
     if (!enabled) {
       setResults([]); setTotal(0); setPages(0); setPage(1); setError(null); setLoading(false);
       return;
