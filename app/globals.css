@@ -48,7 +48,7 @@
   .dark {
     /* --- DARK MODE --- */
     /* We add a new '--page' variable for the off-black background */
-    --page: 224 71.4% 4.1%; /* A very dark blue/gray (off-black) */
+    --page: 220.9 39.3% 11%; /* #111827 — lifted from near-black #030712 (2026-09 dark theme lift, see bottom of file) */
     --background: 222.2 84% 4.9%; /* Your original near-black, now used for components */
     --foreground: 210 40% 98%;
 
@@ -187,3 +187,20 @@
     font-size: max(16px, 1em) !important;
   }
 }
+
+/* ── Dark theme lift (2026-09) ─────────────────────────────────────────────
+   The dark surfaces read "a little too dark", so each hard-coded dark
+   background moves up one notch, keeping their order (page < panel < card):
+     gray-950 #030712 → #111827   gray-900 #111827 → #182132   gray-800 #1f2937 → #263145
+   Pages paint their own backgrounds with these utilities (174× dark:bg-gray-900),
+   so remapping them here is the one place that changes the whole site; delete
+   this block (and restore --page) to revert. Opacity variants (…/60) are not
+   remapped. Light mode is unaffected (these selectors only apply under .dark).
+   No !important on purpose (it would freeze hover states). Tailwind emits
+   `.dark\:bg-gray-900:is(.dark *)` (0,2,0) AFTER this file's own rules, so the
+   `html` type selector (0,2,1) is what makes these win over the base colour,
+   while `dark:hover:` / `focus:` variants ((0,3,0), one pseudo-class more)
+   still beat them. The .dark class lives on <html>. */
+html.dark .dark\:bg-gray-950 { background-color: #111827; }
+html.dark .dark\:bg-gray-900 { background-color: #182132; }
+html.dark .dark\:bg-gray-800 { background-color: #263145; }
