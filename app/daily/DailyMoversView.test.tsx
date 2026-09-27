@@ -166,4 +166,13 @@ describe('/daily your movers — one row per card', () => {
     expect(summary.textContent).toMatch(/across 5 cards in your collection/)
     expect(summary.tagName).toBe('P')
   })
+
+  it('marks set, foiling and rarity with the set logo, NF/RF/CF chip and rarity icon — not text pills', () => {
+    render(<DailyMoversView signedIn={true} userMovers={busy()} market={marketDto([])} error={null} />)
+    const row = screen.getByRole('link', { name: 'Card a' }).closest('[data-testid="mover-row"]') as HTMLElement
+    expect(row.querySelector('img[alt="WTR"]')).not.toBeNull()
+    expect(row.querySelector('[aria-label="Non-foil"]')?.textContent).toBe('NF')
+    expect(row.querySelector('[title="Majestic"]')).not.toBeNull()
+    expect(row.textContent).not.toContain('Welcome to Rathe')
+  })
 })

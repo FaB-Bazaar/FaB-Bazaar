@@ -8,14 +8,19 @@ import { RarityIcon } from "@/components/shared/RarityIcon"
 interface SetLogoProps {
   /** Set code as stored on the printing ("dtd", "wtr"…), any case. */
   set?: string | null
-  /** sm = inline icon in a chip row; lg = logo filling a tile's spare column. */
-  size?: "sm" | "lg"
+  /** sm = inline icon in a chip row; md = readable wordmark in a list row;
+   *  lg = logo filling a tile's spare column. */
+  size?: "sm" | "md" | "lg"
   className?: string
 }
 
 // Logos are transparent wordmarks that sink into the tile, so give them a
 // tight dark edge. No light glow — a halo reads as generated-UI styling.
-const LG_LOGO = "h-14 w-28 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
+const LOGO_SIZE = {
+  sm: "h-5 w-5",
+  md: "h-7 w-16 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
+  lg: "h-14 w-28 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
+} as const
 
 /**
  * Set logo, named for the set. Sets without a logo (most promo/product sets —
@@ -44,7 +49,7 @@ export function SetLogo({ set, size = "sm", className = "" }: SetLogoProps) {
       src={image}
       alt={label}
       title={name}
-      className={`object-contain ${size === "lg" ? LG_LOGO : "h-5 w-5"} ${className}`}
+      className={`object-contain ${LOGO_SIZE[size]} ${className}`}
     />
   )
 }
@@ -57,6 +62,7 @@ interface PrintingMetaChipsProps {
   rarity?: string | null
   /** false when the layout shows a large <SetLogo> elsewhere. */
   showSet?: boolean
+  setSize?: "sm" | "md"
   className?: string
 }
 
@@ -64,10 +70,10 @@ interface PrintingMetaChipsProps {
  * Compact set icon + foiling chip (NF/RF/CF) + rarity icon for dense rows,
  * instead of raw DB codes.
  */
-export function PrintingMetaChips({ set, foiling, rarity, showSet = true, className = "" }: PrintingMetaChipsProps) {
+export function PrintingMetaChips({ set, foiling, rarity, showSet = true, setSize = "sm", className = "" }: PrintingMetaChipsProps) {
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
-      {showSet && <SetLogo set={set} />}
+      {showSet && <SetLogo set={set} size={setSize} />}
       {foiling && <FoilingChip foiling={foiling} />}
       {rarity && <RarityIcon rarityCode={rarity} size="sm" />}
     </div>

@@ -5,7 +5,8 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Library, Search } from "lucide-react";
-import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
+import { FOILING_MAP, SET_MAP } from "@/lib/fab-constants";
+import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import type {
@@ -112,24 +113,6 @@ function impactColor(v: number): string {
 // ---------------------------------------------------------------------------
 // Shared bits
 // ---------------------------------------------------------------------------
-
-function CardTags({ m }: { m: Pick<DailyMoverDTO, "set" | "foiling" | "rarity"> }) {
-  const setLabel = lookup(SET_MAP, m.set) || m.set?.toUpperCase();
-  const foilLabel = lookup(FOILING_MAP, m.foiling) || m.foiling;
-  const rarityLabel = lookup(RARITY_MAP, m.rarity) || m.rarity?.toUpperCase();
-  return (
-    <div className="flex flex-wrap gap-1 mt-1 text-xs">
-      {[setLabel, foilLabel, rarityLabel].filter(Boolean).map((label, i) => (
-        <span
-          key={i}
-          className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-900/60 text-gray-700 dark:text-gray-300"
-        >
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function PriceLine({ m }: { m: Pick<DailyMoverDTO, "refPrice" | "pAtSignal" | "pctChange" | "dollarChange"> }) {
   const isPositive = (m.dollarChange ?? 0) >= 0;
@@ -289,7 +272,7 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
             </span>
           ))}
         </div>
-        <CardTags m={m} />
+        <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" className="mt-1" />
         <OwnershipLine m={m} />
       </div>
 

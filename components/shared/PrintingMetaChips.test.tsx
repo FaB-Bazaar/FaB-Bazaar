@@ -52,4 +52,9 @@ describe('SetLogo', () => {
     expect(img.className).toMatch(/h-14/);
     expect(img.className).toMatch(/drop-shadow/);
   });
+
+  it('has a medium size for list rows', () => {
+    render(<SetLogo set="dtd" size="md" />);
+    expect(screen.getByRole('img', { name: 'DTD' }).className).toMatch(/h-7/);
+  });
 });
