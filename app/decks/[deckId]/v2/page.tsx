@@ -7,7 +7,7 @@
 // deck itself, QuickAddCardDialog for adds, and the `deck-highlight-*` events
 // for highlighting. Desktop only for now; phones get a link to the classic page.
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AlertCircle, ArrowLeft, BarChart3, FileText, Loader2, Search, Swords } from "lucide-react";
@@ -27,6 +27,9 @@ import FindPanel, { type Active } from "./FindPanel";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
 import BrewView, { BREW_DETAILS_SLOT } from "./BrewView";
+import RatiosSection from "./RatiosSection";
+import RatioCompare from "./RatioCompare";
+import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
 import type { BrewFacets } from "@/lib/deck/brew";
 
 type PanelId = "find" | "stats";
@@ -54,6 +57,14 @@ export default function DeckV2Page() {
   const [active, setActive] = useState<Active>(null);
   const [facets, setFacets] = useState<BrewFacets>({});
   const [kitId, setKitId] = useState("");
+
+  // Saved ratios (decks.metadata.ratios): shown optimistically, reverted if the
+  // save is refused. `compareId` = the ratio shown side by side above the deck.
+  const [ratios, setRatios] = useState<DeckRatio[]>([]);
+  const savedRatiosKey = JSON.stringify(state.deck?.metadata?.ratios ?? []);
+  useEffect(() => { setRatios(sanitizeRatios(JSON.parse(savedRatiosKey)) ?? []); }, [savedRatiosKey]);
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const compareRatio = ratios.find(r => r.id === compareId) ?? null;
   // Table (one spreadsheet, matches lifted to the top) or the classic card views.
   const [view, setView] = useState<View>("table");
   useEffect(() => {
@@ -130,6 +141,24 @@ export default function DeckV2Page() {
       : result.error;
     if (rowError) { fail("Add failed", rowError); throw new Error(rowError); }
     await handlers.refreshDeck();
+  };
+
+  // Replace the deck's saved ratios; optimistic, reverted (with a toast) on failure.
+  const saveRatios = async (next: DeckRatio[]) => {
+    const previous = ratios;
+    setRatios(next);
+    if (compareId && !next.some(r => r.id === compareId)) setCompareId(null);
+    try {
+      const res = await fetch(`/api/decks/${deckId}/ratios`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ratios: next }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Could not save ratios");
+    } catch (e) {
+      setRatios(previous);
+      fail("Couldn't save ratios", e instanceof Error ? e.message : undefined);
+    }
   };
 
   // Brew adds: a zone + quantity chosen on the tile / details panel.
@@ -248,8 +277,29 @@ export default function DeckV2Page() {
         {/* Flyout panel */}
         {panel && (
           <aside aria-label="Deck tool panel" className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-r border-gray-300 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950">
-            {panel === "find" && <FindPanel deck={deck} deckId={deckId} active={active} setActive={setActive} brewing={view === "brew"} facets={facets} setFacets={setFacets} />}
-            {panel === "stats" && <StatsPanel deck={deck} deckId={deckId} />}
+            {panel === "find" && (
+              <FindPanel
+                deck={deck} deckId={deckId} active={active} setActive={setActive}
+                brewing={view === "brew"} facets={facets} setFacets={setFacets}
+                onSaveRatio={canEdit ? (a, b) => saveRatios([...ratios, { id: `r-${Date.now().toString(36)}`, a: { kind: "text", value: a }, b: { kind: "text", value: b } }]) : undefined}
+              />
+            )}
+            {panel === "stats" && (
+              <StatsPanel deck={deck}>
+                <RatiosSection
+                  deck={deck}
+                  ratios={ratios}
+                  canEdit={canEdit}
+                  activeId={compareId}
+                  onCompare={r => {
+                    if (compareId === r.id) { setCompareId(null); return; }
+                    if (view === "brew") chooseView("cards"); // Brew has no deck cards to compare
+                    setCompareId(r.id);
+                  }}
+                  onSave={saveRatios}
+                />
+              </StatsPanel>
+            )}
           </aside>
         )}
 
@@ -277,6 +327,9 @@ export default function DeckV2Page() {
               </button>
             ))}
           </div>
+          {compareRatio && view !== "brew" && (
+            <RatioCompare deck={deck} ratio={compareRatio} style={view === "table" ? "list" : "tiles"} onClose={() => setCompareId(null)} />
+          )}
           {view === "brew" ? (
             <BrewView
               deck={deck}
@@ -368,7 +421,7 @@ function deckSizeLabel(deck: NonNullable<ReturnType<typeof useDeckEditor>["state
 const PANEL_H2 = "text-base font-semibold text-gray-900 dark:text-gray-100";
 const PANEL_H3 = "mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300";
 
-function StatsPanel({ deck, deckId }: { deck: NonNullable<ReturnType<typeof useDeckEditor>["state"]["deck"]>; deckId: string }) {
+function StatsPanel({ deck, children }: { deck: NonNullable<ReturnType<typeof useDeckEditor>["state"]["deck"]>; children?: ReactNode }) {
   const split = useMemo(() => pitchSplit(deck), [deck]);
   const zones = useMemo(() => computeDeckSectionCounts(deck), [deck]);
   const rows: Array<[string, number | string, string?]> = [
@@ -403,6 +456,7 @@ function StatsPanel({ deck, deckId }: { deck: NonNullable<ReturnType<typeof useD
           <div key={label} className="flex justify-between"><span>{label}</span><span className="tabular-nums">{n}</span></div>
         ))}
       </section>
+      {children}
     </div>
   );
 }

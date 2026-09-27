@@ -128,3 +128,6 @@ export function lensLabel(lens: { stat: 'text' | 'type' | 'keyword'; value: stri
   if (lens.stat === 'type') return TYPE_BUCKETS.find(b => b.value === lens.value)?.label ?? lens.value
   return lens.value.charAt(0).toUpperCase() + lens.value.slice(1)
 }
+
+/** The type buckets as pickable options (value + label), in bucket order. */
+export const TYPE_OPTIONS: Array<{ value: string; label: string }> = TYPE_BUCKETS.map(({ value, label }) => ({ value, label }))

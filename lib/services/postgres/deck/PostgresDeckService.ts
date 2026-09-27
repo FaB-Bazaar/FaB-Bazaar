@@ -834,6 +834,25 @@ export class PostgresDeckService implements IDeckService {
     }
   }
 
+  async setDeckRatios(publicId: string, userId: string, ratios: unknown[]): AsyncResult<{ ratios: unknown[] }> {
+    try {
+      // jsonb_set on the one key: a concurrent matchup save (read-modify-write
+      // of the whole metadata) can't be undone by this, nor undo it.
+      const updated = await db
+        .update(decks)
+        .set({
+          metadata: sql`jsonb_set(COALESCE(${decks.metadata}, '{}'::jsonb), '{ratios}', ${JSON.stringify(ratios)}::jsonb, true)`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
+        .returning({ id: decks.id });
+      if (updated.length === 0) return { success: false, error: 'Deck not found or not editable' };
+      return { success: true, data: { ratios } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to save ratios' };
+    }
+  }
+
   async updateDeck(
     publicId: string,
     userId: string,

@@ -44,7 +44,7 @@ function clearHighlight() {
 
 // `active` lives on the page so the Table view can lift matches, and so the
 // highlight survives switching panels.
-export default function FindPanel({ deck, deckId, active, setActive, brewing = false, facets = {}, setFacets }: {
+export default function FindPanel({ deck, deckId, active, setActive, brewing = false, facets = {}, setFacets, onSaveRatio }: {
   deck: DeckDTO;
   deckId: string;
   active: Active;
@@ -54,6 +54,8 @@ export default function FindPanel({ deck, deckId, active, setActive, brewing = f
   /** Brew-only Class / Talent / Rarity picks (one per section, ANDed). */
   facets?: BrewFacets;
   setFacets?: Dispatch<SetStateAction<BrewFacets>>;
+  /** Editors: save the first two pinned words as a deck ratio (Stats → Ratios). */
+  onSaveRatio?: (a: string, b: string) => void;
 }) {
   const [lenses, setLenses] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
@@ -205,6 +207,14 @@ export default function FindPanel({ deck, deckId, active, setActive, brewing = f
             Ratio of {lensCounts[0].term} to {lensCounts[1].term}:{" "}
             <strong className="tabular-nums">{lensCounts[0].copies} to {lensCounts[1].copies}</strong>
             {ratio && <span className="text-gray-600 dark:text-gray-400"> ({ratio})</span>}
+            {onSaveRatio && (
+              <>
+                {" "}
+                <button type="button" onClick={() => onSaveRatio(lensCounts[0].term, lensCounts[1].term)} className="text-blue-700 underline hover:no-underline dark:text-blue-400">
+                  Save as ratio
+                </button>
+              </>
+            )}
           </p>
         )}
         <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">

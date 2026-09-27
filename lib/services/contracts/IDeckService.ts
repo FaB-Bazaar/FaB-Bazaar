@@ -775,6 +775,17 @@ export interface IDeckService {
   ): AsyncResult<DeckDTO>;
 
   /**
+   * Replace the deck's saved ratios (metadata.ratios) — owner or co-owner only.
+   * Writes just that key, so matchups and other metadata are never clobbered.
+   * Callers validate the list first (lib/deck/ratios sanitizeRatios).
+   */
+  setDeckRatios(
+    publicId: string,
+    userId: string,
+    ratios: unknown[]
+  ): AsyncResult<{ ratios: unknown[] }>;
+
+  /**
    * Delete a deck
    *
    * @param publicId - The deck's public ID
