@@ -176,3 +176,38 @@ describe('/daily your movers — one row per card', () => {
     expect(row.textContent).not.toContain('Welcome to Rathe')
   })
 })
+
+describe('/daily around the market — tabs over one table', () => {
+  const market: MarketMoversDTO = {
+    asOfDate: '2026-09-18',
+    totalCount: 3,
+    gainers: [marketMover({ printingId: 'g1', displayName: 'Soul Shackle' })],
+    breakouts: [marketMover({ printingId: 'b1', displayName: 'Vigor', signalType: 'breakout' })],
+    steadyRisers: [],
+    decliners: [marketMover({ printingId: 'd1', displayName: 'Aurora', signalType: 'top_decliner', pctChange: -16, dollarChange: -20 })],
+  }
+
+  it('shows one signal at a time as table rows, with a tab per non-empty signal', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    const tabs = screen.getAllByRole('tab').map((t) => t.textContent)
+    expect(tabs).toEqual(['Top Gainers1', 'Breakouts1', 'Top Decliners1'])
+    expect(screen.getByRole('tab', { name: /Top Gainers/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('row', { name: /Soul Shackle/ })).toBeTruthy()
+    expect(screen.queryByText('Aurora')).toBeNull()
+  })
+
+  it('switches the table when another tab is picked', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(screen.getByRole('tab', { name: /Top Decliners/ }))
+    expect(screen.getByRole('row', { name: /Aurora/ })).toBeTruthy()
+    expect(screen.queryByText('Soul Shackle')).toBeNull()
+  })
+
+  it('shows 10 rows, then the rest behind "Show N more"', () => {
+    const many = { ...market, gainers: Array.from({ length: 13 }, (_, i) => marketMover({ printingId: `g${i}`, displayName: `Gainer ${i}` })) }
+    render(<DailyMoversView signedIn={false} userMovers={null} market={many} error={null} />)
+    expect(screen.getAllByRole('row', { name: /Gainer \d+/ })).toHaveLength(10)
+    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }))
+    expect(screen.getAllByRole('row', { name: /Gainer \d+/ })).toHaveLength(13)
+  })
+})

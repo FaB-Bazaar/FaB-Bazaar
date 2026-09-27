@@ -5,7 +5,6 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Library, Search } from "lucide-react";
-import { FOILING_MAP, SET_MAP } from "@/lib/fab-constants";
 import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
@@ -65,12 +64,6 @@ const SECTION_ORDER: Array<{
   { signal: "steady_riser", userKey: "steadyRisers" },
   { signal: "top_decliner", userKey: "decliners" },
 ];
-
-const MARKET_PREVIEW_COUNT = 8;
-
-// Constants maps are keyed literal objects — widen for lookup by arbitrary code.
-const lookup = (map: Record<string, string>, key: string | undefined | null): string | undefined =>
-  key ? map[key.toLowerCase()] : undefined;
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -196,7 +189,7 @@ function CompactBuyLink({ url, feature }: { url: string | null; feature: string 
       <img
         src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
         alt="on TCGplayer"
-        className="h-3 w-auto"
+        className="h-3 w-[74px] max-w-none"
       />
     </TcgAffiliateLink>
   );
@@ -295,76 +288,111 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
 // Market tier
 // ---------------------------------------------------------------------------
 
-function MarketMoverTile({ m }: { m: MarketMoverDTO }) {
+const MARKET_PAGE_SIZE = 10;
+
+function MarketRow({ m }: { m: MarketMoverDTO }) {
   const isPositive = (m.dollarChange ?? 0) >= 0;
   const href = `/printing/${m.printingId}`;
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-2 flex gap-2 items-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
-      <Link
-        href={href}
-        className="shrink-0 w-10 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-        aria-label={`View ${m.displayName}`}
-        tabIndex={-1}
-      >
-        {m.imageUrl ? (
-          <Image src={m.imageUrl} alt={m.displayName} fill sizes="40px" className="object-cover" unoptimized />
-        ) : null}
-      </Link>
-      <div className="flex-1 min-w-0">
+    <tr className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60">
+      <td className="py-1.5 pl-3 pr-2 w-10">
+        <Link
+          href={href}
+          className="block w-8 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700"
+          aria-label={`View ${m.displayName}`}
+          tabIndex={-1}
+        >
+          {m.imageUrl ? (
+            <Image src={m.imageUrl} alt={m.displayName} fill sizes="32px" className="object-cover" unoptimized />
+          ) : null}
+        </Link>
+      </td>
+      <td className="py-1.5 pr-3 max-w-0 w-full">
         <Link
           href={href}
           className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
         >
           {m.displayName}
         </Link>
-        <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
-          {lookup(SET_MAP, m.set) || m.set?.toUpperCase()}
-          {" · "}
-          {lookup(FOILING_MAP, m.foiling) || m.foiling}
-        </div>
-      </div>
-      <div className="shrink-0 text-right text-sm">
-        <div className="font-semibold text-gray-900 dark:text-gray-100">{formatPrice(m.pAtSignal)}</div>
-        <div className={isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-          {formatPctChange(m.pctChange)}
-        </div>
+      </td>
+      <td className="py-1.5 pr-3 hidden sm:table-cell">
+        <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" className="min-w-max" />
+      </td>
+      <td className="py-1.5 pr-3 text-right text-sm font-semibold tabular-nums whitespace-nowrap text-gray-900 dark:text-gray-100">
+        {formatPrice(m.pAtSignal)}
+      </td>
+      <td
+        className={`py-1.5 pr-3 text-right text-sm tabular-nums whitespace-nowrap ${
+          isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+        }`}
+      >
+        {formatPctChange(m.pctChange)}
+      </td>
+      <td className="py-1.5 pr-3 text-right whitespace-nowrap">
         <CompactBuyLink url={m.tcgplayerUrl} feature={`market_${m.signalType}`} />
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
-function MarketSection({ signal, movers }: { signal: SignalType; movers: MarketMoverDTO[] }) {
-  if (movers.length === 0) return null;
-  const meta = SIGNAL_META[signal];
-  const preview = movers.slice(0, MARKET_PREVIEW_COUNT);
-  const rest = movers.slice(MARKET_PREVIEW_COUNT);
+// One signal at a time: tabs over a single compact table (the four stacked
+// tile grids made "Around the market" most of the page).
+function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: MarketMoverDTO[] }> }) {
+  const available = lists.filter((l) => l.movers.length > 0);
+  const [active, setActive] = React.useState<SignalType | null>(available[0]?.signal ?? null);
+  const [expanded, setExpanded] = React.useState(false);
+  const current = available.find((l) => l.signal === active) ?? available[0];
+  if (!current) return null;
+
+  const rows = expanded ? current.movers : current.movers.slice(0, MARKET_PAGE_SIZE);
+  const hidden = current.movers.length - rows.length;
 
   return (
-    <section className="mb-6">
-      <div className="flex items-center gap-2 mb-2">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{meta.title}</h3>
-        <span className="text-sm text-gray-600 dark:text-gray-400">({movers.length})</span>
-        <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">— {meta.blurb}</span>
+    <div>
+      <div role="tablist" aria-label="Market signals" className="flex flex-wrap gap-1 mb-2">
+        {available.map(({ signal, movers }) => {
+          const selected = signal === current.signal;
+          return (
+            <button
+              key={signal}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => { setActive(signal); setExpanded(false); }}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                selected
+                  ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800"
+              }`}
+            >
+              {SIGNAL_META[signal].title}
+              <span className={`ml-1.5 tabular-nums ${selected ? "opacity-80" : "text-gray-500 dark:text-gray-400"}`}>
+                {movers.length}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-        {preview.map((m) => (
-          <MarketMoverTile key={`${m.signalType}-${m.printingId}`} m={m} />
-        ))}
-      </div>
-      {rest.length > 0 && (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-sm text-blue-600 dark:text-blue-400 hover:underline">
-            Show {rest.length} more
-          </summary>
-          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 mt-2">
-            {rest.map((m) => (
-              <MarketMoverTile key={`${m.signalType}-${m.printingId}`} m={m} />
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{SIGNAL_META[current.signal].blurb}</p>
+      <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
+        <table className="w-full">
+          <tbody>
+            {rows.map((m) => (
+              <MarketRow key={`${m.signalType}-${m.printingId}`} m={m} />
             ))}
-          </div>
-        </details>
+          </tbody>
+        </table>
+      </div>
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+        >
+          Show {hidden} more
+        </button>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -489,13 +517,12 @@ export function DailyMoversView({
                   : "All of yesterday’s signals across the game."}
               </p>
             </div>
-            {SECTION_ORDER.map(({ signal, userKey }) => (
-              <MarketSection
-                key={signal}
-                signal={signal}
-                movers={market[userKey].filter((m) => !ownedPrintingIds.has(m.printingId))}
-              />
-            ))}
+            <MarketMovers
+              lists={SECTION_ORDER.map(({ signal, userKey }) => ({
+                signal,
+                movers: market[userKey].filter((m) => !ownedPrintingIds.has(m.printingId)),
+              }))}
+            />
           </div>
         )}
       </div>
