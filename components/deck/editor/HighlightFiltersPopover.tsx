@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type HighlightFilterStat = "pitch" | "cost" | "power" | "defense" | "zone";
+export type HighlightFilterStat = "pitch" | "cost" | "power" | "defense" | "zone" | "text" | "type" | "keyword" | "name" | "arcane";
 
 export interface HighlightFilter {
   stat: HighlightFilterStat;
@@ -27,9 +27,16 @@ const STAT_LABELS: Record<HighlightFilterStat, string> = {
   power: "Power",
   defense: "Defense",
   zone: "Zone",
+  text: "Text",
+  type: "Type",
+  keyword: "Keyword",
+  name: "Name",
+  arcane: "Arcane",
 };
 
-function chipLabel(filter: HighlightFilter): string {
+export function chipLabel(filter: HighlightFilter): string {
+  if (filter.stat === "text") return `"${filter.value}" in text`;
+  if (filter.stat === "name") return `Name "${filter.value}"`;
   return `${STAT_LABELS[filter.stat]} ${filter.value}`;
 }
 
@@ -84,7 +91,7 @@ export default function HighlightFiltersPopover({
               <span>{chipLabel(f)}</span>
               <button
                 type="button"
-                aria-label={`Remove ${STAT_LABELS[f.stat]} ${f.value} filter`}
+                aria-label={`Remove ${chipLabel(f)} filter`}
                 onClick={() => onRemoveFilter(f)}
                 className="rounded-full hover:bg-amber-200 dark:hover:bg-amber-800 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               >
