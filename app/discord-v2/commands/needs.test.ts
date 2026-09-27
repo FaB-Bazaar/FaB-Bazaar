@@ -120,10 +120,11 @@ describe('handleNeedsMode — the needs list', () => {
     expect(json.type).toBe(4);
     expect(json.data.flags & 64).toBe(64); // ephemeral
     expect(json.data.flags & 4).toBe(4); // embeds suppressed (deck link in content)
-    expect(json.data.content).toContain('3x Comet Storm (red)');
-    expect(json.data.content).toContain('2x Ice Quake (blue)'); // shortage, not needed
-    expect(json.data.content).toContain('have 1/3');
-    expect(json.data.content).toContain('Enigma CC');
+    // pitch square, bold qty, line total with the per-copy price spelled out
+    expect(json.data.content).toContain('🟥 **3×** Comet Storm — $7.50 ($2.50 each)');
+    expect(json.data.content).toContain('🟦 **2×** Ice Quake — $2.00 ($1.00 each) · you have 1 of 3'); // shortage, not needed
+    expect(json.data.content).toContain('**Needs for Enigma CC** · any version');
+    expect(json.data.content).toContain('You own 75 of 80 cards. Missing 5, about $9.50 to finish.');
   });
 
   it('specific-printings mode: public output includes collector number and foiling', async () => {
@@ -133,8 +134,38 @@ describe('handleNeedsMode — the needs list', () => {
     expect(mockComparison).toHaveBeenCalledWith('pub-aaa', 'user-1', { matchBy: 'printing' });
     expect(json.data.flags & 64).toBe(0); // public
     expect(json.data.flags & 4).toBe(4); // embeds still suppressed
-    expect(json.data.content).toContain('3x Comet Storm (red) [ROS076, Rainbow Foil]');
-    expect(json.data.content).toContain('2x Ice Quake (blue) [ELE151, Non-foil]');
+    expect(json.data.content).toContain('🟥 **3×** Comet Storm — $7.50 ($2.50 each) · ROS076 Rainbow Foil');
+    expect(json.data.content).toContain('🟦 **2×** Ice Quake — $2.00 ($1.00 each) · you have 1 of 3 · ELE151 Non-foil');
+  });
+
+  it('groups $1+ cards first, then cheap cards with a count and total, then unpriced; links the deck', async () => {
+    mockComparison.mockResolvedValue({
+      success: true,
+      data: {
+        ...comparisonFixture,
+        missing: [
+          ...comparisonFixture.missing,
+          { printingId: 'p-metex', cardName: 'MetEx', pitch: 1, needed: 3, tcgLow: 0.02 },
+          { printingId: 'p-gas', cardName: 'Gas Up', pitch: 2, needed: 1, tcgLow: 0.3 },
+          { printingId: 'p-puffer', cardName: 'Puffer Jacket', pitch: null, needed: 1, tcgLow: null },
+        ],
+      },
+    } as any);
+    const content: string = (await (await handleNeedsMode('needs_mode:eph:pub-aaa:card', body)).json()).data.content;
+
+    const big = content.indexOf('**$1 or more each**');
+    const cheap = content.indexOf('**Under $1 each** · 4 cards, $0.36');
+    const none = content.indexOf('**No price listed**');
+    expect(big).toBeGreaterThan(-1);
+    expect(cheap).toBeGreaterThan(big);
+    expect(none).toBeGreaterThan(cheap);
+    expect(content.indexOf('Comet Storm')).toBeLessThan(cheap);
+    expect(content.indexOf('MetEx')).toBeGreaterThan(cheap);
+    // cheap lines stay light: no bold, no per-copy price
+    expect(content).toContain('🟥 3× MetEx — $0.06');
+    expect(content).toContain('🟨 1× Gas Up — $0.30');
+    expect(content).toContain('▫️ 1× Puffer Jacket');
+    expect(content).toContain('[Open Enigma CC on FaB Bazaar](https://fabbazaar.app/decks/pub-aaa)');
   });
 
   it('celebrates a fully-owned deck instead of sending an empty list', async () => {
