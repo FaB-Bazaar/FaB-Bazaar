@@ -1476,6 +1476,9 @@ function applyOptimisticMove(
 // ─── Game view ────────────────────────────────────────────────────────────────
 
 interface GameViewCard {
+  /** card_unique_id (printingId fallback) — the React key. NOT the name: pitch
+   *  variants of one card share a name but are separate entries. */
+  uid: string;
   name: string;
   printingId?: string;
   imageUrl?: string;
@@ -1522,7 +1525,7 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
     const pd = printing.printingDetails as any;
     if (!map.has(uid)) {
       map.set(uid, {
-        name, printingId: printing.printingId, imageUrl,
+        uid, name, printingId: printing.printingId, imageUrl,
         redQty: 0, yellowQty: 0, blueQty: 0, noPitchQty: 0, totalQty: 0,
         cost: pd?.cost ?? null,
         defense: pd?.defense ?? null,
@@ -2857,7 +2860,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                       <div className="w-px self-stretch bg-gray-600/50 mx-0.5 flex-shrink-0" />
                       {isSectionCollapsed && section.cards.map(card => (
                         <div
-                          key={card.name}
+                          key={card.uid}
                           className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-gray-500"
                           style={{ width: 28 }}
                           title={card.name}
@@ -2897,7 +2900,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                     const gameHighlight = matchesGameCard(card);
                     return (
                     <div
-                      key={card.name}
+                      key={card.uid}
                       className={cn(
                         "relative rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500 transition-all duration-150",
                         gameHighlight === true && "ring-2 ring-amber-400",
