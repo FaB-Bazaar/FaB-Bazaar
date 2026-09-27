@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Library, Search } from "lucide-react";
 import { PrintingMetaChips, SetLogo } from "@/components/shared/PrintingMetaChips";
+import { sortMarketMovers, type MarketSort, type MarketSortKey } from "@/lib/daily/sort-market-movers";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import type {
@@ -319,17 +320,59 @@ function MarketRow({ m }: { m: MarketMoverDTO }) {
   );
 }
 
+function SortHeader({
+  label, sortKey, sort, onSort, className = "",
+}: {
+  label: string;
+  sortKey: MarketSortKey;
+  sort: MarketSort;
+  onSort: (key: MarketSortKey) => void;
+  className?: string;
+}) {
+  const active = sort?.key === sortKey;
+  return (
+    <th
+      scope="col"
+      aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
+      className={`py-2 pr-3 font-medium ${className}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm ${
+          active ? "text-gray-900 dark:text-gray-100" : ""
+        }`}
+      >
+        {label}
+        <span aria-hidden="true" className={active ? "" : "invisible"}>
+          {sort?.dir === "asc" ? "↑" : "↓"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 // One signal at a time: tabs over a single compact table (the four stacked
 // tile grids made "Around the market" most of the page).
 function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: MarketMoverDTO[] }> }) {
   const available = lists.filter((l) => l.movers.length > 0);
   const [active, setActive] = React.useState<SignalType | null>(available[0]?.signal ?? null);
   const [expanded, setExpanded] = React.useState(false);
+  // null = the signal's own ranking. First click on a column picks the useful
+  // direction (highest price, biggest change, newest set, A→Z); a second reverses it.
+  const [sort, setSort] = React.useState<MarketSort>(null);
   const current = available.find((l) => l.signal === active) ?? available[0];
   if (!current) return null;
 
-  const rows = expanded ? current.movers : current.movers.slice(0, MARKET_PAGE_SIZE);
-  const hidden = current.movers.length - rows.length;
+  const onSort = (key: MarketSortKey) =>
+    setSort((prev) =>
+      prev?.key === key
+        ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
+        : { key, dir: key === "name" ? "asc" : "desc" }
+    );
+  const sorted = sortMarketMovers(current.movers, sort);
+  const rows = expanded ? sorted : sorted.slice(0, MARKET_PAGE_SIZE);
+  const hidden = sorted.length - rows.length;
 
   return (
     <div>
@@ -342,7 +385,7 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
               type="button"
               role="tab"
               aria-selected={selected}
-              onClick={() => { setActive(signal); setExpanded(false); }}
+              onClick={() => { setActive(signal); setExpanded(false); setSort(null); }}
               className={`px-3 py-1.5 rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                 selected
                   ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
@@ -360,6 +403,16 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{SIGNAL_META[current.signal].blurb}</p>
       <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
         <table className="w-full">
+          <thead className="text-left text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/80">
+            <tr>
+              <th scope="col" className="w-10"><span className="sr-only">Image</span></th>
+              <SortHeader label="Card" sortKey="name" sort={sort} onSort={onSort} />
+              <SortHeader label="Set" sortKey="set" sort={sort} onSort={onSort} className="hidden sm:table-cell" />
+              <SortHeader label="Price" sortKey="price" sort={sort} onSort={onSort} className="text-right" />
+              <SortHeader label="Change" sortKey="change" sort={sort} onSort={onSort} className="text-right" />
+              <th scope="col"><span className="sr-only">Buy</span></th>
+            </tr>
+          </thead>
           <tbody>
             {rows.map((m) => (
               <MarketRow key={`${m.signalType}-${m.printingId}`} m={m} />

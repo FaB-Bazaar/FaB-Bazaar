@@ -278,3 +278,59 @@ describe('/daily market table — no dead gap after the name', () => {
     expect(cells[nameIdx + 1].className).toMatch(/\bw-full\b/)
   })
 })
+
+describe('/daily market table — sortable headers', () => {
+  const market: MarketMoversDTO = {
+    asOfDate: '2026-09-18', totalCount: 4,
+    gainers: [
+      marketMover({ printingId: 'a', displayName: 'Cheap New', set: 'hnt', pAtSignal: 5, pctChange: 150 }),
+      marketMover({ printingId: 'b', displayName: 'Pricey Old', set: 'wtr', pAtSignal: 400, pctChange: 15 }),
+      marketMover({ printingId: 'c', displayName: 'Mid Mid', set: 'dtd', pAtSignal: 90, pctChange: 60 }),
+    ],
+    breakouts: [marketMover({ printingId: 'x', displayName: 'Breakout Card', signalType: 'breakout' })],
+    steadyRisers: [], decliners: [],
+  }
+  const order = () =>
+    screen.getAllByRole('row').slice(1).map((r) => r.querySelector('td a[href^="/printing/"]:not([aria-label])')?.textContent)
+  const header = (name: RegExp) => screen.getByRole('button', { name })
+
+  it('keeps the signal ranking until a header is clicked', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    expect(order()).toEqual(['Cheap New', 'Pricey Old', 'Mid Mid'])
+  })
+
+  it('sorts by price, highest first, and reverses on a second click', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(header(/^Price/))
+    expect(order()).toEqual(['Pricey Old', 'Mid Mid', 'Cheap New'])
+    expect(header(/^Price/).closest('th')).toHaveAttribute('aria-sort', 'descending')
+    fireEvent.click(header(/^Price/))
+    expect(order()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
+    expect(header(/^Price/).closest('th')).toHaveAttribute('aria-sort', 'ascending')
+  })
+
+  it('sorts by % change and by set, newest set first', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(header(/^Change/))
+    expect(order()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
+    fireEvent.click(header(/^Set/))
+    expect(order()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
+    fireEvent.click(header(/^Set/))
+    expect(order()).toEqual(['Pricey Old', 'Mid Mid', 'Cheap New'])
+  })
+
+  it('sorts the full list, not just the first page', () => {
+    const many = { ...market, gainers: Array.from({ length: 12 }, (_, i) => marketMover({ printingId: `g${i}`, displayName: `G${i}`, pAtSignal: i })) }
+    render(<DailyMoversView signedIn={false} userMovers={null} market={many} error={null} />)
+    fireEvent.click(header(/^Price/))
+    expect(order()[0]).toBe('G11')
+  })
+
+  it('resets to the signal ranking when switching tabs', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(header(/^Price/))
+    fireEvent.click(screen.getByRole('tab', { name: /Breakouts/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /Top Gainers/ }))
+    expect(order()).toEqual(['Cheap New', 'Pricey Old', 'Mid Mid'])
+  })
+})
