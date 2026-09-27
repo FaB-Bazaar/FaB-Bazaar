@@ -560,7 +560,7 @@ function PuzzleSolver({ puzzle, onBack }: { puzzle: Puzzle; onBack: () => void }
                       🛡️ {card.defense}
                     </Badge>
                     <Badge variant="secondary" className="text-[10px]">
-                      💎 {card.pitch}
+                      Pitch {card.pitch}
                     </Badge>
                     {card.cost > 0 && (
                       <Badge variant="secondary" className="text-[10px]">
@@ -639,7 +639,7 @@ function PuzzleSolver({ puzzle, onBack }: { puzzle: Puzzle; onBack: () => void }
                       ⚔️ {returnedCard.power}
                     </Badge>
                     <Badge variant="secondary" className="text-[10px]">
-                      💎 {returnedCard.pitch}
+                      Pitch {returnedCard.pitch}
                     </Badge>
                   </div>
                 </div>

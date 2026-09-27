@@ -129,7 +129,7 @@ function ArticleCard({ article }: { article: EnrichedArticle }) {
           </Badge>
           {article.isUserArticle && (
             <Badge className="absolute top-3 right-3 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 text-[10px]">
-              {article.promoted ? '⭐ Featured' : 'Community'}
+              {article.promoted ? 'Featured' : 'Community'}
             </Badge>
           )}
         </div>

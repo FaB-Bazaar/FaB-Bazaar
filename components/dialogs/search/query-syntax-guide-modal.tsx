@@ -213,20 +213,20 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           {/* Important Notes Section */}
           <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">🔥 Key Features & Best Practices</h3>
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Key Features & Best Practices</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
               <div>
-                <p className="font-medium mb-1">✅ Multi-Value Support:</p>
+                <p className="font-medium mb-1">Multi-Value Support:</p>
                 <p className="mb-2">Use commas for multiple values: <code className="bg-blue-100 px-1 rounded">cost:0,1,2</code></p>
                 
-                <p className="font-medium mb-1">✅ Flexible Operators:</p>
+                <p className="font-medium mb-1">Flexible Operators:</p>
                 <p className="mb-2">Use &gt;, &lt;, ! for comparisons: <code className="bg-blue-100 px-1 rounded">power&gt;4</code></p>
               </div>
               <div>
-                <p className="font-medium mb-1">✅ Smart Negation:</p>
+                <p className="font-medium mb-1">Smart Negation:</p>
                 <p className="mb-2">Use ! or - to exclude: <code className="bg-blue-100 px-1 rounded">r:!c</code> or <code className="bg-blue-100 px-1 rounded">t:!generic</code></p>
                 
-                <p className="font-medium mb-1">✅ Order Doesn&apos;t Matter:</p>
+                <p className="font-medium mb-1">Order Doesn&apos;t Matter:</p>
                 <p>Filters work in any order, but put card names at the end</p>
               </div>
             </div>

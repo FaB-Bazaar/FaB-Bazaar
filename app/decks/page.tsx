@@ -806,7 +806,7 @@ export default function DecksPage() {
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
                 >
                   <option value="all">My Decks</option>
-                  <option value="featured">⭐ Featured</option>
+                  <option value="featured">Featured</option>
                   <option value="system">🛡 System only</option>
                 </select>
               )}

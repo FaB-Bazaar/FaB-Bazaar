@@ -51,7 +51,7 @@ export function PendingFacetsClient() {
     return <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading queue…</p>
   }
   if (items.length === 0) {
-    return <p className="text-gray-600 dark:text-gray-300">Nothing pending. 🎉</p>
+    return <p className="text-gray-600 dark:text-gray-300">Nothing pending.</p>
   }
 
   return (

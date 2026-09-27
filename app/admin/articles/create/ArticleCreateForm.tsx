@@ -745,7 +745,7 @@ export function ArticleCreateForm() {
                       <div className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 border-2 rounded-lg p-6">
                         <div className="flex items-center gap-2 mb-4">
                           <div className="bg-amber-600 text-white px-2 py-1 rounded text-sm font-medium flex items-center gap-1">
-                            ⭐ Card Spotlight
+                            Card Spotlight
                           </div>
                         </div>
                         <div className="text-lg font-semibold">{section.title || 'Card Spotlight'}</div>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { RarityIcon } from "@/components/shared/RarityIcon"
 import { 
   BookOpen, Package, Coins, TrendingUp, Shield, 
   Trophy, Star, PieChart, BarChart3
@@ -18,16 +19,16 @@ interface EnhancedCollectionDashboardProps {
   onDeleteBinder: (binder: BinderWithStats) => void
 }
 
-const RARITY_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-    'F': { label: 'Fabled', icon: '🌟', color: 'text-amber-500' },
-    'L': { label: 'Legendary', icon: '👑', color: 'text-yellow-500' },
-    'M': { label: 'Majestic', icon: '🔥', color: 'text-red-500' },
-    'S': { label: 'Super Rare', icon: '💎', color: 'text-purple-500' },
-    'R': { label: 'Rare', icon: '💠', color: 'text-blue-500' },
-    'C': { label: 'Common', icon: '⚪', color: 'text-slate-500' },
-    'T': { label: 'Token', icon: '🪙', color: 'text-green-500' },
-    'P': { label: 'Promo', icon: '🎁', color: 'text-pink-500' },
-    'V': { label: 'Marvel', icon: '✨', color: 'text-indigo-500' }
+const RARITY_CONFIG: Record<string, { label: string }> = {
+    'F': { label: 'Fabled' },
+    'L': { label: 'Legendary' },
+    'M': { label: 'Majestic' },
+    'S': { label: 'Super Rare' },
+    'R': { label: 'Rare' },
+    'C': { label: 'Common' },
+    'T': { label: 'Token' },
+    'P': { label: 'Promo' },
+    'V': { label: 'Marvel' }
 };
 
 const formatCurrency = (value: number) => {
@@ -115,7 +116,7 @@ export function CollectionHighlights({ overview }: { overview: CollectionOvervie
               return (
                 <div key={rarity} className="bg-background/50 rounded-lg p-3 border">
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`text-2xl ${config?.color}`}>{config?.icon || '⭐'}</span>
+                    <RarityIcon rarityCode={rarity} size="lg" />
                     <Badge variant="secondary" className="text-xs">{config?.label || rarity}</Badge>
                   </div>
                   <div className="space-y-1">

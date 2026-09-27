@@ -137,7 +137,7 @@ export function ContentTypeFilter({ allArticles, currentUserId, isSuperAdmin, is
                   {/* Community badge for user-generated articles */}
                   {article.isUserArticle && (
                     <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
-                      {article.promoted ? '⭐ Promoted' : 'Community'}
+                      {article.promoted ? 'Promoted' : 'Community'}
                     </Badge>
                   )}
                   {/* Show warning if hero guide missing classification */}
