@@ -21,17 +21,17 @@ interface EmptyDeckHeroProps<K extends KitLike = KitLike> {
 
 const SKELETON_TILE_COUNT = 6;
 
-// Each entry contains light-mode + dark-mode variants for the tile gradient,
-// border, and hover state. Pattern: light gets a soft pastel fill, dark gets
-// the existing translucent saturated fill.
-const TILE_GRADIENTS = [
-  "from-amber-50 to-amber-100 hover:from-amber-100 dark:from-amber-500/20 dark:to-amber-700/10 dark:hover:from-amber-500/30 border-amber-400 dark:border-amber-500/40 hover:border-amber-500 dark:hover:border-amber-400",
-  "from-red-50 to-red-100 hover:from-red-100 dark:from-red-500/20 dark:to-red-700/10 dark:hover:from-red-500/30 border-red-400 dark:border-red-500/40 hover:border-red-500 dark:hover:border-red-400",
-  "from-blue-50 to-blue-100 hover:from-blue-100 dark:from-blue-500/20 dark:to-blue-700/10 dark:hover:from-blue-500/30 border-blue-400 dark:border-blue-500/40 hover:border-blue-500 dark:hover:border-blue-400",
-  "from-violet-50 to-violet-100 hover:from-violet-100 dark:from-violet-500/20 dark:to-violet-700/10 dark:hover:from-violet-500/30 border-violet-400 dark:border-violet-500/40 hover:border-violet-500 dark:hover:border-violet-400",
-  "from-emerald-50 to-emerald-100 hover:from-emerald-100 dark:from-emerald-500/20 dark:to-emerald-700/10 dark:hover:from-emerald-500/30 border-emerald-400 dark:border-emerald-500/40 hover:border-emerald-500 dark:hover:border-emerald-400",
-  "from-pink-50 to-pink-100 hover:from-pink-100 dark:from-pink-500/20 dark:to-pink-700/10 dark:hover:from-pink-500/30 border-pink-400 dark:border-pink-500/40 hover:border-pink-500 dark:hover:border-pink-400",
-  "from-cyan-50 to-cyan-100 hover:from-cyan-100 dark:from-cyan-500/20 dark:to-cyan-700/10 dark:hover:from-cyan-500/30 border-cyan-400 dark:border-cyan-500/40 hover:border-cyan-500 dark:hover:border-cyan-400",
+// Each entry contains light-mode + dark-mode variants for the tile fill,
+// border, and hover state: a flat pastel in light mode, a flat translucent tint
+// in dark mode (no gradients — they read as generated-UI styling).
+const TILE_COLORS = [
+  "bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-amber-400 dark:border-amber-500/40 hover:border-amber-500 dark:hover:border-amber-400",
+  "bg-red-50 hover:bg-red-100 dark:bg-red-500/15 dark:hover:bg-red-500/25 border-red-400 dark:border-red-500/40 hover:border-red-500 dark:hover:border-red-400",
+  "bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/15 dark:hover:bg-blue-500/25 border-blue-400 dark:border-blue-500/40 hover:border-blue-500 dark:hover:border-blue-400",
+  "bg-violet-50 hover:bg-violet-100 dark:bg-violet-500/15 dark:hover:bg-violet-500/25 border-violet-400 dark:border-violet-500/40 hover:border-violet-500 dark:hover:border-violet-400",
+  "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 border-emerald-400 dark:border-emerald-500/40 hover:border-emerald-500 dark:hover:border-emerald-400",
+  "bg-pink-50 hover:bg-pink-100 dark:bg-pink-500/15 dark:hover:bg-pink-500/25 border-pink-400 dark:border-pink-500/40 hover:border-pink-500 dark:hover:border-pink-400",
+  "bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-500/15 dark:hover:bg-cyan-500/25 border-cyan-400 dark:border-cyan-500/40 hover:border-cyan-500 dark:hover:border-cyan-400",
 ];
 
 export default function EmptyDeckHero<K extends KitLike>({
@@ -44,7 +44,7 @@ export default function EmptyDeckHero<K extends KitLike>({
   return (
     <section
       aria-label="Get started with your deck"
-      className="rounded-xl border border-blue-300 dark:border-blue-500/30 bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-blue-950/40 dark:via-gray-900/60 dark:to-gray-900/40 p-6 backdrop-blur-md"
+      className="rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-6"
     >
       <header className="mb-4 flex flex-col gap-1">
         <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export default function EmptyDeckHero<K extends KitLike>({
             <div
               key={i}
               data-kit-skeleton
-              className="h-[164px] animate-pulse rounded-lg border-2 border-gray-300 dark:border-gray-700/50 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800/40 dark:to-gray-900/40"
+              className="h-[164px] animate-pulse rounded-lg border-2 border-gray-300 dark:border-gray-700/50 bg-gray-100 dark:bg-gray-800/40"
             />
           ))}
         </div>
@@ -82,10 +82,9 @@ export default function EmptyDeckHero<K extends KitLike>({
                 type="button"
                 onClick={() => onKitClick(kit)}
                 className={cn(
-                  "group relative flex h-full flex-col items-start gap-3 overflow-hidden rounded-lg border-2 bg-gradient-to-br p-4 text-left transition-all",
-                  "hover:scale-[1.02] hover:shadow-lg",
+                  "group relative flex h-full flex-col items-start gap-3 overflow-hidden rounded-lg border-2 p-4 text-left transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
-                  TILE_GRADIENTS[i % TILE_GRADIENTS.length]
+                  TILE_COLORS[i % TILE_COLORS.length]
                 )}
               >
                 <div className="flex w-full items-center justify-between">

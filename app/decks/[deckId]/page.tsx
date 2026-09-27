@@ -1254,7 +1254,7 @@ export default function DeckEditorPage() {
       type="button"
       onClick={() => setChordMode('select')}
       className={cn(
-        "flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md transition-all duration-200 group",
+        "flex items-center gap-2.5 bg-gray-900 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-gray-800 transition-all duration-200 group",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
         // The floating pill is tuned for sitting over content; inside the rail it needs a
         // solid ground so the light theme keeps its contrast.

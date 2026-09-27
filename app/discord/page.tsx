@@ -48,7 +48,7 @@ export default function DiscordPage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
       {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#5865F2]/20 via-transparent to-purple-900/20 rounded-2xl p-8 md:p-12 mb-16">
+      <div className="relative overflow-hidden bg-[#5865F2]/10 rounded-2xl p-8 md:p-12 mb-16">
 
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <div>
@@ -388,7 +388,7 @@ export default function DiscordPage() {
       </div>
 
       {/* Final CTA Section */}
-      <div className="text-center py-16 bg-gradient-to-br from-[#5865F2]/10 to-purple-900/10 dark:from-[#5865F2]/20 dark:to-purple-900/20 rounded-2xl">
+      <div className="text-center py-16 bg-[#5865F2]/10 dark:bg-[#5865F2]/15 rounded-2xl">
         <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
           Ready to Trade Smarter?
         </h2>

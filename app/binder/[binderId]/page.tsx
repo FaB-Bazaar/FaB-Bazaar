@@ -1324,7 +1324,7 @@ const SuperSlamDisclosure = () => {
           <button
             type="button"
             onClick={() => setChordMode('select')}
-            className="flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="flex items-center gap-2.5 bg-gray-900 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-gray-800 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             {/* Keyboard hints are desktop-only chrome — meaningless on touch. */}
             <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>
@@ -1446,7 +1446,7 @@ const SuperSlamDisclosure = () => {
 
       {/* Select panel + clear confirmation */}
       {(chordMode === 'select' || chordMode === 'clear') && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-950 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm" style={{ width: 'min(780px, 96vw)' }}>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-950 border border-gray-600 rounded-xl shadow-2xl" style={{ width: 'min(780px, 96vw)' }}>
           <div className="px-4 py-4 sm:px-6 sm:py-5 max-h-[75vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">
