@@ -7,10 +7,12 @@
 
 import { useMemo } from "react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
-import { buildDeckTableRows, partitionByLens, sortDeckTableRows, type Lens, type TableZone } from "@/lib/deck/deck-table";
+import { buildDeckTableRows, partitionByLens, sortDeckTableRows, ZONE_ORDER, type Lens, type TableZone } from "@/lib/deck/deck-table";
 
-const ZONE_NOTE: Partial<Record<TableZone, string>> = {
+const ZONE_LABEL: Record<TableZone, string> = {
   hero: "Hero",
+  equipment: "Equipment",
+  maindeck: "Main deck",
   inventory: "Inventory",
   benched: "Maybe pile",
 };
@@ -23,6 +25,10 @@ export default function MatchesStrip({ deck, active, onClear }: { deck: DeckDTO;
     [deck, active],
   );
   const copies = matches.reduce((s, r) => s + r.qty, 0);
+  // One labelled group per zone, so inventory matches never mix into the main deck row.
+  const byZone = ZONE_ORDER
+    .map(zone => ({ zone, rows: matches.filter(r => r.zone === zone) }))
+    .filter(g => g.rows.length > 0);
   const label = `Matches — ${matches.length} ${matches.length === 1 ? "card" : "cards"}, ${copies} ${copies === 1 ? "copy" : "copies"}`;
 
   return (
@@ -34,8 +40,14 @@ export default function MatchesStrip({ deck, active, onClear }: { deck: DeckDTO;
       {matches.length === 0 ? (
         <p className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">No cards match.</p>
       ) : (
-        <ul className="flex flex-wrap gap-3 p-3">
-          {matches.map(r => (
+        <div className="divide-y divide-gray-200 dark:divide-gray-800">
+        {byZone.map(({ zone, rows }) => {
+          const groupLabel = `${ZONE_LABEL[zone]} · ${rows.reduce((n, r) => n + r.qty, 0)}`;
+          return (
+        <div key={zone} role="group" aria-label={groupLabel} className="px-3 py-2">
+        <h3 className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">{groupLabel}</h3>
+        <ul className="flex flex-wrap gap-3">
+          {rows.map(r => (
             <li key={r.key} className="w-[120px]">
               <div className="relative">
                 <img
@@ -52,10 +64,13 @@ export default function MatchesStrip({ deck, active, onClear }: { deck: DeckDTO;
                 )}
                 <span className="truncate">{r.name}</span>
               </p>
-              {ZONE_NOTE[r.zone] && <p className="text-[11px] text-gray-500 dark:text-gray-400">{ZONE_NOTE[r.zone]}</p>}
             </li>
           ))}
         </ul>
+        </div>
+          );
+        })}
+        </div>
       )}
     </section>
   );
