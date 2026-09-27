@@ -132,12 +132,12 @@ describe('/daily your movers — one row per card', () => {
     ...over,
   })
 
-  it('shows a card that hit two signals once, tagged with both', () => {
+  it('shows a card that hit two signals once, tagged with both in plain words', () => {
     render(<DailyMoversView signedIn={true} userMovers={busy()} market={marketDto([])} error={null} />)
     expect(screen.getAllByRole('link', { name: 'Call to the Grave' })).toHaveLength(1)
     const row = screen.getByRole('link', { name: 'Call to the Grave' }).closest('[data-testid="mover-row"]') as HTMLElement
-    expect(row.textContent).toContain('Gainer')
-    expect(row.textContent).toContain('Breakout')
+    expect(row.textContent).toContain('Up 24h')
+    expect(row.textContent).toContain('New 30-day high')
   })
 
   it('shows a card held in two binders once, with the combined count and both binders', () => {
@@ -209,5 +209,44 @@ describe('/daily around the market — tabs over one table', () => {
     expect(screen.getAllByRole('row', { name: /Gainer \d+/ })).toHaveLength(10)
     fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }))
     expect(screen.getAllByRole('row', { name: /Gainer \d+/ })).toHaveLength(13)
+  })
+})
+
+describe('/daily your movers — a row reads as a sentence', () => {
+  const one = (m: DailyMoverDTO): MoversInCollectionDTO => ({
+    asOfDate: '2026-09-18', totalCount: 1, totalImpact: m.dollarImpact ?? 0,
+    gainers: m.signalType === 'top_gainer' ? [m] : [], breakouts: m.signalType === 'breakout' ? [m] : [],
+    steadyRisers: [], decliners: m.signalType === 'top_decliner' ? [m] : [],
+  })
+  const rowFor = (name: string) =>
+    screen.getByRole('link', { name }).closest('[data-testid="mover-row"]') as HTMLElement
+
+  it('states the price move with its timeframe, in cents', () => {
+    render(<DailyMoversView signedIn={true} userMovers={one(userMover())} market={marketDto([])} error={null} />)
+    expect(rowFor('Enlightened Strike').textContent).toContain('$10.00 → $12.50 since yesterday (+25%)')
+  })
+
+  it('names the 30-day window for a breakout', () => {
+    render(<DailyMoversView signedIn={true} userMovers={one(userMover({ signalType: 'breakout' }))} market={marketDto([])} error={null} />)
+    expect(rowFor('Enlightened Strike').textContent).toContain('vs 30-day high')
+  })
+
+  it('shows your gain once, labelled with the copies it covers', () => {
+    render(<DailyMoversView signedIn={true} userMovers={one(userMover())} market={marketDto([])} error={null} />)
+    const text = rowFor('Enlightened Strike').textContent ?? ''
+    expect(text.split('+$5.00').length - 1).toBe(1)
+    expect(text).toContain('your 2 copies')
+  })
+
+  it('collapses several decks to a count, but links a single deck', () => {
+    const deck = (n: number) => ({ deckId: `d${n}`, publicId: `p${n}`, deckName: `Deck ${n}` })
+    const { unmount } = render(
+      <DailyMoversView signedIn={true} userMovers={one(userMover({ decks: [deck(1), deck(2), deck(3)] }))} market={marketDto([])} error={null} />,
+    )
+    expect(rowFor('Enlightened Strike').textContent).toContain('in 3 decks')
+    expect(screen.queryByRole('link', { name: 'Deck 1' })).toBeNull()
+    unmount()
+    render(<DailyMoversView signedIn={true} userMovers={one(userMover({ decks: [deck(1)] }))} market={marketDto([])} error={null} />)
+    expect(screen.getByRole('link', { name: 'Deck 1' })).toHaveAttribute('href', '/decks/p1')
   })
 })

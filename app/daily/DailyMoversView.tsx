@@ -25,33 +25,35 @@ const SIGNAL_META: Record<
   {
     title: string;
     blurb: string;
-    badge: string;
-    badgeClass: string;
+    /** Plain-words tag on a your-movers row. */
+    tag: string;
+    /** What the reference price is, in words: "$8.70 → $26.20 since yesterday". */
+    window: string;
   }
 > = {
   top_gainer: {
     title: "Top Gainers",
     blurb: "Biggest 24-hour price increases",
-    badge: "Gainer",
-    badgeClass: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300",
+    tag: "Up 24h",
+    window: "since yesterday",
   },
   breakout: {
     title: "Breakouts",
     blurb: "Cards crossing above their 30-day high",
-    badge: "Breakout",
-    badgeClass: "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300",
+    tag: "New 30-day high",
+    window: "vs 30-day high",
   },
   steady_riser: {
     title: "Steady Risers",
     blurb: "Smooth 30-day uptrends — quiet accumulators",
-    badge: "Riser",
-    badgeClass: "bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300",
+    tag: "Steady 30-day rise",
+    window: "over 30 days",
   },
   top_decliner: {
     title: "Top Decliners",
     blurb: "Biggest 24-hour drops",
-    badge: "Decliner",
-    badgeClass: "bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300",
+    tag: "Down 24h",
+    window: "since yesterday",
   },
 };
 
@@ -71,15 +73,13 @@ const SECTION_ORDER: Array<{
 
 function formatPrice(p: number | null | undefined): string {
   if (p == null) return "—";
-  if (p >= 100) return `$${p.toFixed(0)}`;
-  if (p >= 10) return `$${p.toFixed(1)}`;
   return `$${p.toFixed(2)}`;
 }
 
 function formatPctChange(p: number | null | undefined): string {
   if (p == null) return "—";
   const sign = p > 0 ? "+" : "";
-  return `${sign}${p.toFixed(1)}%`;
+  return `${sign}${p.toFixed(Math.abs(p) >= 10 ? 0 : 1)}%`;
 }
 
 function formatImpact(v: number): string {
@@ -107,66 +107,30 @@ function impactColor(v: number): string {
 // Shared bits
 // ---------------------------------------------------------------------------
 
-function PriceLine({ m }: { m: Pick<DailyMoverDTO, "refPrice" | "pAtSignal" | "pctChange" | "dollarChange"> }) {
-  const isPositive = (m.dollarChange ?? 0) >= 0;
-  return (
-    <div className="flex items-baseline gap-2 text-sm">
-      <span className="text-gray-600 dark:text-gray-400 line-through">{formatPrice(m.refPrice)}</span>
-      <span className="text-gray-900 dark:text-gray-100 font-semibold">{formatPrice(m.pAtSignal)}</span>
-      <span className={isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-        ({formatPctChange(m.pctChange)})
-      </span>
-    </div>
-  );
-}
-
-function DeckLinks({ m }: { m: DailyMoverDTO }) {
-  if (m.decks.length === 0) return null;
-  const shown = m.decks.slice(0, 2);
-  const more = m.decks.length - shown.length;
-  return (
-    <span>
-      {" · In "}
-      {shown.map((d, i) => (
-        <React.Fragment key={d.deckId}>
-          {i > 0 && ", "}
-          <Link
-            href={`/decks/${d.publicId}`}
-            className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            {d.deckName}
-          </Link>
-        </React.Fragment>
-      ))}
-      {more > 0 && ` +${more} more`}
-    </span>
-  );
-}
-
-function OwnershipLine({ m }: { m: MergedMover }) {
+// Where you hold the card: binder(s), then decks — one deck is linked, several
+// collapse to a count (the full list is in the tooltip) so it never dominates the row.
+function HoldingLine({ m }: { m: MergedMover }) {
+  const deckNames = m.decks.map((d) => d.deckName).join(", ");
   return (
     <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-      {m.dollarImpact != null && (
-        <span className={`font-semibold ${impactColor(m.dollarImpact)}`}>
-          {formatImpact(m.dollarImpact)}
-        </span>
-      )}
-      {m.dollarImpact != null && " on "}
-      your <span className="font-medium text-gray-700 dark:text-gray-300">{m.quantity}</span>
-      {m.quantity === 1 ? " copy" : " copies"}
-      {m.binders.length > 0 && " in "}
       {m.binders.map((b, i) => (
         <React.Fragment key={b.binderId}>
           {i > 0 && ", "}
-          <Link
-            href={`/binder/${b.binderId}`}
-            className="font-medium text-gray-700 dark:text-gray-300 hover:underline"
-          >
+          <Link href={`/binder/${b.binderId}`} className="hover:underline">
             {b.binderName}
           </Link>
         </React.Fragment>
       ))}
-      <DeckLinks m={m} />
+      {m.binders.length > 0 && (m.binders.length === 1 ? " binder" : " binders")}
+      {m.decks.length === 1 && (
+        <>
+          {" · in "}
+          <Link href={`/decks/${m.decks[0].publicId}`} className="hover:underline">
+            {m.decks[0].deckName}
+          </Link>
+        </>
+      )}
+      {m.decks.length > 1 && <span title={deckNames}>{` · in ${m.decks.length} decks`}</span>}
     </div>
   );
 }
@@ -239,8 +203,9 @@ function mergeMovers(data: MoversInCollectionDTO): MergedMover[] {
 }
 
 function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: string }) {
+  const isUp = (m.dollarChange ?? 0) >= 0;
   return (
-    <div data-testid="mover-row" className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3 items-center">
+    <div data-testid="mover-row" className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3">
       <Link
         href={`/printing/${m.printingId}`}
         className="shrink-0 w-14 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -252,31 +217,40 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
       </Link>
 
       <div className="flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Link
             href={`/printing/${m.printingId}`}
             className="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
           >
             {m.displayName}
           </Link>
-          {m.signals.map((s) => (
-            <span key={s} className={`px-1.5 py-0.5 rounded text-xs font-medium ${SIGNAL_META[s].badgeClass}`}>
-              {SIGNAL_META[s].badge}
-            </span>
-          ))}
+          <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" />
         </div>
-        <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" className="mt-1" />
-        <OwnershipLine m={m} />
+        <div className="mt-1 text-sm font-medium text-gray-800 dark:text-gray-200">
+          {m.signals.map((s) => SIGNAL_META[s].tag).join(" · ")}
+        </div>
+        <div className="text-sm text-gray-600 dark:text-gray-400 tabular-nums">
+          {formatPrice(m.refPrice)}
+          {" → "}
+          <span className="font-semibold text-gray-900 dark:text-gray-100">{formatPrice(m.pAtSignal)}</span>
+          {` ${SIGNAL_META[m.signals[0]].window} `}
+          <span className={isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+            ({formatPctChange(m.pctChange)})
+          </span>
+        </div>
+        <HoldingLine m={m} />
       </div>
 
-      <div className="shrink-0 text-right">
-        <PriceLine m={m} />
+      <div className="shrink-0 flex flex-col items-end text-right">
         {m.dollarImpact != null && (
-          <div className={`text-sm font-semibold mt-1 ${impactColor(m.dollarImpact)}`}>
+          <div className={`text-lg font-semibold tabular-nums ${impactColor(m.dollarImpact)}`}>
             {formatImpact(m.dollarImpact)}
           </div>
         )}
-        <div className="mt-1">
+        <div className="text-xs text-gray-600 dark:text-gray-400">
+          your {m.quantity} {m.quantity === 1 ? "copy" : "copies"}
+        </div>
+        <div className="mt-auto pt-2">
           <CompactBuyLink url={m.tcgplayerUrl} feature={`${featurePrefix}${m.signals[0]}`} />
         </div>
       </div>
