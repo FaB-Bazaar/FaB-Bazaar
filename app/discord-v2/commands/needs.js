@@ -179,7 +179,7 @@ export async function handleNeedsMode(customId, body) {
       return NextResponse.json({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-          content: `🎉 You own everything for **${deckLabel}** (${modeLabel}). Ready to sleeve up!`,
+          content: `You own everything for **${deckLabel}** (${modeLabel}). Ready to sleeve up!`,
           flags,
         },
       });

@@ -176,6 +176,7 @@ describe('handleNeedsMode — the needs list', () => {
     const response = await handleNeedsMode('needs_mode:eph:pub-aaa:card', body);
     const json = await response.json();
     expect(json.data.content).toContain('own everything');
+    expect(json.data.content).not.toContain('🎉');
   });
 });
 
