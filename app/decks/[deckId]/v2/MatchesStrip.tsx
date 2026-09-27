@@ -15,6 +15,8 @@ const ZONE_NOTE: Partial<Record<TableZone, string>> = {
   benched: "Maybe pile",
 };
 
+const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
+
 export default function MatchesStrip({ deck, active, onClear }: { deck: DeckDTO; active: Lens; onClear: () => void }) {
   const matches = useMemo(
     () => partitionByLens(sortDeckTableRows(buildDeckTableRows(deck), null), active).matches,
@@ -40,11 +42,16 @@ export default function MatchesStrip({ deck, active, onClear }: { deck: DeckDTO;
                   src={r.details.image_url || "/cardback.webp"}
                   alt={r.name}
                   loading="lazy"
-                  className="w-full rounded-md ring-2 ring-amber-400"
+                  className="w-full rounded-md"
                 />
                 <span className="absolute right-1 top-1 rounded-sm bg-black/75 px-1.5 text-xs font-semibold tabular-nums text-white">×{r.qty}</span>
               </div>
-              <p className="mt-1 truncate text-xs text-gray-800 dark:text-gray-200" title={r.name}>{r.name}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-800 dark:text-gray-200" title={r.name}>
+                {r.pitch != null && PITCH_DOT[r.pitch] && (
+                  <span role="img" aria-label={`Pitch ${r.pitch}`} className={`h-2 w-2 flex-shrink-0 rounded-full ${PITCH_DOT[r.pitch]}`} />
+                )}
+                <span className="truncate">{r.name}</span>
+              </p>
               {ZONE_NOTE[r.zone] && <p className="text-[11px] text-gray-500 dark:text-gray-400">{ZONE_NOTE[r.zone]}</p>}
             </li>
           ))}
