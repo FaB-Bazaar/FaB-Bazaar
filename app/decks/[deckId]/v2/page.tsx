@@ -199,6 +199,20 @@ export default function DeckV2Page() {
     }
   };
 
+  // Copy someone else's deck into your own (signed-out → sign in first), then
+  // open the copy in v2.
+  const [copying, setCopying] = useState(false);
+  const copyDeck = async () => {
+    if (!deck) return;
+    if (!user) { router.push(`/auth/signin?callbackUrl=/decks/${deckId}/v2`); return; }
+    setCopying(true);
+    const result = await decksClient.copyDeck(deckId, `Copy of ${deck.name}`);
+    setCopying(false);
+    if (!result.success) { fail("Error", result.error || "Failed to copy deck."); return; }
+    toast({ title: "Deck copied", description: "Copied to your decks." });
+    router.push(`/decks/${result.data.publicId}/v2`);
+  };
+
   // Brew adds: a zone + quantity chosen on the tile / details panel.
   const addToZone = async (printingId: string, zone: DeckCategory, quantity: number) => {
     const result = await decksClient.addPrintings(deckId, [{ printingId, quantity, category: zone }]);
@@ -404,11 +418,27 @@ export default function DeckV2Page() {
 
         {/* Deck */}
         <main className="min-w-0 flex-1 px-6 py-5">
-          <header className="mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{deck.name}</h1>
-            <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-              {[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
-            </p>
+          <header className="mb-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{deck.name}</h1>
+              <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                {[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+            {/* Someone else's deck: read only, but you can take a copy (classic parity). */}
+            {!canEdit && (
+              <div className="flex shrink-0 items-center gap-3 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Read only</span>
+                <button
+                  type="button"
+                  onClick={copyDeck}
+                  disabled={copying}
+                  className="rounded-sm border border-gray-400 bg-gray-100 px-3 py-1 text-gray-900 hover:bg-gray-200 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                >
+                  {copying ? "Copying…" : "Copy deck"}
+                </button>
+              </div>
+            )}
           </header>
           {mainMode === "results" ? (
             <section aria-label="Results">
@@ -481,6 +511,14 @@ export default function DeckV2Page() {
             onRemoveTile={(id, category, qty) => setQty(id, category, qty, -1)}
             onAddOneTile={(id, category, qty) => setQty(id, category, qty, 1)}
             onAddCard={category => setAddTarget(category)}
+            // Card lightbox: swap 1..N copies to another printing (classic parity).
+            onSwapCopies={async (oldPrintingId, newPrintingId, category, copies) => {
+              const result = await decksClient.swapPrinting(deckId, oldPrintingId, newPrintingId, category, copies);
+              await handlers.refreshDeck();
+              if (!result.success) { fail("Could not change printing", result.error); return false; }
+              toast({ title: "Printing updated", description: `${copies} ${copies === 1 ? "copy" : "copies"} moved to the selected printing.` });
+              return true;
+            }}
             // Panel-row highlights stay in place (the panel stays usable); Cmd+K
             // highlights get the classic full-screen focus overlay.
             inPlaceHighlight={!!active}
