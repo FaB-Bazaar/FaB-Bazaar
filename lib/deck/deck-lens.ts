@@ -121,3 +121,10 @@ export function pitchSplit(deck: DeckDTO): { red: number; yellow: number; blue: 
   }
   return { ...split, averageCost: costed ? costSum / costed : null }
 }
+
+/** How the panel names a lens: '"discard" in text', 'Defense reaction', 'Go again'. */
+export function lensLabel(lens: { stat: 'text' | 'type' | 'keyword'; value: string }): string {
+  if (lens.stat === 'text') return `"${lens.value}" in text`
+  if (lens.stat === 'type') return TYPE_BUCKETS.find(b => b.value === lens.value)?.label ?? lens.value
+  return lens.value.charAt(0).toUpperCase() + lens.value.slice(1)
+}

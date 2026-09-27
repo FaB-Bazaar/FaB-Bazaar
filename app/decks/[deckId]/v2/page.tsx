@@ -7,10 +7,10 @@
 // deck itself, QuickAddCardDialog for adds, and the `deck-highlight-*` events
 // for highlighting. Desktop only for now; phones get a link to the classic page.
 
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, FileText, Loader2, Plus, Search, Swords } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, FileText, Loader2, Search, Swords } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -26,8 +26,12 @@ import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./FindPanel";
 import DeckTable from "./DeckTable";
 import MatchesStrip from "./MatchesStrip";
+import BrewView from "./BrewView";
 
-type PanelId = "add" | "find" | "stats";
+type PanelId = "find" | "stats";
+type View = "table" | "cards" | "brew";
+const VIEWS: View[] = ["table", "cards", "brew"];
+const VIEW_LABEL: Record<View, string> = { table: "Table", cards: "Cards", brew: "Brew" };
 
 const VIEW_KEY = "deckV2View";
 
@@ -48,11 +52,14 @@ export default function DeckV2Page() {
   const [panel, setPanel] = useState<PanelId | null>("find");
   const [active, setActive] = useState<Active>(null);
   // Table (one spreadsheet, matches lifted to the top) or the classic card views.
-  const [view, setView] = useState<"table" | "cards">("table");
+  const [view, setView] = useState<View>("table");
   useEffect(() => {
-    try { if (localStorage.getItem(VIEW_KEY) === "cards") setView("cards"); } catch { /* default */ }
+    try {
+      const saved = localStorage.getItem(VIEW_KEY) as View | null;
+      if (saved && VIEWS.includes(saved)) setView(saved);
+    } catch { /* default */ }
   }, []);
-  const chooseView = (v: "table" | "cards") => {
+  const chooseView = (v: View) => {
     setView(v);
     try { localStorage.setItem(VIEW_KEY, v); } catch { /* per-viewer convenience only */ }
   };
@@ -65,6 +72,41 @@ export default function DeckV2Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- replay on view switch only
   }, [view]);
   const [addTarget, setAddTarget] = useState<DeckCategory | null>(null);
+
+  // Keyboard: Cmd/Ctrl+K opens Find in deck with its box focused; a 9 / 8 / 7
+  // pressed right after opens the card search for main deck / inventory / bench
+  // (the classic page's chord). A bare "+" (outside a text box) opens the card
+  // search for the main deck.
+  const chordAtRef = useRef(0);
+  useEffect(() => {
+    const CHORD_MS = 1500;
+    const ZONE_KEYS: Record<string, DeckCategory> = { "9": "maindeck", "8": "inventory", "7": "benched" };
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPanel("find");
+        chordAtRef.current = Date.now();
+        requestAnimationFrame(() => document.getElementById("find-text-input")?.focus());
+        return;
+      }
+      const armed = Date.now() - chordAtRef.current < CHORD_MS;
+      chordAtRef.current = 0;
+      if (addTarget || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (armed && ZONE_KEYS[e.key]) {
+        e.preventDefault(); // don't type the digit into the focused find box
+        if (canEdit) setAddTarget(ZONE_KEYS[e.key]);
+        return;
+      }
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (e.key === "+" && !typing && canEdit) {
+        e.preventDefault();
+        setAddTarget("maindeck");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [addTarget, canEdit]);
   const [swapTarget, setSwapTarget] = useState<SwapTarget | null>(null);
 
   // Same visibility rule as the classic page: a private deck the viewer can't
@@ -130,7 +172,6 @@ export default function DeckV2Page() {
   };
 
   const rail: RailItem[] = [
-    ...(canEdit ? [{ kind: "panel" as const, id: "add" as const, label: "Add cards", icon: Plus }] : []),
     { kind: "panel", id: "find", label: "Find in deck", icon: Search },
     { kind: "panel", id: "stats", label: "Stats", icon: BarChart3 },
     { kind: "link", href: `/decks/${deckId}/matchups`, label: "Matchups", icon: Swords },
@@ -193,8 +234,7 @@ export default function DeckV2Page() {
         {/* Flyout panel */}
         {panel && (
           <aside aria-label="Deck tool panel" className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-r border-gray-300 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950">
-            {panel === "find" && <FindPanel deck={deck} deckId={deckId} active={active} setActive={setActive} />}
-            {panel === "add" && canEdit && <AddPanel onPick={setAddTarget} />}
+            {panel === "find" && <FindPanel deck={deck} deckId={deckId} active={active} setActive={setActive} brewing={view === "brew"} />}
             {panel === "stats" && <StatsPanel deck={deck} deckId={deckId} />}
           </aside>
         )}
@@ -208,7 +248,7 @@ export default function DeckV2Page() {
             </p>
           </header>
           <div role="group" aria-label="Deck view" className="mb-3 inline-flex overflow-hidden rounded-sm border border-gray-300 text-sm dark:border-gray-700">
-            {(["table", "cards"] as const).map(v => (
+            {VIEWS.map(v => (
               <button
                 key={v}
                 type="button"
@@ -219,11 +259,13 @@ export default function DeckV2Page() {
                   view === v ? "bg-gray-200 font-semibold text-gray-900 dark:bg-gray-800 dark:text-white" : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900",
                 )}
               >
-                {v === "table" ? "Table" : "Cards"}
+                {VIEW_LABEL[v]}
               </button>
             ))}
           </div>
-          {view === "table" ? (
+          {view === "brew" ? (
+            <BrewView deck={deck} active={active} />
+          ) : view === "table" ? (
             <DeckTable
               deck={deck}
               active={active}
@@ -289,54 +331,8 @@ function deckSizeLabel(deck: NonNullable<ReturnType<typeof useDeckEditor>["state
   return z.inventory ? `${main} cards + ${z.inventory} inventory` : `${main} cards`;
 }
 
-const ZONES: Array<{ category: DeckCategory; label: string; hint: string }> = [
-  { category: "maindeck", label: "Main deck", hint: "Cards you play every game" },
-  { category: "inventory", label: "Inventory", hint: "Extra cards you bring and can swap in before a game" },
-  { category: "benched", label: "Bench", hint: "Ideas you're considering — never exported" },
-];
-
 const PANEL_H2 = "text-base font-semibold text-gray-900 dark:text-gray-100";
 const PANEL_H3 = "mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300";
-
-function AddPanel({ onPick }: { onPick: (category: DeckCategory) => void }) {
-  return (
-    <div className="space-y-5 text-sm text-gray-800 dark:text-gray-200">
-      <div>
-        <h2 className={PANEL_H2}>Add cards</h2>
-        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Choose where the cards go, then search.</p>
-      </div>
-      <ul className="border-t border-gray-200 dark:border-gray-800">
-        {ZONES.map(z => (
-          <li key={z.category} className="border-b border-gray-200 dark:border-gray-800">
-            <button type="button" onClick={() => onPick(z.category)} className="group w-full py-2 text-left">
-              <span className="block text-blue-700 group-hover:underline dark:text-blue-400">{z.label}</span>
-              <span className="block text-xs text-gray-600 dark:text-gray-400">{z.hint}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      <section>
-        <h3 className={PANEL_H3}>Search tips</h3>
-        <p>Type part of a card&rsquo;s name. Switch the search to <strong>Text</strong> to search what cards say instead. Filters can also be typed into the box:</p>
-        <table className="mt-2 w-full border-collapse text-xs">
-          <tbody>
-            {[
-              ["text:discard", "text mentions discard"],
-              ['keyword:"go again"', "has go again"],
-              ["t:instant", "instants only"],
-              ["color:blue cost<2", "cheap blues"],
-            ].map(([code, meaning]) => (
-              <tr key={code} className="border-b border-gray-200 dark:border-gray-800">
-                <td className="py-1 pr-3"><code className="font-mono text-gray-900 dark:text-gray-100">{code}</code></td>
-                <td className="py-1 text-gray-600 dark:text-gray-400">{meaning}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-    </div>
-  );
-}
 
 function StatsPanel({ deck, deckId }: { deck: NonNullable<ReturnType<typeof useDeckEditor>["state"]["deck"]>; deckId: string }) {
   const split = useMemo(() => pitchSplit(deck), [deck]);

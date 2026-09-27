@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
-import { countTextMatches, formatRatio, keywordTally, pitchSplit, playableCount, typeTally } from './deck-lens'
+import { countTextMatches, formatRatio, keywordTally, lensLabel, pitchSplit, playableCount, typeTally } from './deck-lens'
 
 const card = (id: string, quantity: number, details: Record<string, unknown>): DeckPrintingDTO => ({
   printingId: id,
@@ -113,5 +113,13 @@ describe('pitchSplit', () => {
 
   it('has no average cost when nothing has a cost', () => {
     expect(pitchSplit(deck({})).averageCost).toBeNull()
+  })
+})
+
+describe('lensLabel', () => {
+  it('names a lens the way the panel shows it', () => {
+    expect(lensLabel({ stat: 'text', value: 'discard' })).toBe('"discard" in text')
+    expect(lensLabel({ stat: 'type', value: 'defense-reaction' })).toBe('Defense reaction')
+    expect(lensLabel({ stat: 'keyword', value: 'go again' })).toBe('Go again')
   })
 })

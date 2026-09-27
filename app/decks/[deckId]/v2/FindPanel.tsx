@@ -42,11 +42,13 @@ function clearHighlight() {
 
 // `active` lives on the page so the Table view can lift matches, and so the
 // highlight survives switching panels.
-export default function FindPanel({ deck, deckId, active, setActive }: {
+export default function FindPanel({ deck, deckId, active, setActive, brewing = false }: {
   deck: DeckDTO;
   deckId: string;
   active: Active;
   setActive: Dispatch<SetStateAction<Active>>;
+  /** Brew tab: the same rows filter the legal pool instead of highlighting the deck. */
+  brewing?: boolean;
 }) {
   const [lenses, setLenses] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
@@ -111,9 +113,11 @@ export default function FindPanel({ deck, deckId, active, setActive }: {
   return (
     <div className="space-y-5 text-sm text-gray-800 dark:text-gray-200">
       <div>
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Find in deck</h2>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{brewing ? "Find cards to add" : "Find in deck"}</h2>
         <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-          Counts cover your main deck, equipment and inventory ({total} cards). Click a row to highlight those cards.
+          {brewing
+            ? <>Click a row to show legal cards you don&rsquo;t play yet. Numbers are what your deck already has ({total} cards).</>
+            : <>Counts cover your main deck, equipment and inventory ({total} cards). Click a row to highlight those cards.</>}
           {active && (
             <> <button type="button" onClick={clear} className="text-blue-700 underline hover:no-underline dark:text-blue-400">Clear highlight</button></>
           )}
