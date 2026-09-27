@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
-import { brewFacetRows, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck } from './brew'
+import { brewFacetRows, deckCopiesByZone, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck, pitchSiblings } from './brew'
 
 const card = (id: string, cardId: string): DeckPrintingDTO => ({
   printingId: id,
@@ -103,5 +103,41 @@ describe('brewFacetRows', () => {
       { value: 'r', label: 'Rare', copies: 3 },
       { value: 'c', label: 'Common', copies: 1 },
     ])
+  })
+})
+
+describe('notInDeck keep-list', () => {
+  it('keeps cards added during this Brew session visible even though they are now in the deck', () => {
+    const deck = { hero: [], equipment: [], benched: [card('b', 'just-added')], maindeck: [card('m', 'old')], inventory: [] } as unknown as DeckDTO
+    const results = [{ unique_id: 'old' }, { unique_id: 'just-added' }, { unique_id: 'new' }]
+    expect(notInDeck(results, deck, new Set(['just-added'])).map(r => r.unique_id)).toEqual(['just-added', 'new'])
+  })
+})
+
+describe('deckCopiesByZone', () => {
+  it('counts a card per zone, naming the printing to undo from', () => {
+    const deck = {
+      hero: [], equipment: [],
+      maindeck: [withDetails('p1', 2, { card_unique_id: 'c' }), withDetails('p9', 3, { card_unique_id: 'other' })],
+      inventory: [],
+      benched: [withDetails('p2', 1, { card_unique_id: 'c' }), withDetails('p3', 1, { card_unique_id: 'c' })],
+    } as unknown as DeckDTO
+    expect(deckCopiesByZone(deck, 'c')).toEqual([
+      { zone: 'maindeck', qty: 2, printingId: 'p1' },
+      { zone: 'benched', qty: 2, printingId: 'p3' },
+    ])
+    expect(deckCopiesByZone(deck, 'missing')).toEqual([])
+  })
+})
+
+describe('pitchSiblings', () => {
+  it('returns every loaded card sharing the name, red → yellow → blue', () => {
+    const cards = [
+      { unique_id: 'b', name: 'Sink Below', pitch: 3 },
+      { unique_id: 'x', name: 'Other', pitch: 1 },
+      { unique_id: 'r', name: 'Sink Below', pitch: 1 },
+      { unique_id: 'y', name: 'Sink Below', pitch: 2 },
+    ]
+    expect(pitchSiblings(cards, cards[0]).map(c => c.unique_id)).toEqual(['r', 'y', 'b'])
   })
 })

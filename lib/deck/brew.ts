@@ -23,8 +23,10 @@ export function lensToSearchFilters(lens: Lens | null): Partial<PrintingsSearchF
   return TYPE_FILTERS[lens.value] ?? { types: [lens.value] }
 }
 
-/** Search results (grouped by card) minus cards already anywhere in the deck — bench included. */
-export function notInDeck<T extends { unique_id: string }>(results: T[], deck: DeckDTO): T[] {
+/** Search results (grouped by card) minus cards already anywhere in the deck — bench included.
+ *  `keep`: cards added during this Brew session stay put (with their badge)
+ *  instead of vanishing from under the cursor. */
+export function notInDeck<T extends { unique_id: string }>(results: T[], deck: DeckDTO, keep?: Set<string>): T[] {
   const inDeck = new Set<string>()
   for (const zone of ['hero', 'equipment', 'maindeck', 'inventory', 'benched'] as const) {
     for (const c of ((deck[zone] as DeckPrintingDTO[] | undefined) ?? [])) {
@@ -32,7 +34,32 @@ export function notInDeck<T extends { unique_id: string }>(results: T[], deck: D
       if (id) inDeck.add(id)
     }
   }
-  return results.filter(r => !inDeck.has(r.unique_id))
+  return results.filter(r => keep?.has(r.unique_id) || !inDeck.has(r.unique_id))
+}
+
+const DECK_ZONES = ['hero', 'equipment', 'maindeck', 'inventory', 'benched'] as const
+type DeckZone = (typeof DECK_ZONES)[number]
+
+/** Copies of one card per zone, for a Brew tile's badge; `printingId` is the
+ *  printing an undo removes a copy of (the last one listed in that zone). */
+export function deckCopiesByZone(deck: DeckDTO, cardUniqueId: string): Array<{ zone: DeckZone; qty: number; printingId: string }> {
+  const out: Array<{ zone: DeckZone; qty: number; printingId: string }> = []
+  for (const zone of DECK_ZONES) {
+    let qty = 0
+    let printingId = ''
+    for (const c of ((deck[zone] as DeckPrintingDTO[] | undefined) ?? [])) {
+      if (c.printingDetails?.card_unique_id !== cardUniqueId) continue
+      qty += c.quantity ?? 1
+      printingId = c.printingId
+    }
+    if (qty > 0) out.push({ zone, qty, printingId })
+  }
+  return out
+}
+
+/** Every loaded card sharing this card's name (its pitch variants), red → yellow → blue. */
+export function pitchSiblings<T extends { name: string; pitch: number | null }>(cards: T[], card: T): T[] {
+  return cards.filter(c => c.name === card.name).sort((a, b) => (a.pitch ?? 9) - (b.pitch ?? 9))
 }
 
 /** Brew-only picks, one per section, ANDed with each other and the lens. */

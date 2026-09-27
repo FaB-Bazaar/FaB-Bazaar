@@ -67,11 +67,13 @@ function RulesInline({ text }: { text: string }) {
   return <>{paras.flat().map(renderRulesSegment)}</>;
 }
 
-function RulesText({ text }: { text: string }) {
+/** Exported for deck v2's Brew details panel; `className` sets the text colour
+ *  (default: the lightbox's light-on-dark). */
+export function RulesText({ text, className = "text-gray-200" }: { text: string; className?: string }) {
   const paras = parseRulesText(text);
   if (paras.length === 0) return null;
   return (
-    <div className="space-y-1.5 text-sm leading-snug text-gray-200">
+    <div className={`space-y-1.5 text-sm leading-snug ${className}`}>
       {paras.map((segs, i) => (
         <p key={i}>{segs.map(renderRulesSegment)}</p>
       ))}

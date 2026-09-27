@@ -131,6 +131,17 @@ export default function DeckV2Page() {
     await handlers.refreshDeck();
   };
 
+  // Brew adds: a zone + quantity chosen on the tile / details panel.
+  const addToZone = async (printingId: string, zone: DeckCategory, quantity: number) => {
+    const result = await decksClient.addPrintings(deckId, [{ printingId, quantity, category: zone }]);
+    // The bulk route answers 200 with per-row outcomes (copy caps, legality).
+    const rowError = result.success
+      ? result.data?.results?.find(r => r.printingId === printingId && !r.success)?.error
+      : result.error;
+    if (rowError) fail("Add failed", rowError);
+    await handlers.refreshDeck();
+  };
+
   const setQty = async (printingId: string, category: DeckCategory, currentQty: number, delta: 1 | -1) => {
     const result = delta > 0
       ? await decksClient.addPrintings(deckId, [{ printingId, quantity: 1, category }])
@@ -266,7 +277,18 @@ export default function DeckV2Page() {
             ))}
           </div>
           {view === "brew" ? (
-            <BrewView deck={deck} active={active} facets={facets} />
+            <BrewView
+              deck={deck}
+              active={active}
+              facets={facets}
+              canEdit={canEdit}
+              onAdd={addToZone}
+              onRemoveOne={async (printingId, zone) => {
+                const result = await decksClient.removePrinting(deckId, printingId, zone, 1);
+                if (!result.success) fail("Remove failed", result.error);
+                await handlers.refreshDeck();
+              }}
+            />
           ) : view === "table" ? (
             <DeckTable
               deck={deck}
