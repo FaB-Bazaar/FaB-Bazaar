@@ -7,16 +7,18 @@
 // deck itself, QuickAddCardDialog for adds, and the `deck-highlight-*` events
 // for highlighting. Desktop only for now; phones get a link to the classic page.
 
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, FileText, Loader2, Search, Swords } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, Command, FileText, Loader2, Search, Swords } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { decksClient } from "@/lib/client";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
+import { useDeckCommandHud } from "@/components/deck/editor/useDeckCommandHud";
+import { useBinderWantsActions } from "@/hooks/deck/useBinderWantsActions";
 import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
@@ -65,6 +67,21 @@ export default function DeckV2Page() {
   useEffect(() => { setRatios(sanitizeRatios(JSON.parse(savedRatiosKey)) ?? []); }, [savedRatiosKey]);
   const [compareId, setCompareId] = useState<string | null>(null);
   const compareRatio = ratios.find(r => r.id === compareId) ?? null;
+
+  // Rail "Deck": open the Deck panel and start clean — highlight, Brew picks,
+  // kit, ratio comparison, owned/unowned view and the Find box all reset
+  // (pinned Find words stay; remounting the panel clears its box).
+  const [findKey, setFindKey] = useState(0);
+  const resetToDeck = () => {
+    setPanel("find");
+    setActive(null);
+    setFacets({});
+    setKitId("");
+    setCompareId(null);
+    setFindKey(k => k + 1);
+    window.dispatchEvent(new CustomEvent("deck-highlight-clear"));
+    window.dispatchEvent(new CustomEvent("deck-ownership-filter", { detail: { filter: "all", setExplicit: true } }));
+  };
   // Table (one spreadsheet, matches lifted to the top) or the classic card views.
   const [view, setView] = useState<View>("table");
   useEffect(() => {
@@ -87,30 +104,25 @@ export default function DeckV2Page() {
   }, [view]);
   const [addTarget, setAddTarget] = useState<DeckCategory | null>(null);
 
-  // Keyboard: Cmd/Ctrl+K opens Find in deck with its box focused; a 9 / 8 / 7
-  // pressed right after opens the card search for main deck / inventory / bench
-  // (the classic page's chord). A bare "+" (outside a text box) opens the card
-  // search for the main deck.
-  const chordAtRef = useRef(0);
+  // Deck Tools HUD (Cmd/Ctrl+K) — the classic page's chords, overlay and
+  // ownership views, shared via useDeckCommandHud. 9 / 8 / 7 inside it open the
+  // card search for main deck / inventory / bench.
+  const { chordMode, setChordMode, hud: commandHud } = useDeckCommandHud({
+    deck: state.deck ?? null,
+    deckId,
+    canEdit,
+    openQuickAdd: t => { if (canEdit) setAddTarget(t.category); },
+  });
+
+  // Binders + add-to-binder / add-to-wants for the card grid (collector mode) —
+  // shared with the classic page.
+  const { binders, selectedBinderId, handleBinderChange, handleAddToBinder, handleAddToWants } =
+    useBinderWantsActions({ user, refreshDeck: handlers.refreshDeck, refreshWants: handlers.refreshWants });
+
+  // A bare "+" (outside a text box, HUD closed) opens the card search for the main deck.
   useEffect(() => {
-    const CHORD_MS = 1500;
-    const ZONE_KEYS: Record<string, DeckCategory> = { "9": "maindeck", "8": "inventory", "7": "benched" };
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPanel("find");
-        chordAtRef.current = Date.now();
-        requestAnimationFrame(() => document.getElementById("find-text-input")?.focus());
-        return;
-      }
-      const armed = Date.now() - chordAtRef.current < CHORD_MS;
-      chordAtRef.current = 0;
-      if (addTarget || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (armed && ZONE_KEYS[e.key]) {
-        e.preventDefault(); // don't type the digit into the focused find box
-        if (canEdit) setAddTarget(ZONE_KEYS[e.key]);
-        return;
-      }
+      if (chordMode || addTarget || e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target as HTMLElement | null;
       const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
       if (e.key === "+" && !typing && canEdit) {
@@ -120,7 +132,8 @@ export default function DeckV2Page() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [addTarget, canEdit]);
+  }, [chordMode, addTarget, canEdit]);
+
   const [swapTarget, setSwapTarget] = useState<SwapTarget | null>(null);
 
   // Same visibility rule as the classic page: a private deck the viewer can't
@@ -215,7 +228,7 @@ export default function DeckV2Page() {
   };
 
   const rail: RailItem[] = [
-    { kind: "panel", id: "find", label: "Find in deck", icon: Search },
+    { kind: "panel", id: "find", label: "Deck", icon: Search },
     { kind: "panel", id: "stats", label: "Stats", icon: BarChart3 },
     { kind: "link", href: `/decks/${deckId}/matchups`, label: "Matchups", icon: Swords },
     ...(canEdit ? [{ kind: "link" as const, href: `/decks/${deckId}/notes`, label: "Notes", icon: FileText }] : []),
@@ -263,11 +276,30 @@ export default function DeckV2Page() {
                 : "border-l-transparent text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
             );
             return item.kind === "panel" ? (
-              <button key={item.id} type="button" aria-pressed={selected} onClick={() => setPanel(selected ? null : item.id)} className={cls}>{inner}</button>
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={selected}
+                // "Deck" is home base: always open, and a fresh start — every filter resets.
+                onClick={() => (item.id === "find" ? resetToDeck() : setPanel(selected ? null : item.id))}
+                className={cls}
+              >
+                {inner}
+              </button>
             ) : (
               <Link key={item.href} href={item.href} className={cls}>{inner}</Link>
             );
           })}
+          {/* Deck Tools HUD — same as Cmd/Ctrl+K */}
+          <button
+            type="button"
+            onClick={() => setChordMode("select")}
+            aria-label="Tools (Cmd+K)"
+            className="flex w-full flex-col items-center gap-1 border-b border-l-[3px] border-b-gray-200 border-l-transparent px-1 py-3 text-gray-700 hover:bg-gray-100 dark:border-b-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Command className="h-5 w-5" />
+            <span className="text-[11px] leading-tight text-center">Tools <span className="text-gray-500">⌘K</span></span>
+          </button>
           <Link href={`/decks/${deckId}`} className="mt-auto flex w-full flex-col items-center gap-1 border-t border-gray-200 px-1 py-3 text-gray-600 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">
             <ArrowLeft className="h-5 w-5" />
             <span className="text-[11px] leading-tight">Classic view</span>
@@ -279,6 +311,7 @@ export default function DeckV2Page() {
           <aside aria-label="Deck tool panel" className="sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 overflow-y-auto border-r border-gray-300 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950">
             {panel === "find" && (
               <FindPanel
+                key={findKey}
                 deck={deck} deckId={deckId} active={active} setActive={setActive}
                 brewing={view === "brew"} facets={facets} setFacets={setFacets}
                 onSaveRatio={canEdit ? (a, b) => saveRatios([...ratios, { id: `r-${Date.now().toString(36)}`, a: { kind: "text", value: a }, b: { kind: "text", value: b } }]) : undefined}
@@ -378,10 +411,17 @@ export default function DeckV2Page() {
             onAddCard={category => setAddTarget(category)}
             inPlaceHighlight
             onHighlightCleared={() => setActive(null)}
+            binders={binders}
+            selectedBinderId={selectedBinderId}
+            onBinderChange={handleBinderChange}
+            onAddToBinder={handleAddToBinder}
+            onAddToWants={handleAddToWants}
           />
           </>
           )}
         </main>
+
+        {commandHud}
 
         {/* Right-hand column for Brew's card details (portalled in). Collapses to
             nothing while empty, so other views keep the full width. */}
