@@ -66,7 +66,18 @@ export async function createSeededDeck(page: Page, opts: DeckFixtureOptions = {}
 1x Arcane Lantern`
 
   const deckId = await createEmptyDeck(page, opts)
+  // The deck exists from here on — a failed seed must not leak it, since the
+  // caller never gets the id to clean up in its finally.
+  try {
+    await seedDeck(page, deckId, seedList)
+  } catch (err) {
+    await deleteDeck(page, deckId)
+    throw err
+  }
+  return deckId
+}
 
+async function seedDeck(page: Page, deckId: string, seedList: string) {
   await page.getByRole('button', { name: /^add cards$/i }).click()
   const textarea = page.locator('textarea').first()
   await expect(textarea).toBeVisible()
@@ -81,8 +92,13 @@ export async function createSeededDeck(page: Page, opts: DeckFixtureOptions = {}
   await expect(saveBtn).toBeVisible({ timeout: 5000 })
   await saveBtn.click()
   await expect(saveBtn).not.toBeVisible({ timeout: 20000 })
-
-  return deckId
+  // The save button hides optimistically — wait until the cards are stored.
+  await expect.poll(async () => {
+    const res = await page.request.get(`/api/decks/${deckId}`)
+    const body = res.ok() ? await res.json() : null
+    const d = body?.data ?? {}
+    return ['equipment', 'maindeck', 'inventory', 'benched'].reduce((n, z) => n + (d[z]?.length ?? 0), 0)
+  }, { timeout: 30000 }).toBeGreaterThan(0)
 }
 
 export async function deleteDeck(page: Page, deckId: string) {

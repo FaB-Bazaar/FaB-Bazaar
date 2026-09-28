@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // Deletes fixture decks a timed-out test left behind (see the file).
+  globalTeardown: './e2e/helpers/global-teardown.ts',
   use: {
     // Override when the dev server lands on another port (e.g. 3000 already taken).
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
