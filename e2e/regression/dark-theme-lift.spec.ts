@@ -45,3 +45,23 @@ test('dark mode: hover colours still apply on lifted surfaces', async ({ page })
   await cards.hover()
   await expect.poll(() => cards.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(31, 41, 55)') // gray-800 hover
 })
+
+// Semi-transparent variants lift too, keeping their opacity: e.g. the classic
+// deck page's stat chips (dark:bg-gray-900/60) and v2's Table group rows
+// (dark:bg-gray-800/60).
+test('dark mode: opacity variants are lifted with the same alpha', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('cookieConsent', 'true')
+    localStorage.setItem('cookieConsentOptions', JSON.stringify({ necessary: true, analytics: false }))
+    localStorage.setItem('darkMode', 'true')
+    localStorage.setItem('deckV2View', 'table')
+  })
+  await page.goto('/decks/TofxuKKxD0ESwVR93b5AC')
+  const chip = page.locator('span.dark\\:bg-gray-900\\/60').first()
+  await expect(chip).toBeAttached({ timeout: 60000 })
+  expect(await chip.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(24, 33, 50, 0.6)')
+  await page.goto('/decks/TofxuKKxD0ESwVR93b5AC/v2')
+  const groupRow = page.locator('tr.dark\\:bg-gray-800\\/60').first()
+  await expect(groupRow).toBeAttached({ timeout: 60000 })
+  expect(await groupRow.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(38, 49, 69, 0.6)')
+})

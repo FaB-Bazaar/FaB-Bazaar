@@ -194,8 +194,8 @@
      gray-950 #030712 → #111827   gray-900 #111827 → #182132   gray-800 #1f2937 → #263145
    Pages paint their own backgrounds with these utilities (174× dark:bg-gray-900),
    so remapping them here is the one place that changes the whole site; delete
-   this block (and restore --page) to revert. Opacity variants (…/60) are not
-   remapped. Light mode is unaffected (these selectors only apply under .dark).
+   this block (and restore --page) to revert. Opacity variants (…/60) are
+   remapped below with the same alpha. Light mode is unaffected (these selectors only apply under .dark).
    No !important on purpose (it would freeze hover states). Tailwind emits
    `.dark\:bg-gray-900:is(.dark *)` (0,2,0) AFTER this file's own rules, so the
    `html` type selector (0,2,1) is what makes these win over the base colour,
@@ -204,3 +204,16 @@
 html.dark .dark\:bg-gray-950 { background-color: #111827; }
 html.dark .dark\:bg-gray-900 { background-color: #182132; }
 html.dark .dark\:bg-gray-800 { background-color: #263145; }
+/* Opacity variants in use — same lifted colours, same alpha. Add a line here if a new /NN appears. */
+html.dark .dark\:bg-gray-950\/95 { background-color: rgb(17 24 39 / 0.95); }
+html.dark .dark\:bg-gray-900\/20 { background-color: rgb(24 33 50 / 0.2); }
+html.dark .dark\:bg-gray-900\/30 { background-color: rgb(24 33 50 / 0.3); }
+html.dark .dark\:bg-gray-900\/40 { background-color: rgb(24 33 50 / 0.4); }
+html.dark .dark\:bg-gray-900\/50 { background-color: rgb(24 33 50 / 0.5); }
+html.dark .dark\:bg-gray-900\/60 { background-color: rgb(24 33 50 / 0.6); }
+html.dark .dark\:bg-gray-900\/85 { background-color: rgb(24 33 50 / 0.85); }
+html.dark .dark\:bg-gray-800\/20 { background-color: rgb(38 49 69 / 0.2); }
+html.dark .dark\:bg-gray-800\/40 { background-color: rgb(38 49 69 / 0.4); }
+html.dark .dark\:bg-gray-800\/50 { background-color: rgb(38 49 69 / 0.5); }
+html.dark .dark\:bg-gray-800\/60 { background-color: rgb(38 49 69 / 0.6); }
+html.dark .dark\:bg-gray-800\/80 { background-color: rgb(38 49 69 / 0.8); }
