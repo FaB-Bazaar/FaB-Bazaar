@@ -49,8 +49,6 @@ type View = "table" | "cards" | "brew";
 const VIEWS: View[] = ["table", "cards", "brew"];
 const VIEW_LABEL: Record<View, string> = { table: "Table", cards: "Cards", brew: "Brew" };
 
-const VIEW_KEY = "deckV2View";
-
 type RailItem =
   | { kind: "panel"; id: PanelId; label: string; icon: ComponentType<{ className?: string }> }
   | { kind: "link"; href: string; label: string; icon: ComponentType<{ className?: string }> }
@@ -115,19 +113,11 @@ function DeckV2Page() {
     window.dispatchEvent(new CustomEvent("deck-highlight-clear"));
     window.dispatchEvent(new CustomEvent("deck-ownership-filter", { detail: { filter: "all", setExplicit: true } }));
   };
-  // Cards (the classic card views, the default) or Table (one spreadsheet,
-  // matches lifted to the top); a viewer's own pick is remembered.
+  // Cards (the classic card views) or Table (one spreadsheet, matches lifted
+  // to the top). Every visit opens on Cards — by owner call, the pick is not
+  // remembered (the /v2 trial's saved "deckV2View" key is ignored).
   const [view, setView] = useState<View>("cards");
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(VIEW_KEY) as View | null;
-      if (saved && VIEWS.includes(saved)) setView(saved);
-    } catch { /* default */ }
-  }, []);
-  const chooseView = (v: View) => {
-    setView(v);
-    try { localStorage.setItem(VIEW_KEY, v); } catch { /* per-viewer convenience only */ }
-  };
+  const chooseView = (v: View) => setView(v);
   // The card views only hear highlight events while mounted — replay the active
   // one when they appear (child listeners attach before this parent effect runs).
   useEffect(() => {
