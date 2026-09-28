@@ -20,6 +20,9 @@ import { toTalisharIdentifier } from "@/lib/utils";
 import { canEditDeck } from "@/lib/utils/deck-permissions";
 import { useIsMobile } from "@/components/ui/use-mobile";
 
+// The matchups list as the client returns it (the grid's own type is private).
+type InitialMatchups = Extract<Awaited<ReturnType<typeof decksClient.getDeckMatchups>>, { success: true }>["data"]["matchups"] | undefined;
+
 // Defer the heavy manager (and its MatchupSideboardEditor child) until needed.
 const DeckMatchupsDialog = dynamic(() => import("@/components/deck/DeckMatchupsDialog"), {
   ssr: false,
@@ -33,6 +36,8 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [deck, setDeck] = useState<DeckDTO | null>(null);
+  // Fetched alongside the deck (not after it) and handed to the grid.
+  const [initialMatchups, setInitialMatchups] = useState<InitialMatchups>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Card-art fallback for heroes without a stylized portrait (heroPortraits.ts).
@@ -43,9 +48,12 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    decksClient.getDeck(deckId)
-      .then((deckRes) => {
+    // Deck + matchups in parallel — the grid used to fetch matchups only after
+    // the deck had loaded and it had mounted.
+    Promise.all([decksClient.getDeck(deckId), decksClient.getDeckMatchups(deckId).catch(() => null)])
+      .then(([deckRes, matchupsRes]) => {
         if (cancelled) return;
+        if (matchupsRes?.success) setInitialMatchups(matchupsRes.data.matchups || []);
         if (deckRes.success) setDeck(deckRes.data);
         else setError(deckRes.error || "Failed to load deck");
       })
@@ -143,6 +151,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
           // so tappable plans stay findable; desktop has the room to show them.
           collapseUnplanned={isMobile}
           heroCardImages={heroCardImages}
+          initialMatchups={initialMatchups}
         />
       </div>
     </div>

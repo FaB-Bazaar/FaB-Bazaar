@@ -66,6 +66,9 @@ interface DeckMatchupsDialogProps {
   // Talishar identifier → hero card image_url. Used as a portrait fallback for
   // heroes (especially young / SA / Blitz) without a stylized portrait file.
   heroCardImages?: Map<string, string>;
+  /** Matchups already fetched by the caller (the matchups page loads them in
+   *  parallel with the deck) — skips the dialog's own first fetch. */
+  initialMatchups?: DeckMatchup[];
 }
 
 // Convert a lowercase hero key to a display name, e.g. 'bravo, showstopper' → 'Bravo, Showstopper'
@@ -328,9 +331,11 @@ export default function DeckMatchupsDialog({
   initialEditHeroId = null,
   initialGalleryHeroId = null,
   heroCardImages,
+  initialMatchups,
 }: DeckMatchupsDialogProps) {
   const { toast } = useToast();
-  const [matchups, setMatchups] = useState<DeckMatchup[]>([]);
+  const [matchups, setMatchups] = useState<DeckMatchup[]>(initialMatchups ?? []);
+  const usedInitialMatchups = React.useRef(false);
   const [loading, setLoading] = useState(false);
   const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("matchups");
@@ -516,7 +521,9 @@ export default function DeckMatchupsDialog({
 
   useEffect(() => {
     if (open) {
-      fetchMatchups();
+      // First open with caller-provided matchups: no need to fetch them again.
+      if (initialMatchups && !usedInitialMatchups.current) usedInitialMatchups.current = true;
+      else fetchMatchups();
       buildAvailableCards();
     }
   }, [open, deckId]);
