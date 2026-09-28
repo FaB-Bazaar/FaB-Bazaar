@@ -1,6 +1,6 @@
 # Deck page v2 (`/decks/[deckId]/v2`)
 
-Experimental desktop deck page: a left rail (Deck · Stats · Matchups · Import list · Results · Notes · Present · Tools ⌘K · Classic view · Options) and three views — **Table** (one row per card, sortable), **Cards** (the classic tile/game grid) and **Brew** (the deck's legal pool minus what's already in it, with add-to-zone buttons). No in-app links point here yet; testers type `/v2` onto a deck URL. Phones (`useIsMobile`) render the classic page instead — resolved after the viewport is known, same timing rule as the classic page.
+Experimental desktop deck page: a left rail (Deck · Stats · Matchups · Import list · Results · Notes · Present · Tools ⌘K · Classic view · Options) and three views — **Cards** (the classic tile/game grid; the default, a viewer's own pick is remembered in localStorage), **Table** (one row per card, sortable) and **Brew** (the deck's legal pool minus what's already in it, with add-to-zone buttons). No in-app links point here yet; testers type `/v2` onto a deck URL. Phones (`useIsMobile`) render the classic page instead — resolved after the viewport is known, same timing rule as the classic page.
 
 ## Share, don't duplicate
 

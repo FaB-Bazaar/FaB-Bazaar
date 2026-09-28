@@ -114,8 +114,9 @@ function DeckV2Page() {
     window.dispatchEvent(new CustomEvent("deck-highlight-clear"));
     window.dispatchEvent(new CustomEvent("deck-ownership-filter", { detail: { filter: "all", setExplicit: true } }));
   };
-  // Table (one spreadsheet, matches lifted to the top) or the classic card views.
-  const [view, setView] = useState<View>("table");
+  // Cards (the classic card views, the default) or Table (one spreadsheet,
+  // matches lifted to the top); a viewer's own pick is remembered.
+  const [view, setView] = useState<View>("cards");
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_KEY) as View | null;
