@@ -59,7 +59,7 @@ test('Cmd+K → U hides card-level owned tiles and keeps missing ones', async ({
   const cardComparisonLoaded = page.waitForResponse(
     r => r.url().includes('/inventory-comparison') && r.url().includes('matchBy=card') && r.ok()
   )
-  await page.goto(`/decks/${deck!.publicId}`)
+  await page.goto(`/decks/${deck!.publicId}/deprecated`)
   await cardComparisonLoaded
 
   // Tile view is the desktop default for editors; both cards start visible.

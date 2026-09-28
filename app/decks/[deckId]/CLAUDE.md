@@ -2,6 +2,8 @@
 
 See `components/CLAUDE.md` for shared UI/WCAG standards.
 
+**Two pages (2026-09):** `page.tsx` is the rail deck page on desktop (`_components/`, see `_components/CLAUDE.md`); the classic page is `deprecated/page.tsx` — served at `/decks/[id]/deprecated` AND rendered by `page.tsx` on phones. The gotchas below are about the classic page unless they say otherwise; `v2/page.tsx` only redirects old tester links.
+
 ## Gotchas
 
 - **`[deckId]` is the deck's `public_id`** — internal `decks.id` in a URL/API call 404s even for the owner. When testing, take ids from page links, not the DB.
@@ -32,7 +34,7 @@ See `components/CLAUDE.md` for shared UI/WCAG standards.
 - **Deck Tools trigger has two homes** — on the xl deck tab it is the right rail's first row and the floating pill is `xl:hidden`; everywhere else it floats bottom-right (sm+) or bottom-center (phones). A fixed pill over the tile grid or the in-flow rail hides content at some scroll position, so don't re-float it on desktop. The rail itself is `position:fixed` once pinned and clamps its top to the content row's bottom so it never paints over the footer.
 - **Tiles are tab stops and actions reveal on `group-focus-within`** — an 80-card deck is ~480 stops (tile + up to 5 buttons); roving tabindex is parked, not forgotten.
 - **e2e: `createSeededDeck` waits for the stored seed (2026-09)** — the save button hides optimistically, so the helper now polls the deck API until the cards exist (it used to return early and the seed could be lost). A fixed-element overlap test must sweep scroll positions; a single position passed twice on the buggy pill.
-- **v2 (`./v2`) reuses this page's modules** — the Cmd+K HUD (`useDeckCommandHud`), collector binder/wants actions, the Options menu (`useDeckOptions`), `DeckBulkImport` and `lib/deck/highlight-filters` are shared by both pages; a change here lands on v2 too (see `v2/CLAUDE.md`).
+- **The rail page reuses the classic page's modules** — the Cmd+K HUD (`useDeckCommandHud`), collector binder/wants actions, the Options menu (`useDeckOptions`), `DeckBulkImport` and `lib/deck/highlight-filters` are shared by both pages; a change to one lands on both (see `_components/CLAUDE.md`).
 - **Two deck hooks, don't add useDeckPage consumers** — `useDeckEditor` powers the main deck page; `useDeckPage` (older, larger) powers ONLY the analyze page + PlaymatView/MobileDeckLayout/DeckPageDialogs typed against it. The main page already migrated off it; unification is parked, so new work should build on `useDeckEditor`.
 
 ## Custom Events

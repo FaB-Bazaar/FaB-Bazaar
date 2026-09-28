@@ -50,9 +50,13 @@ export async function createEmptyDeck(page: Page, opts: DeckFixtureOptions = {})
 
   await dialog.getByRole('button', { name: /^create deck$/i }).click()
   await page.waitForURL(/\/decks\/[^/]+$/, { timeout: 30000 })
+  const deckId = page.url().split('/decks/')[1].split('/')[0]
+  // /decks/[id] is the rail deck page; these helpers (and the specs built on
+  // them) drive the classic page, which lives on at /deprecated.
+  await page.goto(`/decks/${deckId}/deprecated`)
   await acceptCookies(page)
 
-  return page.url().split('/decks/')[1].split('/')[0]
+  return deckId
 }
 
 /**

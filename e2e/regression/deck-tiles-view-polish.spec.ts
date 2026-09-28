@@ -29,7 +29,7 @@ test.beforeAll(async ({ browser }) => {
     heroOption: /katsu,/i,
     seedList: '3 Sink Below (red)\n3 Sink Below (blue)',
   })
-  await page.goto(`/decks/${deckId}`)
+  await page.goto(`/decks/${deckId}/deprecated`)
   await expect(page.locator('#deck-section-red')).toBeVisible({ timeout: 20_000 })
   await page.getByRole('button', { name: /^tiles$/i }).click()
   await expect(page.locator(TILE_IMG)).toHaveCount(6, { timeout: 20_000 })
@@ -43,7 +43,7 @@ test.afterAll(async ({ browser }) => {
 })
 
 async function openTiles(page: Page) {
-  await page.goto(`/decks/${deckId}`)
+  await page.goto(`/decks/${deckId}/deprecated`)
   await expect(page.locator('#deck-section-red')).toBeVisible({ timeout: 20_000 })
   await page.getByRole('button', { name: /^tiles$/i }).click()
   await expect(page.locator(TILE_IMG).first()).toBeVisible()

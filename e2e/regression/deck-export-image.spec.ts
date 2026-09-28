@@ -22,7 +22,7 @@ async function gotoDeck(page: Page) {
     localStorage.setItem('cookieConsent', 'true')
     localStorage.setItem('cookieConsentOptions', JSON.stringify({ analytics: false }))
   })
-  await page.goto(`/decks/${DECK_ID}`)
+  await page.goto(`/decks/${DECK_ID}/deprecated`)
   await expect(page.locator('.animate-spin').first()).not.toBeVisible({ timeout: 20000 })
 }
 

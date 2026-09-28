@@ -34,7 +34,7 @@ test.beforeAll(async ({ browser }) => {
     seedList: '3 Sink Below (red)\n3 Snatch (red)\n3 Head Jab (red)\n3 Sink Below (blue)\n3 Snatch (blue)\n3 Head Jab (blue)',
   })
   // The save button hides optimistically; make sure the seed actually landed before closing the page.
-  await page.goto(`/decks/${deckId}`)
+  await page.goto(`/decks/${deckId}/deprecated`)
   await expect(tileImages(page)).toHaveCount(18, { timeout: 20_000 })
   await page.close()
 })
@@ -46,7 +46,7 @@ test.afterAll(async ({ browser }) => {
 })
 
 async function openTiles(page: Page) {
-  await page.goto(`/decks/${deckId}`)
+  await page.goto(`/decks/${deckId}/deprecated`)
   await expect(page.locator('#deck-section-red')).toBeVisible({ timeout: 20_000 })
   await page.getByRole('button', { name: /^tiles$/i }).click()
   await expect(tileImages(page).first()).toBeVisible()
