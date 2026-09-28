@@ -290,9 +290,9 @@ describe('HERO_AGE_CHIPS', () => {
 });
 
 describe('FORMAT_OPTIONS', () => {
-  it('covers the five supported formats, CC and Silver Age first', () => {
+  it('covers the six supported formats, CC (then Future CC) and Silver Age first', () => {
     expect(FORMAT_OPTIONS.map(o => o.value)).toEqual([
-      'cc', 'silver_age', 'blitz', 'll', 'commoner',
+      'cc', 'future_cc', 'silver_age', 'blitz', 'll', 'commoner',
     ]);
   });
 
@@ -374,5 +374,37 @@ describe('buildServerFilters — your collection', () => {
   it('omits the flag when off', () => {
     expect(buildServerFilters({ ...baseState, ownedOnly: false })).not.toHaveProperty('ownedOnly');
     expect(buildServerFilters(baseState)).not.toHaveProperty('ownedOnly');
+  });
+});
+
+describe('buildServerFilters — shorthand detection reaches every parser token', () => {
+  // A token the detector misses is sent as a literal name ("pummel pitch:2")
+  // and matches nothing — the /opt box and the deck Add Card dialog both.
+  const q = (query: string) => buildServerFilters({ ...baseState, query });
+
+  it('pitch: by number or colour', () => {
+    expect(q('pummel pitch:2')).toMatchObject({ name: 'pummel', pitch: 2 });
+    expect(q('sink below pitch:blue')).toMatchObject({ name: 'sink below', pitch: 3 });
+  });
+
+  it('numeric comparisons without a colon (cost<2, pow>5, def!3)', () => {
+    expect(q('cost<2')).toMatchObject({ costMax: 1 });
+    expect(q('pow>5')).toMatchObject({ powerMin: 6 });
+    expect(q('def!3')).toMatchObject({ defenseNot: [3] });
+    expect(q('cost<2').name).toBeUndefined();
+  });
+
+  it('the bare class-exclusion token (-generic / !gen)', () => {
+    expect(q('sink below -generic')).toMatchObject({ name: 'sink below', classesNot: ['generic'] });
+  });
+
+  it('the plural talents: prefix', () => {
+    expect(q('talents:draconic')).toMatchObject({ hasDraconic: true });
+  });
+
+  it('leaves plain names alone, hyphens and all', () => {
+    expect(q('pummel')).toEqual({ name: 'pummel' });
+    expect(q('snatch-a-roo')).toEqual({ name: 'snatch-a-roo' });
+    expect(q('power of the people').name).toBe('power of the people');
   });
 });

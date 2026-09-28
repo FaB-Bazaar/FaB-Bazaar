@@ -30,8 +30,10 @@ export const LANGUAGES: { code: string; label: string }[] = [
   { code: 'ja', label: 'Japanese' },
 ];
 
-// Detects whether the query string uses shorthand syntax (t:, p:<5, cost:, …).
-export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|k|text|format|p|arcane|health|life):/;
+// Detects whether the query string uses shorthand syntax (t:, p:<5, cost<2,
+// pitch:blue, -generic, …). A token missed here is sent as a literal name and
+// matches nothing, so keep it in step with the parser's patterns.
+export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talents?|tal|rarity|r|foil|f|set|edition|color|pitch|class|c|hero|h|keyword|k|text|format|p|arcane|health|life):|\b(cost|power|pow|defense|def|arcane|health|life)[<>!]\d|(?:^|\s)[-!][a-z]{2,}\b/i;
 
 export interface SearchUiState {
   query: string;
