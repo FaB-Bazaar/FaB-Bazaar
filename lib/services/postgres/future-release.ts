@@ -5,8 +5,8 @@
  *
  * Sets in the `excluded` category (welcome/demo decks, event tokens) never
  * count. Sets with a NULL release_date (unannounced) never count either — the
- * DB is the source of truth, so a set only enters the Future Classic
- * Constructed pool once its release date is registered in `sets`.
+ * DB is the source of truth, so a set's cards only enter the CC deck pool
+ * early once its release date is registered in `sets`.
  *
  * A CC deck's pool (the retired Future CC, folded into CC) = cc_legal OR this predicate, minus the CC banlist
  * and CC suspensions (see PostgresPrintingsService format handling).
