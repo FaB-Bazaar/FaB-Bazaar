@@ -290,9 +290,9 @@ describe('HERO_AGE_CHIPS', () => {
 });
 
 describe('FORMAT_OPTIONS', () => {
-  it('covers the six supported formats, CC (then Future CC) and Silver Age first', () => {
+  it('covers the five supported formats, CC and Silver Age first', () => {
     expect(FORMAT_OPTIONS.map(o => o.value)).toEqual([
-      'cc', 'future_cc', 'silver_age', 'blitz', 'll', 'commoner',
+      'cc', 'silver_age', 'blitz', 'll', 'commoner',
     ]);
   });
 

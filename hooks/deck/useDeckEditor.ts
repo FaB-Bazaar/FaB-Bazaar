@@ -17,16 +17,7 @@ import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckServic
 // re-exported here for existing importers (deck page).
 export { resolveHeroFilter } from '@/lib/deck/resolve-hero-filter';
 import { resolveHeroFilter } from '@/lib/deck/resolve-hero-filter';
-
-// Maps deck format strings to search API format codes
-const FORMAT_TO_SEARCH: Record<string, string> = {
-  "Classic Constructed": "cc",
-  "Future Classic Constructed": "future_cc",
-  "Blitz": "blitz",
-  "Commoner": "commoner",
-  "Living Legend": "ll",
-  "Silver Age": "silver_age",
-};
+import { DECK_FORMAT_TO_API_CODE as FORMAT_TO_SEARCH } from '@/lib/format-constants';
 
 function inferCategory(printing: any): DeckCategory {
   const types: string[] = (printing.types || []).map((t: string) => t.toLowerCase());

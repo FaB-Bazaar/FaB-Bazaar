@@ -47,7 +47,7 @@ describe('formatOptionsForHero', () => {
 
   it('offers an adult hero the adult-hero formats plus Limited', () => {
     expect(formatOptionsForHero(adult)).toEqual([
-      'Classic Constructed', 'Future Classic Constructed', 'Living Legend', 'Limited',
+      'Classic Constructed', 'Living Legend', 'Limited',
     ])
   })
 
@@ -59,7 +59,7 @@ describe('formatOptionsForHero', () => {
 
   it('falls back to every format when no hero is selected', () => {
     expect(formatOptionsForHero(undefined)).toEqual([
-      'Classic Constructed', 'Future Classic Constructed', 'Silver Age', 'Blitz', 'Commoner', 'Living Legend', 'Limited',
+      'Classic Constructed', 'Silver Age', 'Blitz', 'Commoner', 'Living Legend', 'Limited',
     ])
   })
 })
@@ -137,12 +137,12 @@ describe('formatShortLabel', () => {
   })
 })
 
-describe('deriveFormatFromHero — Future Classic Constructed', () => {
+describe('deriveFormatFromHero — spoiler-season heroes (Future CC folded into CC)', () => {
   const noFlags = { ccLegal: false, blitzLegal: false, silverAgeLegal: false, commonerLegal: false, llLegal: false }
 
-  it('derives Future CC for an adult hero whose only legality is a future-dated set', () => {
+  it('derives CC for an adult hero whose only legality is a future-dated set', () => {
     const h = hero({ ...noFlags, types: ['necromancer', 'hero', 'adult'], futureCcLegal: true })
-    expect(deriveFormatFromHero(h)).toBe('Future Classic Constructed')
+    expect(deriveFormatFromHero(h)).toBe('Classic Constructed')
   })
 
   it('still prefers CC when the hero is CC-legal today', () => {
@@ -150,12 +150,12 @@ describe('deriveFormatFromHero — Future Classic Constructed', () => {
     expect(deriveFormatFromHero(h)).toBe('Classic Constructed')
   })
 
-  it('does not derive Future CC for a young hero (adult-only format)', () => {
+  it('a spoiled young hero still derives CC (nothing else is legal yet)', () => {
     const h = hero({ ...noFlags, types: ['necromancer', 'hero', 'young'], futureCcLegal: true })
     expect(deriveFormatFromHero(h)).toBe('Classic Constructed')
   })
 
-  it('has a short chip label', () => {
-    expect(formatShortLabel('Future Classic Constructed')).toBe('Future CC')
+  it('CC keeps its short chip label', () => {
+    expect(formatShortLabel('Classic Constructed')).toBe('CC')
   })
 })

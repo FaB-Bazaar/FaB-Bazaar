@@ -66,7 +66,6 @@ export function deckFormatToSnake(format: string | null | undefined): string | u
     case 'Blitz': return 'blitz';
     case 'Commoner': return 'commoner';
     case 'Classic Constructed': return 'cc';
-    case 'Future Classic Constructed': return 'future_cc';
     case 'Living Legend': return 'll';
     default: return undefined;
   }
@@ -90,7 +89,6 @@ type FormatLegalFields = {
 const FORMAT_LEGAL_FIELD: Record<string, keyof FormatLegalFields> = {
   'Silver Age': 'silverAgeLegal',
   'Classic Constructed': 'ccLegal',
-  'Future Classic Constructed': 'futureCcLegal',
   'Blitz': 'blitzLegal',
   'Commoner': 'commonerLegal',
   'Living Legend': 'llLegal',
@@ -99,7 +97,9 @@ const FORMAT_LEGAL_FIELD: Record<string, keyof FormatLegalFields> = {
 export function validateFormatLegal(card: FormatLegalFields, format: string): Predicate {
   const field = FORMAT_LEGAL_FIELD[format];
   if (!field) return { ok: true };
-  const flag = card[field];
+  // CC decks also take spoiler-season cards (printed in a set not released
+  // yet) — Future CC was folded into CC; Talishar decides at play time.
+  const flag = format === 'Classic Constructed' ? (card.futureCcLegal ?? card.ccLegal) : card[field];
   if (flag === undefined) return { ok: true }; // missing data — skip rather than reject
   if (flag === false) return { ok: false, reason: `not legal in ${format}` };
   return { ok: true };
@@ -115,7 +115,6 @@ type FormatSuspendedFields = {
 const FORMAT_SUSPENDED_FIELD: Record<string, keyof FormatSuspendedFields> = {
   'Silver Age': 'silverAgeSuspended',
   'Classic Constructed': 'ccSuspended',
-  'Future Classic Constructed': 'ccSuspended',
   'Blitz': 'blitzSuspended',
   'Commoner': 'commonerSuspended',
 };

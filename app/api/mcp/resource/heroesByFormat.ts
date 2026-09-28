@@ -11,10 +11,10 @@
 import { getRedisClient } from '@/lib/redis';
 import type { HeroLegalityRow } from '@/lib/services/contracts/IPrintingsService';
 
-const CACHE_KEY = 'mcp:heroes-by-format:v1';
+const CACHE_KEY = 'mcp:heroes-by-format:v2'; // v2: future_cc folded into cc
 const CACHE_TTL_SECONDS = 86400; // 24h — legality only changes on the nightly pipeline
 
-export type HeroFormatKey = 'cc' | 'future_cc' | 'blitz' | 'silver_age' | 'commoner' | 'll';
+export type HeroFormatKey = 'cc' | 'blitz' | 'silver_age' | 'commoner' | 'll';
 
 interface HeroEntry {
   name: string; // lowercase canonical — pass to search_printings heroLegal
@@ -24,14 +24,16 @@ interface HeroEntry {
 
 type HeroesByFormat = Record<HeroFormatKey, { adult: HeroEntry[]; young: HeroEntry[] }>;
 
-// format key → the HeroLegalityRow boolean that marks legality in that format
-const FORMAT_FLAGS: Array<[HeroFormatKey, keyof HeroLegalityRow]> = [
-  ['cc', 'ccLegal'],
-  ['future_cc', 'futureCcLegal'],
-  ['blitz', 'blitzLegal'],
-  ['silver_age', 'silverAgeLegal'],
-  ['commoner', 'commonerLegal'],
-  ['ll', 'llLegal'],
+const isYoung = (r: HeroLegalityRow) => (r.types ?? []).includes('young');
+
+// format key → whether a hero row is legal there. CC also takes an ADULT hero
+// printed in a set not released yet (Future CC was folded into CC, 2026-09).
+const FORMAT_FLAGS: Array<[HeroFormatKey, (r: HeroLegalityRow) => boolean]> = [
+  ['cc', r => r.ccLegal === true || (r.futureCcLegal === true && !isYoung(r))],
+  ['blitz', r => r.blitzLegal === true],
+  ['silver_age', r => r.silverAgeLegal === true],
+  ['commoner', r => r.commonerLegal === true],
+  ['ll', r => r.llLegal === true],
 ];
 
 const toEntry = (r: HeroLegalityRow): HeroEntry => ({
@@ -50,10 +52,10 @@ const byDisplayName = (a: HeroEntry, b: HeroEntry) => a.displayName.localeCompar
  */
 export function groupHeroesByFormat(rows: HeroLegalityRow[]): HeroesByFormat {
   const result = {} as HeroesByFormat;
-  for (const [fmt, flag] of FORMAT_FLAGS) {
-    const legal = rows.filter(r => r[flag] === true);
-    const young = legal.filter(r => (r.types ?? []).includes('young'));
-    const adult = legal.filter(r => !(r.types ?? []).includes('young'));
+  for (const [fmt, isLegal] of FORMAT_FLAGS) {
+    const legal = rows.filter(isLegal);
+    const young = legal.filter(isYoung);
+    const adult = legal.filter(r => !isYoung(r));
     result[fmt] = {
       adult: adult.map(toEntry).sort(byDisplayName),
       young: young.map(toEntry).sort(byDisplayName),

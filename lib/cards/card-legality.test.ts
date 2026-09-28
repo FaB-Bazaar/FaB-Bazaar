@@ -54,21 +54,26 @@ describe('deckLegalityVerdict', () => {
   });
 });
 
-describe('deckLegalityVerdict — Future Classic Constructed', () => {
+describe('deckLegalityVerdict — CC decks take spoiler-season cards (Future CC folded in)', () => {
   it('reuses the CC verdict for a card that is CC-legal today', () => {
     const rows = formatLegalityRows({ cc_legal: true, blitz_legal: true });
-    expect(deckLegalityVerdict(rows, 'Future Classic Constructed', { future_release: false }))
-      .toMatchObject({ format: 'Future Classic Constructed', short: 'Future CC', status: 'legal' });
+    expect(deckLegalityVerdict(rows, 'Classic Constructed', { future_release: false }))
+      .toMatchObject({ format: 'Classic Constructed', short: 'CC', status: 'legal' });
   });
 
-  it('marks a not-yet-legal card from a future-dated set as legal', () => {
+  it('marks a not-yet-legal card from a future-dated set as legal in a CC deck', () => {
     const rows = formatLegalityRows({ cc_legal: false, blitz_legal: false, future_release: true });
-    expect(deckLegalityVerdict(rows, 'Future Classic Constructed', { future_release: true })?.status).toBe('legal');
+    expect(deckLegalityVerdict(rows, 'Classic Constructed', { future_release: true })?.status).toBe('legal');
+  });
+
+  it('a card that is not CC-legal and not from a future set stays not-legal', () => {
+    const rows = formatLegalityRows({ cc_legal: false, future_release: false });
+    expect(deckLegalityVerdict(rows, 'Classic Constructed', { future_release: false })?.status).toBe('not-legal');
   });
 
   it('keeps a CC ban even for a future-set card', () => {
     const rows = formatLegalityRows({ cc_legal: true, cc_banned: true });
-    expect(deckLegalityVerdict(rows, 'Future Classic Constructed', { future_release: true })?.status).toBe('banned');
+    expect(deckLegalityVerdict(rows, 'Classic Constructed', { future_release: true })?.status).toBe('banned');
   });
 
   it('does not add a sixth row to the per-card legality strip', () => {

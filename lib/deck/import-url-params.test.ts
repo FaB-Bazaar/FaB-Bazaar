@@ -146,11 +146,11 @@ describe('synthesizeFabraryText', () => {
   });
 });
 
-describe('Future Classic Constructed via URL import', () => {
-  test('accepts the format and its aliases', () => {
+describe('retired Future Classic Constructed via URL import', () => {
+  test('old format values and aliases import as Classic Constructed', () => {
     const fmt = (s: string) => parseImportUrlParams(new URLSearchParams({ format: s })).format;
-    expect(fmt('Future Classic Constructed')).toBe('Future Classic Constructed');
-    expect(fmt('fcc')).toBe('Future Classic Constructed');
-    expect(fmt('future cc')).toBe('Future Classic Constructed');
+    expect(fmt('Future Classic Constructed')).toBe('Classic Constructed');
+    expect(fmt('fcc')).toBe('Classic Constructed');
+    expect(fmt('future cc')).toBe('Classic Constructed');
   });
 });

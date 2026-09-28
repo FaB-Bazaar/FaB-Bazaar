@@ -15,7 +15,6 @@ import { useExcludedHeroIds } from '@/hooks/banned-cards/useExcludedHeroIds';
 
 const FORMATS: DeckFormat[] = [
   'Classic Constructed',
-  'Future Classic Constructed',
   'Blitz',
   'Silver Age',
   'Commoner',

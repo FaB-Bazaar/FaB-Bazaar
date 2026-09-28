@@ -3,8 +3,9 @@
  * Used when calling printings search API and other format-aware endpoints
  */
 export const DECK_FORMAT_TO_API_CODE: Record<string, string> = {
-  'Classic Constructed': 'cc',
-  'Future Classic Constructed': 'future_cc',
+  // A CC deck builds from the CC pool PLUS spoiler-season cards (sets not
+  // released yet) — the old Future CC pool, folded into CC (2026-09).
+  'Classic Constructed': 'future_cc',
   'Blitz': 'blitz',
   'Commoner': 'commoner',
   'Living Legend': 'll',

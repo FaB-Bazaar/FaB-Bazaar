@@ -90,7 +90,7 @@ describe('buildTranslateSystemPrompt', () => {
     expect(p).toContain('ninja');
     expect(p).toContain('go again');
     expect(p).toContain('defense reaction');
-    expect(p).toContain('future_cc');
+    expect(p).not.toContain('future_cc'); // retired — only the real formats
     expect(p).toMatch(/JSON/);
   });
 });

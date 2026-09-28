@@ -19,16 +19,9 @@ import { availableTypeChips } from "@/lib/deck/available-type-chips";
 import { useHeroPoolTypes } from "@/hooks/deck/useHeroPoolTypes";
 import { resolveMobileAddCategory, pickRemovalSlot, type MobileAddZone } from "@/lib/deck/mobile-add-zone";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
+import { DECK_FORMAT_TO_API_CODE as FORMAT_TO_SEARCH } from "@/lib/format-constants";
 
 const shorthandParser = new FABShorthandParser();
-
-const FORMAT_TO_SEARCH: Record<string, string> = {
-  "Classic Constructed": "cc",
-  "Blitz": "blitz",
-  "Commoner": "commoner",
-  "Living Legend": "ll",
-  "Silver Age": "silver_age",
-};
 
 function getMaxCopies(card: any): number {
   const types: string[] = (card.types || []).map((t: string) => t.toLowerCase());

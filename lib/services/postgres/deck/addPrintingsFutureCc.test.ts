@@ -1,7 +1,8 @@
 /**
- * Integration tests: PostgresDeckService.addPrintings on a Future Classic
- * Constructed deck accepts cards from future-dated sets that are not yet
- * cc_legal, while a plain CC deck still rejects them.
+ * Integration tests: PostgresDeckService.addPrintings on a Classic Constructed
+ * deck accepts cards from future-dated sets that are not yet cc_legal (Future
+ * CC was folded into CC, 2026-09), and still rejects a card that is neither
+ * cc_legal nor in an unreleased set.
  *
  * Runs against local Postgres. Requires POSTGRES_URL in .env.local.
  */
@@ -18,9 +19,10 @@ const service = new PostgresDeckService();
 const rand = crypto.randomUUID().slice(0, 6);
 const futureSet = `zd${rand.slice(0, 3)}`;
 const futureCardId = `test-fccdeck-${rand}`;
+const staleCardId = `test-fccstale-${rand}`;
 let futurePrintingId: string;
+let stalePrintingId: string;
 let testUserId: string;
-let fccDeckPublicId: string;
 let ccDeckPublicId: string;
 
 beforeAll(async () => {
@@ -40,21 +42,29 @@ beforeAll(async () => {
     printingId: futurePrintingId, cardUniqueId: futureCardId, set: futureSet,
     collectorNumber: `${futureSet.toUpperCase()}001`, edition: 'N', foiling: 'S', rarity: 'C',
   });
+  // Not CC-legal and only printed in an already-released set (WTR).
+  await db.insert(cards).values({
+    cardUniqueId: staleCardId, name: `test fcc stale card ${rand}`, displayName: `Test FCC Stale Card ${rand}`,
+    types: ['action'], classes: ['warrior'], ccLegal: false,
+  });
+  stalePrintingId = nanoid(21);
+  await db.insert(printings).values({
+    printingId: stalePrintingId, cardUniqueId: staleCardId, set: 'wtr',
+    collectorNumber: `WTR9${rand.slice(0, 2)}`, edition: 'N', foiling: 'S', rarity: 'C',
+  });
 });
 
 afterAll(async () => {
-  await db.delete(printings).where(eq(printings.printingId, futurePrintingId));
-  await db.delete(cards).where(eq(cards.cardUniqueId, futureCardId));
+  await db.delete(printings).where(inArray(printings.printingId, [futurePrintingId, stalePrintingId]));
+  await db.delete(cards).where(inArray(cards.cardUniqueId, [futureCardId, staleCardId]));
   await db.delete(sets).where(eq(sets.code, futureSet));
 });
 
 beforeEach(async () => {
   testUserId = crypto.randomUUID();
   await db.insert(users).values({ id: testUserId, username: `test-${testUserId}` });
-  fccDeckPublicId = nanoid(21);
   ccDeckPublicId = nanoid(21);
   await db.insert(decks).values([
-    { id: nanoid(21), publicId: fccDeckPublicId, userId: testUserId, name: `FCC ${fccDeckPublicId}`, slug: `slug-${fccDeckPublicId}`, format: 'Future Classic Constructed', heroName: 'dorinthea ironsong', visibility: 'private' },
     { id: nanoid(21), publicId: ccDeckPublicId, userId: testUserId, name: `CC ${ccDeckPublicId}`, slug: `slug-${ccDeckPublicId}`, format: 'Classic Constructed', heroName: 'dorinthea ironsong', visibility: 'private' },
   ]);
 });
@@ -63,9 +73,9 @@ afterEach(async () => {
   await db.delete(users).where(eq(users.id, testUserId));
 });
 
-describe('addPrintings — Future Classic Constructed', () => {
+describe('addPrintings — Classic Constructed takes spoiler-season cards', () => {
   it('accepts a future-set card that is not cc_legal yet', async () => {
-    const result = await service.addPrintings(fccDeckPublicId, testUserId, [
+    const result = await service.addPrintings(ccDeckPublicId, testUserId, [
       { printingId: futurePrintingId, quantity: 3, category: 'maindeck' },
     ]);
     expect(result.success).toBe(true);
@@ -73,9 +83,9 @@ describe('addPrintings — Future Classic Constructed', () => {
     expect(result.data.results[0]).toMatchObject({ printingId: futurePrintingId, success: true });
   });
 
-  it('a plain CC deck still rejects the same card', async () => {
+  it('still rejects a card that is neither cc_legal nor in an unreleased set', async () => {
     const result = await service.addPrintings(ccDeckPublicId, testUserId, [
-      { printingId: futurePrintingId, quantity: 1, category: 'maindeck' },
+      { printingId: stalePrintingId, quantity: 1, category: 'maindeck' },
     ]);
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -84,7 +94,7 @@ describe('addPrintings — Future Classic Constructed', () => {
   });
 
   it('enforces the 3-copy limit', async () => {
-    const result = await service.addPrintings(fccDeckPublicId, testUserId, [
+    const result = await service.addPrintings(ccDeckPublicId, testUserId, [
       { printingId: futurePrintingId, quantity: 4, category: 'maindeck' },
     ]);
     expect(result.success).toBe(true);

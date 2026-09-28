@@ -8,7 +8,7 @@
  * DB is the source of truth, so a set only enters the Future Classic
  * Constructed pool once its release date is registered in `sets`.
  *
- * Future Classic Constructed = cc_legal OR this predicate, minus the CC banlist
+ * A CC deck's pool (the retired Future CC, folded into CC) = cc_legal OR this predicate, minus the CC banlist
  * and CC suspensions (see PostgresPrintingsService format handling).
  */
 

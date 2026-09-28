@@ -198,7 +198,7 @@ const FORMAT_LABELS: Record<string, string> = {
   blitz: 'Blitz',
   commoner: 'Commoner',
   cc: 'Classic Constructed',
-  future_cc: 'Future Classic Constructed',
+  future_cc: 'Classic Constructed', // the CC deck's spoiler-inclusive search pool, not a format of its own
   ll: 'Living Legend',
 };
 

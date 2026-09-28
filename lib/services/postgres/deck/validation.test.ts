@@ -219,28 +219,29 @@ describe('validateNotBanned', () => {
   });
 });
 
-describe('Future Classic Constructed', () => {
-  it('maps to the future_cc snake code', () => {
-    expect(deckFormatToSnake('Future Classic Constructed')).toBe('future_cc');
+describe('Classic Constructed takes spoiler-season cards (Future CC folded in, 2026-09)', () => {
+  it('maps to the cc snake code; the old Future CC name is not a format any more', () => {
+    expect(deckFormatToSnake('Classic Constructed')).toBe('cc');
+    expect(deckFormatToSnake('Future Classic Constructed')).toBeUndefined();
   });
 
   it('accepts a card that is not CC-legal yet but comes from a future-dated set', () => {
-    expect(validateFormatLegal({ ccLegal: false, futureCcLegal: true }, 'Future Classic Constructed')).toEqual({ ok: true });
+    expect(validateFormatLegal({ ccLegal: false, futureCcLegal: true }, 'Classic Constructed')).toEqual({ ok: true });
   });
 
   it('accepts a card that is CC-legal today', () => {
-    expect(validateFormatLegal({ ccLegal: true, futureCcLegal: true }, 'Future Classic Constructed')).toEqual({ ok: true });
+    expect(validateFormatLegal({ ccLegal: true, futureCcLegal: true }, 'Classic Constructed')).toEqual({ ok: true });
   });
 
   it('rejects a card that is neither CC-legal nor from a future set', () => {
-    const result = validateFormatLegal({ ccLegal: false, futureCcLegal: false }, 'Future Classic Constructed');
+    const result = validateFormatLegal({ ccLegal: false, futureCcLegal: false }, 'Classic Constructed');
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toContain('not legal in Future Classic Constructed');
+    if (!result.ok) expect(result.reason).toContain('not legal in Classic Constructed');
   });
 
-  it('inherits the CC suspended flag', () => {
-    expect(validateNotSuspended({ ccSuspended: true }, 'Future Classic Constructed').ok).toBe(false);
-    expect(validateNotSuspended({ ccSuspended: false }, 'Future Classic Constructed').ok).toBe(true);
+  it('keeps the CC suspended flag', () => {
+    expect(validateNotSuspended({ ccSuspended: true }, 'Classic Constructed').ok).toBe(false);
+    expect(validateNotSuspended({ ccSuspended: false }, 'Classic Constructed').ok).toBe(true);
   });
 
   it('is a 3-of format like CC', () => {

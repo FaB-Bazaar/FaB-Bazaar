@@ -557,7 +557,9 @@ describe('validateHeroFormatLegality — Future Classic Constructed', () => {
     expect(validateHeroFormatLegality('kano, dracai of aether', 'future_cc')).toEqual({ ok: true });
     const young = validateHeroFormatLegality('kano', 'future_cc');
     expect(young.ok).toBe(false);
-    if (!young.ok) expect(young.error).toContain('Future Classic Constructed');
+    // future_cc is the CC deck's search pool, so errors name the real format.
+    if (!young.ok) expect(young.error).toContain('Classic Constructed');
+    if (!young.ok) expect(young.error).not.toContain('Future');
   });
 });
 

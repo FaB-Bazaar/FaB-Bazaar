@@ -13,15 +13,15 @@ export function deriveFormatFromHero(hero: HeroLegalityRow | undefined): string 
   if (hero.blitzLegal) return 'Blitz'
   if (hero.commonerLegal) return 'Commoner'
   if (hero.llLegal) return 'Living Legend'
-  // Not legal anywhere yet but printed in an unreleased set → Future CC (adult heroes only; it's a CC-rules format).
-  if (hero.futureCcLegal && !hero.types.includes('young')) return 'Future Classic Constructed'
+  // Not legal anywhere yet (e.g. printed only in an unreleased set) → CC,
+  // which takes spoiler-season cards since Future CC was folded into it.
   return 'Classic Constructed'
 }
 
 // Mirrors the server's hero gate (FORMAT_HERO_REQUIREMENT in lib/fab-constants/heroes.ts):
-// adult heroes → CC / Future CC / LL, young heroes → Silver Age / Blitz / Commoner.
+// adult heroes → CC / LL, young heroes → Silver Age / Blitz / Commoner.
 // Limited is free-form, so any hero can play it.
-const ADULT_HERO_FORMATS = ['Classic Constructed', 'Future Classic Constructed', 'Living Legend']
+const ADULT_HERO_FORMATS = ['Classic Constructed', 'Living Legend']
 const YOUNG_HERO_FORMATS = ['Silver Age', 'Blitz', 'Commoner']
 const FREE_FORM_FORMATS = ['Limited']
 
@@ -32,7 +32,7 @@ const FREE_FORM_FORMATS = ['Limited']
  */
 export function formatOptionsForHero(hero: HeroLegalityRow | undefined): string[] {
   if (!hero) {
-    return ['Classic Constructed', 'Future Classic Constructed', ...YOUNG_HERO_FORMATS, 'Living Legend', ...FREE_FORM_FORMATS]
+    return ['Classic Constructed', ...YOUNG_HERO_FORMATS, 'Living Legend', ...FREE_FORM_FORMATS]
   }
   const options = [
     ...(hero.types.includes('young') ? YOUNG_HERO_FORMATS : ADULT_HERO_FORMATS),
@@ -82,7 +82,6 @@ export function heroRestrictions(
 /** Short chip label for a display format name. */
 export function formatShortLabel(format: string): string {
   if (format === 'Classic Constructed') return 'CC'
-  if (format === 'Future Classic Constructed') return 'Future CC'
   if (format === 'Silver Age') return 'Sage'
   return format
 }

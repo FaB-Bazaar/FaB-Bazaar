@@ -6,7 +6,6 @@ export const FORMATS = [
   'clash',
   'classic constructed',
   'draft',
-  'future classic constructed',
   'living legend',
   'open',
   'sealed',
@@ -21,10 +20,12 @@ export const FORMAT_CODES = {
   'cc': 'Classic Constructed',
   'classic constructed': 'Classic Constructed',
   'draft': 'Draft',
-  'fcc': 'Future Classic Constructed',
-  'future cc': 'Future Classic Constructed',
-  'future_cc': 'Future Classic Constructed',
-  'future classic constructed': 'Future Classic Constructed', // CC pool + every card from a set whose release date is still ahead
+  // Future CC was folded into CC (2026-09; CC decks take spoiler-season cards).
+  // The old names stay as aliases so existing links and clients keep working.
+  'fcc': 'Classic Constructed',
+  'future cc': 'Classic Constructed',
+  'future_cc': 'Classic Constructed',
+  'future classic constructed': 'Classic Constructed',
   'll': 'Living Legend',
   'living legend': 'Living Legend',
   'open': 'Open',

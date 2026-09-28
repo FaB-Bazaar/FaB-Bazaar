@@ -22,7 +22,8 @@ describe('buildDeckAddFilters — legality merge', () => {
     const f = buildDeckAddFilters(state(), '', ctx());
     expect(f.heroClasses).toEqual(['guardian']);
     expect(f.heroTalents).toEqual(['ice']);
-    expect(f.format).toBe('cc');
+    // CC decks search the spoiler-inclusive pool (Future CC folded into CC).
+    expect(f.format).toBe('future_cc');
   });
 
   it('omits empty essence arrays instead of sending []', () => {
@@ -55,8 +56,8 @@ describe('buildDeckAddFilters — target category overrides', () => {
     expect(f.types).toEqual(['hero']);
     expect(f).not.toHaveProperty('heroClasses');
     expect(f).not.toHaveProperty('heroTalents');
-    // format still applies (hero must be format-legal)
-    expect(f.format).toBe('cc');
+    // format still applies (hero must be format-legal — spoiled heroes included)
+    expect(f.format).toBe('future_cc');
   });
 
   it('equipment target forces equipment/weapon types WITH legality', () => {
@@ -100,10 +101,10 @@ describe('buildDeckAddFilters — query + facet pass-through', () => {
   });
 });
 
-describe('Future Classic Constructed deck', () => {
-  it('sends the future_cc format code', () => {
-    const f = buildDeckAddFilters(state(), '', ctx({ deckFormat: 'Future Classic Constructed' }));
-    expect(f.format).toBe('future_cc');
+describe('formats other than CC keep their own pool', () => {
+  it('Silver Age sends silver_age; the retired Future CC name maps to nothing', () => {
+    expect(buildDeckAddFilters(state(), '', ctx({ deckFormat: 'Silver Age' })).format).toBe('silver_age');
+    expect(buildDeckAddFilters(state(), '', ctx({ deckFormat: 'Future Classic Constructed' })).format).toBeUndefined();
   });
 });
 

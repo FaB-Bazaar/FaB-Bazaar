@@ -20,7 +20,7 @@ import { ALL_CLASSES, ALL_TALENTS, TYPE_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, 
 import { filtersToOptParams } from './filters-to-opt-url';
 import { DEFAULT_OPT_STATE, paramsToUiState, type OptUiState } from './opt-url-state';
 
-const FORMATS = ['cc', 'future_cc', 'blitz', 'commoner', 'll', 'silver_age'] as const;
+const FORMATS = ['cc', 'blitz', 'commoner', 'll', 'silver_age'] as const;
 const COLORS = ['red', 'yellow', 'blue'] as const;
 const NUMERIC_KEYS = ['costMin', 'costMax', 'powerMin', 'powerMax', 'defenseMin', 'defenseMax',
   'arcaneMin', 'arcaneMax', 'healthMin', 'healthMax', 'priceMin', 'priceMax'] as const;
@@ -147,7 +147,7 @@ export function buildTranslateSystemPrompt(opts: { facetTags?: FacetTagVocab[] }
     `foilings: ${FOILING_OPTIONS.map((f) => `${f.value}=${f.label}`).join(', ')}`,
     `editions: ${EDITION_OPTIONS.map((e) => `${e.value}=${e.label}`).join(', ')}`,
     `sets (codes): ${CARD_FILTER_SETS.join(', ')}`,
-    `format: ${FORMATS.join(', ')} (cc = Classic Constructed, future_cc = CC plus unreleased sets, ll = Living Legend)`,
+    `format: ${FORMATS.join(', ')} (cc = Classic Constructed, ll = Living Legend)`,
     'Rules: a colour word means pitch/color, not a name. A class word (ninja, guardian…) is a class filter. A keyword phrase (go again, dominate…) is a keyword filter. Only use `name` when the user names a specific card. Do not invent values outside the lists.',
     '`text` is a SUBSTRING match on printed rules text, so write the words as they appear on cards — the card template, never the player\'s paraphrase, and never filler like "effect", "ability", "cards that", "with". Common asks → printed phrasing:',
     ...RULES_TEXT_PHRASINGS.map(([ask, text]) => `  ${ask} → text: "${text}"`),

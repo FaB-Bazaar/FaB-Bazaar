@@ -9,7 +9,7 @@
 
 export type LegalityStatus = 'legal' | 'not-legal' | 'banned' | 'suspended' | 'restricted';
 
-export type LegalityKey = 'cc' | 'future_cc' | 'blitz' | 'll' | 'silver_age' | 'commoner';
+export type LegalityKey = 'cc' | 'blitz' | 'll' | 'silver_age' | 'commoner';
 
 export interface LegalityRow {
   key: LegalityKey;
@@ -67,15 +67,12 @@ export function deckLegalityVerdict(
 ): LegalityRow | null {
   if (!deckFormat) return null;
   const wanted = deckFormat.trim().toLowerCase();
-  if (wanted === 'future classic constructed') {
-    // Future CC is not a strip row of its own: it is the CC verdict, except a
-    // card that isn't CC-legal yet but is printed in an unreleased set
-    // (`future_release`, projected by the search API) counts as legal.
-    const cc = rows.find((r) => r.key === 'cc');
-    if (!cc) return null;
-    const status: LegalityStatus =
-      cc.status === 'not-legal' && asBool(card?.future_release) ? 'legal' : cc.status;
-    return { key: 'future_cc', format: 'Future Classic Constructed', short: 'Future CC', status };
+  const row = rows.find((r) => r.format.toLowerCase() === wanted) ?? null;
+  // A CC deck takes spoiler-season cards (Future CC was folded into CC): a card
+  // that isn't CC-legal yet but is printed in an unreleased set
+  // (`future_release`, projected by the search API) counts as legal there.
+  if (row?.key === 'cc' && row.status === 'not-legal' && asBool(card?.future_release)) {
+    return { ...row, status: 'legal' };
   }
-  return rows.find((r) => r.format.toLowerCase() === wanted) ?? null;
+  return row;
 }

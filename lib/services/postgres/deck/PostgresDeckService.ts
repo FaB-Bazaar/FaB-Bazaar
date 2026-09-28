@@ -1810,7 +1810,6 @@ export class PostgresDeckService implements IDeckService {
       const banlistRegistryFormat = ({
         silver_age: 'silver_age',
         cc: 'classic_constructed',
-        future_cc: 'classic_constructed',
         blitz: 'blitz',
         commoner: 'commoner',
         ll: 'living_legend',

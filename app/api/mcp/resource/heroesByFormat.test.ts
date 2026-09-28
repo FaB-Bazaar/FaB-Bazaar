@@ -51,9 +51,10 @@ const ROWS: HeroLegalityRow[] = [
 ];
 
 describe('groupHeroesByFormat', () => {
-  it('exposes all six formats, each split into adult and young arrays', () => {
+  it('exposes the five real formats (no Future CC), each split into adult and young arrays', () => {
     const grouped = groupHeroesByFormat(ROWS);
-    for (const fmt of ['cc', 'future_cc', 'blitz', 'silver_age', 'commoner', 'll'] as const) {
+    expect(Object.keys(grouped)).not.toContain('future_cc');
+    for (const fmt of ['cc', 'blitz', 'silver_age', 'commoner', 'll'] as const) {
       expect(grouped[fmt]).toBeDefined();
       expect(Array.isArray(grouped[fmt].adult)).toBe(true);
       expect(Array.isArray(grouped[fmt].young)).toBe(true);
