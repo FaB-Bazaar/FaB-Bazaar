@@ -12,6 +12,8 @@ import {
   type DeckTableRow, type Lens, type TableSort, type TableSortKey, type TableZone,
 } from "@/lib/deck/deck-table";
 import { cn } from "@/lib/utils";
+import { matchesHighlight, type HighlightFilter } from "@/lib/deck/highlight-filters";
+import { chipLabel } from "@/components/deck/editor/HighlightFiltersPopover";
 
 const ZONE_LABEL: Record<TableZone, string> = {
   hero: "Hero",
@@ -36,9 +38,14 @@ const COLUMNS: Array<{ key: TableSortKey; label: string; align?: "right"; classN
 
 type OwnershipEntry = { owned: number; needed: number };
 
-export default function DeckTable({ deck, active, ownershipMap, canEdit, onChangeQty }: {
+// Grid zone names for 'zone' highlight filters.
+const GRID_ZONE: Record<TableZone, string> = { hero: "hero", equipment: "equipment", maindeck: "maindeck", inventory: "inventory", benched: "bench" };
+
+export default function DeckTable({ deck, active, hudFilters = [], ownershipMap, canEdit, onChangeQty }: {
   deck: DeckDTO;
   active: Lens | null;
+  /** Cmd+K highlight filters (same rules as the card grid); used when no panel lens is active. */
+  hudFilters?: HighlightFilter[];
   ownershipMap: Map<string, OwnershipEntry>;
   canEdit: boolean;
   onChangeQty: (printingId: string, zone: DeckCategory, delta: 1 | -1) => void;
@@ -53,11 +60,17 @@ export default function DeckTable({ deck, active, ownershipMap, canEdit, onChang
   // Groups shown, in order. With a highlight: Matches, then everything else.
   // Without one: zone groups when unsorted, one flat list when sorted by a column.
   const groups: Array<{ label: string; rows: DeckTableRow[]; dim?: boolean; match?: boolean }> = useMemo(() => {
-    if (active) {
-      const { matches, rest } = partitionByLens(rows, active);
+    if (active || hudFilters.length > 0) {
+      const { matches, rest } = active
+        ? partitionByLens(rows, active)
+        : {
+            matches: rows.filter(r => matchesHighlight(r.details, hudFilters, GRID_ZONE[r.zone])),
+            rest: rows.filter(r => !matchesHighlight(r.details, hudFilters, GRID_ZONE[r.zone])),
+          };
       const copies = matches.reduce((s, r) => s + r.qty, 0);
+      const what = active ? "" : ` (${hudFilters.map(f => chipLabel(f as Parameters<typeof chipLabel>[0])).join(", ")})`;
       return [
-        { label: `Matches — ${matches.length} ${matches.length === 1 ? "card" : "cards"}, ${copies} ${copies === 1 ? "copy" : "copies"}`, rows: matches, match: true },
+        { label: `Matches${what} — ${matches.length} ${matches.length === 1 ? "card" : "cards"}, ${copies} ${copies === 1 ? "copy" : "copies"}`, rows: matches, match: true },
         { label: "Other cards", rows: rest, dim: true },
       ];
     }
@@ -68,7 +81,7 @@ export default function DeckTable({ deck, active, ownershipMap, canEdit, onChang
         return { label: `${ZONE_LABEL[zone]} · ${zr.reduce((s, r) => s + r.qty, 0)}`, rows: zr };
       })
       .filter(g => g.rows.length > 0);
-  }, [rows, active, sort]);
+  }, [rows, active, hudFilters, sort]);
 
   const clickHeader = (key: TableSortKey) =>
     setSort(prev => (prev?.key !== key ? { key, dir: "asc" } : prev.dir === "asc" ? { key, dir: "desc" } : null));
@@ -118,7 +131,7 @@ export default function DeckTable({ deck, active, ownershipMap, canEdit, onChang
                   <tr
                     key={r.key}
                     data-row="card"
-                    data-match={active ? String(!!g.match) : undefined}
+                    data-match={active || hudFilters.length > 0 ? String(!!g.match) : undefined}
                     className={cn("group border-b border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60", g.dim && "text-gray-500 dark:text-gray-500")}
                   >
                     <td className="px-2 py-1 text-right tabular-nums">

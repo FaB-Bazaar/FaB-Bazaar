@@ -35,6 +35,7 @@ import { useIsMobile } from "@/components/ui/use-mobile";
 import ClassicDeckPage from "../page";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import DeckTable from "./DeckTable";
+import { applyHighlightEvent, type HighlightEvent, type HighlightFilter } from "@/lib/deck/highlight-filters";
 import MatchesStrip from "./MatchesStrip";
 import BrewView, { BREW_DETAILS_SLOT } from "./BrewView";
 import RatiosSection from "./RatiosSection";
@@ -128,7 +129,13 @@ function DeckV2Page() {
   // The card views only hear highlight events while mounted — replay the active
   // one when they appear (child listeners attach before this parent effect runs).
   useEffect(() => {
-    if (view !== "cards" || !active) return;
+    if (view !== "cards") return;
+    if (!active) {
+      // Cmd+K filters set while the Table showed: hand them to the grid (additive
+      // re-dispatch is idempotent for the mirror above).
+      for (const f of hudFilters) window.dispatchEvent(new CustomEvent("deck-highlight-filter", { detail: { ...f, additive: true, source: "replay" } }));
+      return;
+    }
     window.dispatchEvent(new CustomEvent("deck-highlight-clear"));
     window.dispatchEvent(new CustomEvent("deck-highlight-filter", { detail: { ...active, source: "panel" } }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- replay on view switch only
@@ -140,12 +147,23 @@ function DeckV2Page() {
   // card search for main deck / inventory / bench.
   // A highlight not from the Deck panel (a Cmd+K chord) takes over: the panel
   // row lets go, so the grid shows the full-screen overlay for it.
+  // It's also mirrored here (same rules as the grid, lib/deck/highlight-filters)
+  // so the Table view can lift Cmd+K matches too.
+  const [hudFilters, setHudFilters] = useState<HighlightFilter[]>([]);
   useEffect(() => {
     const onFilter = (e: Event) => {
-      if ((e as CustomEvent<{ source?: string }>).detail?.source !== "panel") setActive(null);
+      const detail = (e as CustomEvent<HighlightEvent & { source?: string }>).detail;
+      if (detail?.source === "panel") return;
+      setActive(null);
+      setHudFilters(prev => applyHighlightEvent(prev, detail));
     };
+    const onClear = () => setHudFilters([]);
     window.addEventListener("deck-highlight-filter", onFilter);
-    return () => window.removeEventListener("deck-highlight-filter", onFilter);
+    window.addEventListener("deck-highlight-clear", onClear);
+    return () => {
+      window.removeEventListener("deck-highlight-filter", onFilter);
+      window.removeEventListener("deck-highlight-clear", onClear);
+    };
   }, []);
 
   const { chordMode, setChordMode, hud: commandHud } = useDeckCommandHud({
@@ -553,6 +571,7 @@ function DeckV2Page() {
             <DeckTable
               deck={deck}
               active={active}
+              hudFilters={hudFilters}
               ownershipMap={state.ownershipMap}
               canEdit={canEdit}
               onChangeQty={(printingId, zone, delta) => setQty(printingId, zone, 0, delta)}

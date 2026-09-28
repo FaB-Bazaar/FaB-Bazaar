@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CardDetailsLightbox, type LightboxCard } from "@/components/cards/CardDetailsLightbox";
 import { fetchPrintingsForCard, type PrintingResult } from "@/lib/client/hero-pool-cache";
 import { cardTextMatches } from "@/lib/deck/card-text-match";
+import { applyHighlightEvent, matchesHighlight } from "@/lib/deck/highlight-filters";
 
 const PITCH_DOT_CLASS: Record<number, string> = {
   1: "bg-red-500",
@@ -1983,39 +1984,6 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     }, 0);
   };
 
-  // Helper: check if a card's details object matches a single filter entry
-  const checkFilterOnDetails = (details: any, f: { stat: string; value: number | string }): boolean => {
-    if (f.stat === 'name') {
-      const name = (details?.display_name || details?.name || '') as string;
-      return name.toLowerCase().includes(String(f.value).toLowerCase());
-    }
-    if (f.stat === 'text') return cardTextMatches(details?.text as string | undefined, String(f.value));
-    if (f.stat === 'keyword') {
-      const kws: string[] = ((details?.keywords as string[] | undefined) || []).map((k: string) => k.toLowerCase());
-      const needle = String(f.value).toLowerCase();
-      return kws.some(k => k === needle || k.startsWith(needle + ' '));
-    }
-    if (f.stat === 'type') {
-      const types: string[] = ((details?.types as string[] | undefined) || []).map((t: string) => t.toLowerCase());
-      const tv = String(f.value);
-      if (tv === 'attack') return types.includes('attack') && types.includes('action');
-      if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
-      if (tv === 'defense-reaction') return types.includes('defense reaction');
-      if (tv === 'attack-reaction') return types.includes('attack reaction');
-      return types.includes(tv);
-    }
-    if (f.stat === 'arcane') {
-      const cardText = (details?.text ?? '') as string;
-      const arcaneMatches = [...cardText.matchAll(/(\d+)\s+arcane damage/gi)];
-      return arcaneMatches.some(m => parseInt(m[1]) === f.value);
-    }
-    let v = details?.[f.stat] as number | undefined;
-    if (v == null && f.stat === 'defense') v = 0;
-    if (v == null) return false;
-    const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
-    return threshold !== null ? v >= threshold : v === f.value;
-  };
-
   // Group filters by stat then apply: OR within same stat, AND across stats
   const groupFiltersByStat = (filters: Array<{ stat: string; value: number | string }>) => {
     const map = new Map<string, Array<{ stat: string; value: number | string }>>();
@@ -2045,17 +2013,9 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
           ...(displayDeck.inventory  || []).map(c => ({ c, zone: 'inventory'  })),
           ...(displayDeck.benched    || []).map(c => ({ c, zone: 'bench'      })),
         ];
-        const filtersByStat = groupFiltersByStat(highlightFilters);
+        // AND across stats, OR within same stat — shared with deck v2's Table
         for (const { c, zone } of zoneCards) {
-          const details = c.printingDetails as any;
-          // AND across stats, OR within same stat
-          const passes = [...filtersByStat.values()].every(statFilters =>
-            statFilters.some(f => {
-              if (f.stat === 'zone') return zone === f.value;
-              return checkFilterOnDetails(details, f);
-            })
-          );
-          if (passes) ids.add(c.printingId);
+          if (matchesHighlight(c.printingDetails, highlightFilters, zone)) ids.add(c.printingId);
         }
         return ids;
       })()
@@ -2099,25 +2059,9 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     );
   };
 
+  // Filter-list rules shared with deck v2's Table (lib/deck/highlight-filters).
   const toggleHighlight = (stat: string, value: number | string) => {
-    setHighlightFilters(prev => {
-      const exact = prev.find(f => f.stat === stat && f.value === value);
-      if (exact) {
-        // Same button clicked again — remove it
-        return prev.filter(f => !(f.stat === stat && f.value === value));
-      }
-      if (hoverMode) {
-        // In hover mode: allow multiple values per stat (OR within same stat)
-        return [...prev, { stat, value }];
-      }
-      const sameStat = prev.find(f => f.stat === stat);
-      if (sameStat) {
-        // Different value for same stat — replace it
-        return prev.map(f => f.stat === stat ? { stat, value } : f);
-      }
-      // New stat — AND it in
-      return [...prev, { stat, value }];
-    });
+    setHighlightFilters(prev => applyHighlightEvent(prev, { stat, value }, { multiPerStat: hoverMode }));
   };
 
   // Listen for chord-triggered highlight filter events from the deck page
@@ -2126,10 +2070,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
       const { stat, value, additive } = (e as CustomEvent).detail;
       if (additive) {
         // Additive mode (e.g. chord range dispatch): add without replacing same-stat filters
-        setHighlightFilters(prev => {
-          if (prev.some(f => f.stat === stat && f.value === value)) return prev;
-          return [...prev, { stat, value }];
-        });
+        setHighlightFilters(prev => applyHighlightEvent(prev, { stat, value, additive: true }));
       } else {
         toggleHighlight(stat, value);
       }
