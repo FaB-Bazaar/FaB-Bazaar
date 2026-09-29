@@ -3,7 +3,10 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { buildTcgAffiliateLink, shouldShowAffiliateLink } from './utils/affiliate-link-builder';
 import { buildCommentaryHtml, editionLabel, rarityLabel } from './utils/spotlight-commentary';
-import { whoHasRows, whoHasUrl, type WhoHasRow, type WhoHasTarget } from './utils/who-has';
+import { whoHasRows, whoHasUrl, whoWantsRows, whoWantsUrl } from './utils/who-has';
+
+type WhoTab = 'exact' | 'any' | 'wants';
+type WhoListRow = { name: string; href: string; detail: string };
 import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
@@ -244,55 +247,70 @@ export class FabSpotlightCard extends LitElement {
     }
 
     .actions {
-      padding-top: 0.75rem;
       margin-top: 0.75rem;
-      border-top: 1px solid var(--fab-spotlight-action-border);
+      max-width: 36rem; /* keep a name and its detail within one glance */
     }
 
-    .who-has-buttons {
+    /* Classic tabs: the open tab joins the bordered box below it. */
+    .who-has-tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.25rem 1.25rem;
+      border-bottom: 1px solid var(--fab-spotlight-border);
     }
 
-    /* Small text buttons — not full-width rows. */
     .action-row {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.125rem 0;
+      margin-bottom: -1px;
+      padding: 0.375rem 0.75rem;
       background: none;
-      border: 0;
+      border: 1px solid transparent;
+      border-bottom: 0;
+      border-radius: 0.25rem 0.25rem 0 0;
       font: inherit;
       font-size: 0.875rem;
-      color: var(--fab-spotlight-badge-bg);
+      color: var(--fab-spotlight-text-muted);
       cursor: pointer;
     }
 
     .action-row:hover {
-      text-decoration: underline;
+      color: var(--fab-spotlight-text);
+    }
+
+    .action-row[aria-selected='true'] {
+      background: var(--fab-spotlight-bg);
+      border-color: var(--fab-spotlight-border);
+      color: var(--fab-spotlight-text);
+      font-weight: 600;
     }
 
     .action-row:focus-visible {
       outline: 2px solid var(--fab-spotlight-badge-bg);
-      outline-offset: 2px;
+      outline-offset: -2px;
     }
 
-    .action-caret {
-      color: var(--fab-spotlight-text-muted);
-      font-size: 0.75rem;
+    .who-has-panel {
+      border: 1px solid var(--fab-spotlight-border);
+      border-top: 0;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.875rem;
     }
 
     .who-has-list {
       list-style: none;
       margin: 0;
-      padding: 0.5rem 0 0;
-      font-size: 0.875rem;
+      padding: 0;
       color: var(--fab-spotlight-text);
     }
 
     .who-has-list li {
-      padding: 0.25rem 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.375rem 0;
+      border-bottom: 1px solid var(--fab-spotlight-action-border);
+    }
+
+    .who-has-list li:last-child {
+      border-bottom: 0;
     }
 
     .who-has-list a {
@@ -304,13 +322,16 @@ export class FabSpotlightCard extends LitElement {
       text-decoration: none;
     }
 
-    .who-has-note {
-      margin: 0;
-      padding: 0.5rem 0 0;
-      font-size: 0.875rem;
+    .who-has-detail {
       color: var(--fab-spotlight-text-muted);
+      text-align: right;
     }
 
+    .who-has-note {
+      margin: 0;
+      padding: 0.375rem 0;
+      color: var(--fab-spotlight-text-muted);
+    }
 
     /* Loading state */
     .loading {
@@ -528,8 +549,8 @@ export class FabSpotlightCard extends LitElement {
   @state() private loadingCards: Set<string> = new Set();
   @state() private overlayImageUrl: string | null = null;
   @state() private overlayAlt: string = '';
-  @state() private whoHasOpen: 'exact' | 'any' | null = null;
-  @state() private whoHas: Partial<Record<'exact' | 'any', WhoHasRow[] | 'loading'>> = {};
+  @state() private whoHasOpen: WhoTab | null = null;
+  @state() private whoHas: Partial<Record<WhoTab, WhoListRow[] | 'loading'>> = {};
 
   async connectedCallback() {
     super.connectedCallback();
@@ -752,11 +773,12 @@ export class FabSpotlightCard extends LitElement {
 
               <!-- Actions -->
               <div class="actions">
-                <div class="who-has-buttons">
-                  ${this.card.printing_id ? this.renderWhoHasButton('exact', 'Who has this copy', 'Same set, edition, and foiling', { printingId: this.card.printing_id }) : ''}
-                  ${this.card.card_unique_id ? this.renderWhoHasButton('any', 'Who has other versions', 'Any set, edition, or foiling', { cardUniqueId: this.card.card_unique_id }) : ''}
+                <div class="who-has-tabs" role="tablist" aria-label="Who has or wants this card">
+                  ${this.card.printing_id ? this.renderWhoTab('exact', 'Who has this copy', 'Same set, edition, and foiling — listed for trade') : ''}
+                  ${this.card.card_unique_id ? this.renderWhoTab('any', 'Who has other versions', 'Any set, edition, or foiling — listed for trade') : ''}
+                  ${this.card.card_unique_id ? this.renderWhoTab('wants', 'Who wants this', 'Any version on someone\'s wants list') : ''}
                 </div>
-                ${this.renderWhoHasList()}
+                ${this.renderWhoPanel()}
               </div>
             </div>
           </div>
@@ -807,38 +829,47 @@ export class FabSpotlightCard extends LitElement {
     `;
   }
 
-  // "Who has": the same for-trade lookup as the React WhoHasDropdown, loaded
-  // when a row is first opened and listed as plain binder links.
-  private async toggleWhoHas(key: 'exact' | 'any', target: WhoHasTarget) {
-    const open = this.whoHasOpen === key ? null : key;
-    this.whoHasOpen = open;
-    if (!open || this.whoHas[key]) return;
-    this.whoHas = { ...this.whoHas, [key]: 'loading' };
+  // "Who has" (the same for-trade lookup as the React WhoHasDropdown) and
+  // "Who wants" (/api/whowants) — loaded when a tab is first opened; clicking
+  // the open tab closes it.
+  private whoUrl(tab: WhoTab): string {
+    const base = this.apiBase || window.location.origin;
+    return tab === 'exact' ? whoHasUrl({ printingId: this.card.printing_id }, base)
+      : tab === 'any' ? whoHasUrl({ cardUniqueId: this.card.card_unique_id }, base)
+      : whoWantsUrl(this.card.card_unique_id, base);
+  }
+
+  private async toggleWho(tab: WhoTab) {
+    this.whoHasOpen = this.whoHasOpen === tab ? null : tab;
+    if (!this.whoHasOpen || this.whoHas[tab]) return;
+    this.whoHas = { ...this.whoHas, [tab]: 'loading' };
+    let rows: WhoListRow[] = [];
     try {
-      const res = await fetch(whoHasUrl(target, this.apiBase || window.location.origin));
-      this.whoHas = { ...this.whoHas, [key]: whoHasRows(res.ok ? await res.json() : null) };
-    } catch {
-      this.whoHas = { ...this.whoHas, [key]: [] };
-    }
+      const res = await fetch(this.whoUrl(tab));
+      const body = res.ok ? await res.json() : null;
+      rows = tab === 'wants'
+        ? whoWantsRows(body).map(r => ({ name: r.name, href: r.href, detail: `wants ${r.count}` }))
+        : whoHasRows(body).map(r => ({ name: r.name, href: r.href, detail: `${r.count} in ${r.binderName}` }));
+    } catch { /* empty list */ }
+    this.whoHas = { ...this.whoHas, [tab]: rows };
   }
 
-  private renderWhoHasButton(key: 'exact' | 'any', label: string, hint: string, target: WhoHasTarget) {
-    const open = this.whoHasOpen === key;
-    return html`
-      <button type="button" class="action-row" title="${hint}" aria-expanded="${open}" @click="${() => this.toggleWhoHas(key, target)}">
-        ${label}<span class="action-caret" aria-hidden="true">${open ? '▴' : '▾'}</span>
-      </button>
-    `;
+  private renderWhoTab(tab: WhoTab, label: string, hint: string) {
+    const open = this.whoHasOpen === tab;
+    return html`<button type="button" role="tab" class="action-row" title="${hint}" aria-selected="${open}" aria-expanded="${open}" @click="${() => this.toggleWho(tab)}">${label}</button>`;
   }
 
-  private renderWhoHasList() {
-    const key = this.whoHasOpen;
-    if (!key) return '';
-    const rows = this.whoHas[key];
-    return rows === 'loading' || !rows ? html`<p class="who-has-note">Loading…</p>`
-      : rows.length === 0 ? html`<p class="who-has-note">Nobody has this listed for trade.</p>`
+  private renderWhoPanel() {
+    const tab = this.whoHasOpen;
+    if (!tab) return '';
+    const rows = this.whoHas[tab];
+    const empty = tab === 'wants' ? 'Nobody has this on their wants list.' : 'Nobody has this listed for trade.';
+    return html`<div class="who-has-panel" role="tabpanel">${
+      rows === 'loading' || !rows ? html`<p class="who-has-note">Loading…</p>`
+      : rows.length === 0 ? html`<p class="who-has-note">${empty}</p>`
       : html`<ul class="who-has-list">${rows.map(r => html`
-          <li><a href="${r.href}">${r.name}</a> — ${r.count} in ${r.binderName}</li>`)}</ul>`;
+          <li><a href="${r.href}">${r.name}</a><span class="who-has-detail">${r.detail}</span></li>`)}</ul>`
+    }</div>`;
   }
 
   private renderPurchaseLink() {

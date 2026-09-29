@@ -42,3 +42,30 @@ export function whoHasRows(response: unknown): WhoHasRow[] {
       })),
   );
 }
+
+// ---- Who wants (any version of the card) -------------------------------
+
+export interface WhoWantsRow {
+  name: string;
+  count: number;
+  href: string;
+}
+
+export function whoWantsUrl(cardUniqueId: string, base = ''): string {
+  return `${base}/api/whowants?cardUniqueIds=${encodeURIComponent(cardUniqueId)}&limit=20`;
+}
+
+type Wanter = { user_id?: string; username?: string; total_cards_wanted?: number };
+
+/** One row per wanter, linking to their public wants list (/wants/[userId]). */
+export function whoWantsRows(response: unknown): WhoWantsRow[] {
+  const r = response as { success?: boolean; wanters?: Wanter[] } | null;
+  if (!r?.success || !Array.isArray(r.wanters)) return [];
+  return r.wanters
+    .filter(w => w.user_id)
+    .map(w => ({
+      name: displayUsername(w.username ?? ''),
+      count: w.total_cards_wanted ?? 0,
+      href: `/wants/${encodeURIComponent(w.user_id!)}`,
+    }));
+}

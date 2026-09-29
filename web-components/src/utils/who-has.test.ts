@@ -38,3 +38,26 @@ describe('whoHasRows', () => {
     expect(whoHasRows({ success: true, owners: [] })).toEqual([]);
   });
 });
+
+describe('who wants (any version of the card)', () => {
+  it('asks /api/whowants by card', async () => {
+    const { whoWantsUrl } = await import('./who-has');
+    expect(whoWantsUrl('C1')).toBe('/api/whowants?cardUniqueIds=C1&limit=20');
+    expect(whoWantsUrl('C 1', 'https://fabbazaar.app')).toBe('https://fabbazaar.app/api/whowants?cardUniqueIds=C%201&limit=20');
+  });
+
+  it('one row per wanter, linking to their public wants list, prefix stripped', async () => {
+    const { whoWantsRows } = await import('./who-has');
+    expect(whoWantsRows({
+      success: true,
+      wanters: [
+        { user_id: 'u1', username: 'dc_armsperson', total_cards_wanted: 1 },
+        { user_id: 'u 2', username: 'johnny', total_cards_wanted: 3 },
+      ],
+    })).toEqual([
+      { name: 'armsperson', count: 1, href: '/wants/u1' },
+      { name: 'johnny', count: 3, href: '/wants/u%202' },
+    ]);
+    expect(whoWantsRows({ success: false })).toEqual([]);
+  });
+});

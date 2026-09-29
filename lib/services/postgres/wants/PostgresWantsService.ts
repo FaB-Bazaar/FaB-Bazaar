@@ -699,8 +699,7 @@ export class PostgresWantsService implements IWantsService {
     filters?: WhoWantsFilters,
     options?: PaginationOptions
   ): AsyncResult<WhoWantsGroupedResultDTO> {
-    // TODO: Implement with grouping similar to InventoryService
-    return { success: false, error: 'getWhoWantsPrintings not implemented yet' };
+    return this.whoWants(inArray(wantsItems.printingId, printingIds), 'specific_printings', filters, options);
   }
 
   /**
@@ -711,8 +710,102 @@ export class PostgresWantsService implements IWantsService {
     filters?: WhoWantsFilters,
     options?: PaginationOptions
   ): AsyncResult<WhoWantsGroupedResultDTO> {
-    // TODO: Implement with grouping similar to InventoryService
-    return { success: false, error: 'getWhoWantsCards not implemented yet' };
+    return this.whoWants(inArray(printings.cardUniqueId, cardUniqueIds), 'all_versions', filters, options);
+  }
+
+  /**
+   * Shared "who wants" lookup: every wants row matching `match`, grouped per
+   * user (only the matching cards are listed), sorted, then paged over USERS.
+   * Wants lists are public (/wants/[userId]), so no visibility filter applies.
+   */
+  private async whoWants(
+    match: ReturnType<typeof inArray>,
+    mode: 'specific_printings' | 'all_versions',
+    filters: WhoWantsFilters = {},
+    options: PaginationOptions = {},
+  ): AsyncResult<WhoWantsGroupedResultDTO> {
+    try {
+      const conditions = [match];
+      if (filters.country) conditions.push(eq(users.countryCode, filters.country.toUpperCase()));
+      if (filters.state) conditions.push(eq(users.stateCode, filters.state));
+
+      const rows = await db
+        .select({
+          userId: users.id,
+          username: users.username,
+          discordId: users.discordId,
+          country: users.countryCode,
+          printingId: wantsItems.printingId,
+          quantity: wantsItems.quantity,
+          priority: wantsItems.priority,
+          notes: wantsItems.notes,
+          displayName: cards.displayName,
+          color: cards.color,
+          set: printings.set,
+          edition: printings.edition,
+          foiling: printings.foiling,
+          rarity: printings.rarity,
+          imageUrl: printings.imageUrl,
+          tcgMarket: printings.tcgMarket,
+          tcgLow: printings.tcgLow,
+        })
+        .from(wantsItems)
+        .innerJoin(users, eq(wantsItems.userId, users.id))
+        .innerJoin(printings, eq(wantsItems.printingId, printings.printingId))
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .where(and(...conditions));
+
+      const byUser = new Map<string, WanterGroupedDTO>();
+      for (const r of rows) {
+        let w = byUser.get(r.userId);
+        if (!w) {
+          w = {
+            user_id: r.userId, username: r.username, discord_id: r.discordId ?? null, country: r.country ?? null,
+            wanted_cards: [], total_cards_wanted: 0, total_value: 0, unique_printings_wanted: 0, high_priority_count: 0,
+          };
+          byUser.set(r.userId, w);
+        }
+        w.wanted_cards.push({
+          printing_id: r.printingId, display_name: r.displayName ?? '', quantity: r.quantity,
+          priority: r.priority as WantedCardDTO['priority'], notes: r.notes ?? '',
+          tcg_market: r.tcgMarket ?? 0, tcg_low: r.tcgLow ?? 0,
+          set: r.set ?? '', edition: r.edition ?? '', foiling: r.foiling ?? '', rarity: r.rarity ?? '',
+          color: r.color ?? '', image_url: r.imageUrl ?? '', tags: [],
+        });
+        w.total_cards_wanted += r.quantity;
+        w.total_value += (r.tcgLow ?? 0) * r.quantity; // tcg_low is THE price
+        w.unique_printings_wanted += 1;
+        if (r.priority === 'high') w.high_priority_count += 1;
+      }
+
+      const sortBy = filters.sortBy ?? 'username';
+      const wanters = [...byUser.values()].sort((a, b) =>
+        sortBy === 'quantity' ? b.total_cards_wanted - a.total_cards_wanted
+        : sortBy === 'priority' ? b.high_priority_count - a.high_priority_count
+        : a.username.localeCompare(b.username));
+
+      const limit = options.limit ?? 50;
+      const skip = options.skip ?? 0;
+      return {
+        success: true,
+        data: {
+          wanters: wanters.slice(skip, skip + limit),
+          summary: {
+            total_wanters_found: wanters.length,
+            total_cards_wanted: wanters.reduce((n, w) => n + w.total_cards_wanted, 0),
+            total_unique_printings: new Set(rows.map(r => r.printingId)).size,
+            high_priority_total: wanters.reduce((n, w) => n + w.high_priority_count, 0),
+            page: Math.floor(skip / limit) + 1,
+            limit,
+            total_pages: Math.max(1, Math.ceil(wanters.length / limit)),
+            search_mode: mode,
+            filters_applied: { country: filters.country ?? null, state: filters.state ?? null },
+          },
+        },
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to find who wants' };
+    }
   }
 
   /**

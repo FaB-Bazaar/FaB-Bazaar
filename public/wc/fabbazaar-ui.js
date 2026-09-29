@@ -3337,6 +3337,18 @@ function whoHasRows(response) {
     }))
   );
 }
+function whoWantsUrl(cardUniqueId, base = "") {
+  return `${base}/api/whowants?cardUniqueIds=${encodeURIComponent(cardUniqueId)}&limit=20`;
+}
+function whoWantsRows(response) {
+  const r2 = response;
+  if (!r2?.success || !Array.isArray(r2.wanters)) return [];
+  return r2.wanters.filter((w) => w.user_id).map((w) => ({
+    name: displayUsername(w.username ?? ""),
+    count: w.total_cards_wanted ?? 0,
+    href: `/wants/${encodeURIComponent(w.user_id)}`
+  }));
+}
 let observer = null;
 const hosts = /* @__PURE__ */ new Set();
 function isDark() {
@@ -3581,11 +3593,12 @@ let FabSpotlightCard = class extends i$1 {
 
               <!-- Actions -->
               <div class="actions">
-                <div class="who-has-buttons">
-                  ${this.card.printing_id ? this.renderWhoHasButton("exact", "Who has this copy", "Same set, edition, and foiling", { printingId: this.card.printing_id }) : ""}
-                  ${this.card.card_unique_id ? this.renderWhoHasButton("any", "Who has other versions", "Any set, edition, or foiling", { cardUniqueId: this.card.card_unique_id }) : ""}
+                <div class="who-has-tabs" role="tablist" aria-label="Who has or wants this card">
+                  ${this.card.printing_id ? this.renderWhoTab("exact", "Who has this copy", "Same set, edition, and foiling — listed for trade") : ""}
+                  ${this.card.card_unique_id ? this.renderWhoTab("any", "Who has other versions", "Any set, edition, or foiling — listed for trade") : ""}
+                  ${this.card.card_unique_id ? this.renderWhoTab("wants", "Who wants this", "Any version on someone's wants list") : ""}
                 </div>
-                ${this.renderWhoHasList()}
+                ${this.renderWhoPanel()}
               </div>
             </div>
           </div>
@@ -3622,34 +3635,37 @@ let FabSpotlightCard = class extends i$1 {
       </div>
     `;
   }
-  // "Who has": the same for-trade lookup as the React WhoHasDropdown, loaded
-  // when a row is first opened and listed as plain binder links.
-  async toggleWhoHas(key, target) {
-    const open = this.whoHasOpen === key ? null : key;
-    this.whoHasOpen = open;
-    if (!open || this.whoHas[key]) return;
-    this.whoHas = { ...this.whoHas, [key]: "loading" };
+  // "Who has" (the same for-trade lookup as the React WhoHasDropdown) and
+  // "Who wants" (/api/whowants) — loaded when a tab is first opened; clicking
+  // the open tab closes it.
+  whoUrl(tab) {
+    const base = this.apiBase || window.location.origin;
+    return tab === "exact" ? whoHasUrl({ printingId: this.card.printing_id }, base) : tab === "any" ? whoHasUrl({ cardUniqueId: this.card.card_unique_id }, base) : whoWantsUrl(this.card.card_unique_id, base);
+  }
+  async toggleWho(tab) {
+    this.whoHasOpen = this.whoHasOpen === tab ? null : tab;
+    if (!this.whoHasOpen || this.whoHas[tab]) return;
+    this.whoHas = { ...this.whoHas, [tab]: "loading" };
+    let rows = [];
     try {
-      const res = await fetch(whoHasUrl(target, this.apiBase || window.location.origin));
-      this.whoHas = { ...this.whoHas, [key]: whoHasRows(res.ok ? await res.json() : null) };
+      const res = await fetch(this.whoUrl(tab));
+      const body = res.ok ? await res.json() : null;
+      rows = tab === "wants" ? whoWantsRows(body).map((r2) => ({ name: r2.name, href: r2.href, detail: `wants ${r2.count}` })) : whoHasRows(body).map((r2) => ({ name: r2.name, href: r2.href, detail: `${r2.count} in ${r2.binderName}` }));
     } catch {
-      this.whoHas = { ...this.whoHas, [key]: [] };
     }
+    this.whoHas = { ...this.whoHas, [tab]: rows };
   }
-  renderWhoHasButton(key, label, hint, target) {
-    const open = this.whoHasOpen === key;
-    return b`
-      <button type="button" class="action-row" title="${hint}" aria-expanded="${open}" @click="${() => this.toggleWhoHas(key, target)}">
-        ${label}<span class="action-caret" aria-hidden="true">${open ? "▴" : "▾"}</span>
-      </button>
-    `;
+  renderWhoTab(tab, label, hint) {
+    const open = this.whoHasOpen === tab;
+    return b`<button type="button" role="tab" class="action-row" title="${hint}" aria-selected="${open}" aria-expanded="${open}" @click="${() => this.toggleWho(tab)}">${label}</button>`;
   }
-  renderWhoHasList() {
-    const key = this.whoHasOpen;
-    if (!key) return "";
-    const rows = this.whoHas[key];
-    return rows === "loading" || !rows ? b`<p class="who-has-note">Loading…</p>` : rows.length === 0 ? b`<p class="who-has-note">Nobody has this listed for trade.</p>` : b`<ul class="who-has-list">${rows.map((r2) => b`
-          <li><a href="${r2.href}">${r2.name}</a> — ${r2.count} in ${r2.binderName}</li>`)}</ul>`;
+  renderWhoPanel() {
+    const tab = this.whoHasOpen;
+    if (!tab) return "";
+    const rows = this.whoHas[tab];
+    const empty = tab === "wants" ? "Nobody has this on their wants list." : "Nobody has this listed for trade.";
+    return b`<div class="who-has-panel" role="tabpanel">${rows === "loading" || !rows ? b`<p class="who-has-note">Loading…</p>` : rows.length === 0 ? b`<p class="who-has-note">${empty}</p>` : b`<ul class="who-has-list">${rows.map((r2) => b`
+          <li><a href="${r2.href}">${r2.name}</a><span class="who-has-detail">${r2.detail}</span></li>`)}</ul>`}</div>`;
   }
   renderPurchaseLink() {
     if (!shouldShowAffiliateLink(this.card.tcgplayer_url)) {
@@ -3899,55 +3915,70 @@ FabSpotlightCard.styles = i$4`
     }
 
     .actions {
-      padding-top: 0.75rem;
       margin-top: 0.75rem;
-      border-top: 1px solid var(--fab-spotlight-action-border);
+      max-width: 36rem; /* keep a name and its detail within one glance */
     }
 
-    .who-has-buttons {
+    /* Classic tabs: the open tab joins the bordered box below it. */
+    .who-has-tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.25rem 1.25rem;
+      border-bottom: 1px solid var(--fab-spotlight-border);
     }
 
-    /* Small text buttons — not full-width rows. */
     .action-row {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.125rem 0;
+      margin-bottom: -1px;
+      padding: 0.375rem 0.75rem;
       background: none;
-      border: 0;
+      border: 1px solid transparent;
+      border-bottom: 0;
+      border-radius: 0.25rem 0.25rem 0 0;
       font: inherit;
       font-size: 0.875rem;
-      color: var(--fab-spotlight-badge-bg);
+      color: var(--fab-spotlight-text-muted);
       cursor: pointer;
     }
 
     .action-row:hover {
-      text-decoration: underline;
+      color: var(--fab-spotlight-text);
+    }
+
+    .action-row[aria-selected='true'] {
+      background: var(--fab-spotlight-bg);
+      border-color: var(--fab-spotlight-border);
+      color: var(--fab-spotlight-text);
+      font-weight: 600;
     }
 
     .action-row:focus-visible {
       outline: 2px solid var(--fab-spotlight-badge-bg);
-      outline-offset: 2px;
+      outline-offset: -2px;
     }
 
-    .action-caret {
-      color: var(--fab-spotlight-text-muted);
-      font-size: 0.75rem;
+    .who-has-panel {
+      border: 1px solid var(--fab-spotlight-border);
+      border-top: 0;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.875rem;
     }
 
     .who-has-list {
       list-style: none;
       margin: 0;
-      padding: 0.5rem 0 0;
-      font-size: 0.875rem;
+      padding: 0;
       color: var(--fab-spotlight-text);
     }
 
     .who-has-list li {
-      padding: 0.25rem 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.375rem 0;
+      border-bottom: 1px solid var(--fab-spotlight-action-border);
+    }
+
+    .who-has-list li:last-child {
+      border-bottom: 0;
     }
 
     .who-has-list a {
@@ -3959,13 +3990,16 @@ FabSpotlightCard.styles = i$4`
       text-decoration: none;
     }
 
-    .who-has-note {
-      margin: 0;
-      padding: 0.5rem 0 0;
-      font-size: 0.875rem;
+    .who-has-detail {
       color: var(--fab-spotlight-text-muted);
+      text-align: right;
     }
 
+    .who-has-note {
+      margin: 0;
+      padding: 0.375rem 0;
+      color: var(--fab-spotlight-text-muted);
+    }
 
     /* Loading state */
     .loading {
