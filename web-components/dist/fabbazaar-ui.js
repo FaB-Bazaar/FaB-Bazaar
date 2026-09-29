@@ -3581,8 +3581,11 @@ let FabSpotlightCard = class extends i$1 {
 
               <!-- Actions -->
               <div class="actions">
-                ${this.card.printing_id ? this.renderWhoHas("exact", "Who has this exact copy", "Same set, edition, and foiling", { printingId: this.card.printing_id }) : ""}
-                ${this.card.card_unique_id ? this.renderWhoHas("any", "Who has other versions", "Any set, edition, or foiling", { cardUniqueId: this.card.card_unique_id }) : ""}
+                <div class="who-has-buttons">
+                  ${this.card.printing_id ? this.renderWhoHasButton("exact", "Who has this copy", "Same set, edition, and foiling", { printingId: this.card.printing_id }) : ""}
+                  ${this.card.card_unique_id ? this.renderWhoHasButton("any", "Who has other versions", "Any set, edition, or foiling", { cardUniqueId: this.card.card_unique_id }) : ""}
+                </div>
+                ${this.renderWhoHasList()}
               </div>
             </div>
           </div>
@@ -3633,20 +3636,20 @@ let FabSpotlightCard = class extends i$1 {
       this.whoHas = { ...this.whoHas, [key]: [] };
     }
   }
-  renderWhoHas(key, title, subtitle, target) {
+  renderWhoHasButton(key, label, hint, target) {
     const open = this.whoHasOpen === key;
-    const rows = this.whoHas[key];
     return b`
-      <button type="button" class="action-row" aria-expanded="${open}" @click="${() => this.toggleWhoHas(key, target)}">
-        <span class="action-label">
-          <span class="action-title">${title}</span>
-          <span class="action-subtitle">${subtitle}</span>
-        </span>
-        <span class="action-caret" aria-hidden="true">${open ? "▲" : "▼"}</span>
+      <button type="button" class="action-row" title="${hint}" aria-expanded="${open}" @click="${() => this.toggleWhoHas(key, target)}">
+        ${label}<span class="action-caret" aria-hidden="true">${open ? "▴" : "▾"}</span>
       </button>
-      ${!open ? "" : rows === "loading" || !rows ? b`<p class="who-has-note">Loading…</p>` : rows.length === 0 ? b`<p class="who-has-note">Nobody has this listed for trade.</p>` : b`<ul class="who-has-list">${rows.map((r2) => b`
-            <li><a href="${r2.href}">${r2.name}</a> — ${r2.count} in ${r2.binderName}</li>`)}</ul>`}
     `;
+  }
+  renderWhoHasList() {
+    const key = this.whoHasOpen;
+    if (!key) return "";
+    const rows = this.whoHas[key];
+    return rows === "loading" || !rows ? b`<p class="who-has-note">Loading…</p>` : rows.length === 0 ? b`<p class="who-has-note">Nobody has this listed for trade.</p>` : b`<ul class="who-has-list">${rows.map((r2) => b`
+          <li><a href="${r2.href}">${r2.name}</a> — ${r2.count} in ${r2.binderName}</li>`)}</ul>`;
   }
   renderPurchaseLink() {
     if (!shouldShowAffiliateLink(this.card.tcgplayer_url)) {
@@ -3701,25 +3704,6 @@ FabSpotlightCard.styles = i$4`
       margin: 1.5rem 0;
     }
 
-    /* Dark Mode */
-    @media (prefers-color-scheme: dark) {
-      :host {
-        --fab-spotlight-bg: #182132;
-        --fab-spotlight-border: #374151;
-        --fab-spotlight-badge-bg: #60a5fa;
-        --fab-spotlight-badge-text: #111827;
-        --fab-spotlight-text: #f3f4f6;
-        --fab-spotlight-text-muted: #9ca3af;
-        --fab-spotlight-commentary-bg: transparent;
-        --fab-spotlight-commentary-border: transparent;
-        --fab-spotlight-action-bg: transparent;
-        --fab-spotlight-action-hover-bg: #263145;
-        --fab-spotlight-action-border: #374151;
-        --fab-spotlight-error-bg: #450a0a;
-        --fab-spotlight-error-border: #991b1b;
-        --fab-spotlight-error-text: #fca5a5;
-      }
-    }
 
     /* Tailwind class-based dark mode */
     :host([dark]) {
@@ -3920,25 +3904,33 @@ FabSpotlightCard.styles = i$4`
       border-top: 1px solid var(--fab-spotlight-action-border);
     }
 
-    .action-row {
+    .who-has-buttons {
       display: flex;
-      width: 100%;
+      flex-wrap: wrap;
+      gap: 0.25rem 1.25rem;
+    }
+
+    /* Small text buttons — not full-width rows. */
+    .action-row {
+      display: inline-flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0.5rem;
-      background: var(--fab-spotlight-action-bg);
+      gap: 0.25rem;
+      padding: 0.125rem 0;
+      background: none;
       border: 0;
-      border-bottom: 1px solid var(--fab-spotlight-action-border);
-      border-radius: 0;
       font: inherit;
-      text-align: left;
-      color: inherit;
+      font-size: 0.875rem;
+      color: var(--fab-spotlight-badge-bg);
       cursor: pointer;
+    }
+
+    .action-row:hover {
+      text-decoration: underline;
     }
 
     .action-row:focus-visible {
       outline: 2px solid var(--fab-spotlight-badge-bg);
-      outline-offset: -2px;
+      outline-offset: 2px;
     }
 
     .action-caret {
@@ -3949,7 +3941,7 @@ FabSpotlightCard.styles = i$4`
     .who-has-list {
       list-style: none;
       margin: 0;
-      padding: 0.25rem 0.5rem 0.5rem;
+      padding: 0.5rem 0 0;
       font-size: 0.875rem;
       color: var(--fab-spotlight-text);
     }
@@ -3969,36 +3961,11 @@ FabSpotlightCard.styles = i$4`
 
     .who-has-note {
       margin: 0;
-      padding: 0.25rem 0.5rem 0.5rem;
+      padding: 0.5rem 0 0;
       font-size: 0.875rem;
       color: var(--fab-spotlight-text-muted);
     }
 
-    .action-row:hover {
-      background: var(--fab-spotlight-action-hover-bg);
-    }
-
-
-    .action-label {
-      flex: 1;
-      font-size: 0.875rem;
-    }
-
-    .action-title,
-    .action-subtitle {
-      display: block;
-    }
-
-    .action-title {
-      font-weight: 500;
-      color: var(--fab-spotlight-text);
-      margin-bottom: 0.125rem;
-    }
-
-    .action-subtitle {
-      font-size: 0.75rem;
-      color: var(--fab-spotlight-text-muted);
-    }
 
     /* Loading state */
     .loading {
@@ -4041,7 +4008,7 @@ FabSpotlightCard.styles = i$4`
       align-items: center;
       gap: 0.25rem;
       vertical-align: middle;
-      margin: 0 0.125rem;
+      margin: 0; /* a side margin read as a space before "." / "," after a mention */
       cursor: pointer;
       transition: opacity 0.15s ease;
     }
@@ -4174,19 +4141,6 @@ FabSpotlightCard.styles = i$4`
       opacity: 1;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .purchase-link-container {
-        border-top: 1px solid rgba(71, 85, 105, 0.3);
-      }
-
-      .purchase-link {
-        color: #60a5fa;
-      }
-
-      .purchase-link:hover {
-        color: #93c5fd;
-      }
-    }
 
     :host([dark]) .purchase-link-container {
       border-top: 1px solid rgba(71, 85, 105, 0.3);
@@ -4208,6 +4162,12 @@ FabSpotlightCard.styles = i$4`
       height: 0.625rem;
       width: auto;
       flex-shrink: 0;
+    }
+
+    /* The logo is white text: invisible on the light panel, so flip it there
+       (hue-rotate keeps the icon's colours close to the original). */
+    :host(:not([dark])) .purchase-link-logo {
+      filter: invert(1) hue-rotate(180deg);
     }
   `;
 __decorateClass$9([
