@@ -1,4 +1,5 @@
 import { MDXRemote } from 'next-mdx-remote/rsc';
+import { ARTICLE_MDX_OPTIONS } from '@/lib/articles/mdx-options';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
@@ -211,7 +212,7 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
           {(articleDoc.sections || []).map((section: any, index: number) => {
             switch (section.type) {
               case 'text':
-                return <MDXRemote key={index} source={section.content} components={components} />;
+                return <MDXRemote key={index} source={section.content} components={components} options={ARTICLE_MDX_OPTIONS} />;
 
               case 'card-carousel':
                 const carouselCards = carouselDataMap.get(index) || [];

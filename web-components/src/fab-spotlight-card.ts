@@ -1,8 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { marked } from 'marked';
 import { buildTcgAffiliateLink, shouldShowAffiliateLink } from './utils/affiliate-link-builder';
+import { buildCommentaryHtml, editionLabel, rarityLabel } from './utils/spotlight-commentary';
 import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
@@ -113,7 +113,9 @@ export class FabSpotlightCard extends LitElement {
       flex-shrink: 0;
     }
 
-    .card-image img {
+    /* Direct child only: the TCGplayer logo is an <img> inside .card-image too,
+       and this rule (more specific than .purchase-link-logo) blew it up to 300px. */
+    .card-image > img {
       width: 100%;
       max-width: 300px;
       height: auto;
@@ -359,8 +361,8 @@ export class FabSpotlightCard extends LitElement {
     }
 
     .inline-card-thumbnail {
-      width: 28px;
-      height: 39px;
+      width: 16px;
+      height: 22px;
       border-radius: 2px;
       object-fit: cover;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -380,8 +382,8 @@ export class FabSpotlightCard extends LitElement {
 
     .inline-card-loading {
       display: inline-block;
-      width: 28px;
-      height: 39px;
+      width: 16px;
+      height: 22px;
       background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
       background-size: 200% 100%;
       animation: loading 1.5s ease-in-out infinite;
@@ -704,7 +706,8 @@ export class FabSpotlightCard extends LitElement {
 
   private renderCard() {
     const displayTitle = this.title || this.card.display_name || this.card.name;
-    const editionDisplay = this.getEditionDisplay(this.card.edition);
+    const editionDisplay = editionLabel(this.card.edition);
+    const rarityDisplay = rarityLabel(this.card.rarity);
     const foilingInfo = this.getFoilingInfo(this.card.foiling);
 
     return html`
@@ -738,16 +741,18 @@ export class FabSpotlightCard extends LitElement {
               <div class="meta">
                 ${this.card.set ? html`<span>${this.card.set.toUpperCase()}</span>` : ''}
                 ${editionDisplay ? html`<span>${editionDisplay}</span>` : ''}
-                ${this.card.rarity ? html`<span>${this.card.rarity.toUpperCase()}</span>` : ''}
+                ${rarityDisplay ? html`<span>${rarityDisplay}</span>` : ''}
                 ${this.card.foiling && foilingInfo ? html`<span>${foilingInfo}</span>` : ''}
               </div>
 
               <!-- Commentary -->
               ${this.commentary ? html`
                 <div class="commentary">
-                  <div class="commentary-text">
-                    ${this.parseCommentary(this.commentary)}
-                  </div>
+                  <div
+                    class="commentary-text"
+                    @click="${this.onCommentaryActivate}"
+                    @keydown="${this.onCommentaryActivate}"
+                  >${unsafeHTML(buildCommentaryHtml(this.commentary, this.cardDataMap, this.loadingCards))}</div>
                 </div>
               ` : ''}
 
@@ -777,101 +782,15 @@ export class FabSpotlightCard extends LitElement {
     `;
   }
 
-  private parseCommentary(text: string) {
-    if (!text) return html``;
-
-    // Phase 1: Extract **Card Name** mentions and replace with placeholders
-    const cardMentions: string[] = [];
-    const cardMentionRegex = /\*\*([^*]+)\*\*/g;
-
-    const withPlaceholders = text.replace(cardMentionRegex, (match, cardName) => {
-      // Check if this looks like markdown bold or a card mention
-      // Heuristic: Card names are usually title-case, not all lowercase
-      const isLikelyCardName = /[A-Z]/.test(cardName) || cardName.includes("'");
-
-      if (isLikelyCardName) {
-        const index = cardMentions.length;
-        cardMentions.push(cardName);
-        return `{{CARDMENTION${index}}}`;
-      }
-
-      // Leave as markdown bold
-      return match;
-    });
-
-    // Phase 2: Parse markdown
-    const htmlContent = marked.parse(withPlaceholders, {
-      breaks: true,  // Convert \n to <br>
-      gfm: true,     // GitHub Flavored Markdown
-    }) as string;
-
-    // Phase 3: Split HTML by placeholders and build mixed content
-    const parts: any[] = [];
-    let lastIndex = 0;
-
-    cardMentions.forEach((cardName, index) => {
-      const placeholder = `{{CARDMENTION${index}}}`;
-      const placeholderIndex = htmlContent.indexOf(placeholder, lastIndex);
-
-      if (placeholderIndex !== -1) {
-        // Add HTML before placeholder
-        if (placeholderIndex > lastIndex) {
-          parts.push(unsafeHTML(htmlContent.substring(lastIndex, placeholderIndex)));
-        }
-
-        // Add interactive card mention
-        const cardData = this.cardDataMap.get(cardName);
-        const isLoading = this.loadingCards.has(cardName);
-
-        if (cardData && cardData.image_url) {
-          // Render as interactive thumbnail + text (both clickable)
-          parts.push(html`
-            <span class="inline-card-wrapper" @click="${() => this.openOverlay(cardData.image_url, cardName)}" title="Click to view full size">
-              <img
-                class="inline-card-thumbnail"
-                src="${cardData.image_url}"
-                alt="${cardName}"
-              />
-              <span class="inline-card-name">${cardName}</span>
-            </span>
-          `);
-        } else if (isLoading) {
-          // Show loading placeholder
-          parts.push(html`
-            <span class="inline-card-wrapper">
-              <span class="inline-card-loading"></span>
-              <span class="inline-card-name">${cardName}</span>
-            </span>
-          `);
-        } else {
-          // Fallback to styled text
-          parts.push(html`<span class="card-mention">${cardName}</span>`);
-        }
-
-        lastIndex = placeholderIndex + placeholder.length;
-      }
-    });
-
-    // Add remaining HTML after last placeholder
-    if (lastIndex < htmlContent.length) {
-      parts.push(unsafeHTML(htmlContent.substring(lastIndex)));
-    }
-
-    return parts;
-  }
-
-  private getEditionDisplay(code?: string): string {
-    if (!code) return '';
-    const lookupCode = code.toLowerCase();
-    const editions: Record<string, string> = {
-      a: 'Alpha',
-      f: '1st',
-      u: 'UNL',
-      n: '',
-      normal: '',
-    };
-    return editions[lookupCode] || code.toUpperCase();
-  }
+  // Card mentions are plain markup inside the commentary HTML — open the
+  // full-size image on click / Enter / Space via delegation.
+  private onCommentaryActivate = (e: Event) => {
+    if (e instanceof KeyboardEvent && e.key !== 'Enter' && e.key !== ' ') return;
+    const mention = (e.target as Element | null)?.closest?.('[data-card-img]') as HTMLElement | null;
+    if (!mention) return;
+    e.preventDefault();
+    this.openOverlay(mention.dataset.cardImg!, mention.dataset.cardName ?? '');
+  };
 
   private getFoilingInfo(foiling?: string): string {
     const foilingMap: Record<string, string> = {

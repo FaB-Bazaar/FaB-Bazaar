@@ -1062,6 +1062,85 @@ class e extends i2 {
 }
 e.directiveName = "unsafeHTML", e.resultType = 1;
 const o = e$1(e);
+const IMPACT_CONFIG = {
+  PARTNER_ID: "6477326",
+  CAMPAIGN_IDS: "1830156/21018",
+  BASE_URL: "https://partner.tcgplayer.com/c"
+};
+function checkCookieConsent() {
+  if (typeof window === "undefined") return null;
+  try {
+    const consentStr = localStorage.getItem("cookieConsentOptions");
+    if (!consentStr) return null;
+    const consent = JSON.parse(consentStr);
+    return consent;
+  } catch (error) {
+    console.error("Failed to parse cookie consent:", error);
+    return null;
+  }
+}
+function getPageContext(pathname) {
+  if (typeof window === "undefined") return "Unknown";
+  const path = window.location.pathname;
+  if (path.startsWith("/binder/")) return "Binder";
+  if (path === "/wants") return "Wants";
+  if (path.startsWith("/heroes/")) return "Heroes";
+  if (path.startsWith("/printing/")) return "PrintingDetails";
+  if (path === "/browse") return "Browse";
+  if (path.startsWith("/article/") || path.includes("/articles/")) return "Article";
+  return "Other";
+}
+function getUserContext() {
+  if (typeof window === "undefined") return "Unknown";
+  const hasAuth = localStorage.getItem("auth") || sessionStorage.getItem("session") || document.cookie.includes("session");
+  return hasAuth ? "LoggedIn" : "Guest";
+}
+function getReturnUserContext() {
+  if (typeof window === "undefined") return "Unknown";
+  const hasVisited = localStorage.getItem("previousVisit");
+  if (!hasVisited) {
+    localStorage.setItem("previousVisit", "true");
+    return "NewUser";
+  }
+  return "ReturningUser";
+}
+function getDeviceContext() {
+  if (typeof window === "undefined") return "Unknown";
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+  return isMobile ? "Mobile" : "Desktop";
+}
+function buildTrackingContext(feature, options) {
+  return {
+    pageContext: options?.pageContext || getPageContext(),
+    feature,
+    userContext: getUserContext(),
+    returnContext: getReturnUserContext(),
+    deviceContext: getDeviceContext()
+  };
+}
+function buildTcgAffiliateLink(tcgplayerUrl, feature, options) {
+  const consent = checkCookieConsent();
+  if (!consent || !consent.advertising) {
+    return tcgplayerUrl;
+  }
+  const context = buildTrackingContext(feature, options);
+  const trackingParams = new URLSearchParams();
+  trackingParams.append("subId1", context.pageContext);
+  trackingParams.append("subId2", context.feature);
+  trackingParams.append("subId3", context.userContext);
+  trackingParams.append("subId4", context.returnContext);
+  trackingParams.append("subId5", context.deviceContext);
+  const urlWithTracking = `${tcgplayerUrl}&${trackingParams.toString()}`;
+  const affiliateUrl = `${IMPACT_CONFIG.BASE_URL}/${IMPACT_CONFIG.PARTNER_ID}/${IMPACT_CONFIG.CAMPAIGN_IDS}?u=${encodeURIComponent(urlWithTracking)}`;
+  return affiliateUrl;
+}
+function shouldShowAffiliateLink(tcgplayerUrl) {
+  if (!tcgplayerUrl) return false;
+  if (typeof window === "undefined") return false;
+  return true;
+}
 function _getDefaults() {
   return {
     async: false,
@@ -3193,84 +3272,53 @@ marked.walkTokens;
 marked.parseInline;
 _Parser.parse;
 _Lexer.lex;
-const IMPACT_CONFIG = {
-  PARTNER_ID: "6477326",
-  CAMPAIGN_IDS: "1830156/21018",
-  BASE_URL: "https://partner.tcgplayer.com/c"
+const escapeHtml = (s2) => s2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+function mentionHtml(name, card, loading) {
+  const safeName = escapeHtml(name);
+  if (card?.image_url) {
+    const src = escapeHtml(card.image_url);
+    return `<span class="inline-card-wrapper" role="button" tabindex="0" data-card-name="${safeName}" data-card-img="${src}" title="Click to view full size"><img class="inline-card-thumbnail" src="${src}" alt="${safeName}" loading="lazy" /><span class="inline-card-name">${safeName}</span></span>`;
+  }
+  if (loading) {
+    return `<span class="inline-card-wrapper"><span class="inline-card-loading"></span><span class="inline-card-name">${safeName}</span></span>`;
+  }
+  return `<span class="card-mention">${safeName}</span>`;
+}
+function buildCommentaryHtml(text, cards, loading) {
+  if (!text) return "";
+  const mentions = [];
+  const withPlaceholders = text.replace(/\*\*([^*]+)\*\*/g, (match, name) => {
+    if (!/[A-Z]/.test(name) && !name.includes("'")) return match;
+    mentions.push(name);
+    return `{{CARDMENTION${mentions.length - 1}}}`;
+  });
+  const html2 = marked.parse(withPlaceholders, { breaks: true, gfm: true });
+  return html2.replace(/\{\{CARDMENTION(\d+)\}\}/g, (_m, i3) => {
+    const name = mentions[Number(i3)];
+    return mentionHtml(name, cards.get(name), loading.has(name));
+  });
+}
+const EDITIONS = { a: "Alpha", f: "1st Edition", u: "Unlimited", n: "", normal: "" };
+function editionLabel(code) {
+  if (!code) return "";
+  const key = code.toLowerCase();
+  return key in EDITIONS ? EDITIONS[key] : code.toUpperCase();
+}
+const RARITIES = {
+  c: "Common",
+  r: "Rare",
+  s: "Super Rare",
+  m: "Majestic",
+  l: "Legendary",
+  f: "Fabled",
+  t: "Token",
+  b: "Basic",
+  v: "Marvel",
+  p: "Promo"
 };
-function checkCookieConsent() {
-  if (typeof window === "undefined") return null;
-  try {
-    const consentStr = localStorage.getItem("cookieConsentOptions");
-    if (!consentStr) return null;
-    const consent = JSON.parse(consentStr);
-    return consent;
-  } catch (error) {
-    console.error("Failed to parse cookie consent:", error);
-    return null;
-  }
-}
-function getPageContext(pathname) {
-  if (typeof window === "undefined") return "Unknown";
-  const path = window.location.pathname;
-  if (path.startsWith("/binder/")) return "Binder";
-  if (path === "/wants") return "Wants";
-  if (path.startsWith("/heroes/")) return "Heroes";
-  if (path.startsWith("/printing/")) return "PrintingDetails";
-  if (path === "/browse") return "Browse";
-  if (path.startsWith("/article/") || path.includes("/articles/")) return "Article";
-  return "Other";
-}
-function getUserContext() {
-  if (typeof window === "undefined") return "Unknown";
-  const hasAuth = localStorage.getItem("auth") || sessionStorage.getItem("session") || document.cookie.includes("session");
-  return hasAuth ? "LoggedIn" : "Guest";
-}
-function getReturnUserContext() {
-  if (typeof window === "undefined") return "Unknown";
-  const hasVisited = localStorage.getItem("previousVisit");
-  if (!hasVisited) {
-    localStorage.setItem("previousVisit", "true");
-    return "NewUser";
-  }
-  return "ReturningUser";
-}
-function getDeviceContext() {
-  if (typeof window === "undefined") return "Unknown";
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
-  return isMobile ? "Mobile" : "Desktop";
-}
-function buildTrackingContext(feature, options) {
-  return {
-    pageContext: options?.pageContext || getPageContext(),
-    feature,
-    userContext: getUserContext(),
-    returnContext: getReturnUserContext(),
-    deviceContext: getDeviceContext()
-  };
-}
-function buildTcgAffiliateLink(tcgplayerUrl, feature, options) {
-  const consent = checkCookieConsent();
-  if (!consent || !consent.advertising) {
-    return tcgplayerUrl;
-  }
-  const context = buildTrackingContext(feature, options);
-  const trackingParams = new URLSearchParams();
-  trackingParams.append("subId1", context.pageContext);
-  trackingParams.append("subId2", context.feature);
-  trackingParams.append("subId3", context.userContext);
-  trackingParams.append("subId4", context.returnContext);
-  trackingParams.append("subId5", context.deviceContext);
-  const urlWithTracking = `${tcgplayerUrl}&${trackingParams.toString()}`;
-  const affiliateUrl = `${IMPACT_CONFIG.BASE_URL}/${IMPACT_CONFIG.PARTNER_ID}/${IMPACT_CONFIG.CAMPAIGN_IDS}?u=${encodeURIComponent(urlWithTracking)}`;
-  return affiliateUrl;
-}
-function shouldShowAffiliateLink(tcgplayerUrl) {
-  if (!tcgplayerUrl) return false;
-  if (typeof window === "undefined") return false;
-  return true;
+function rarityLabel(code) {
+  if (!code) return "";
+  return RARITIES[code.toLowerCase()] ?? code.toUpperCase();
 }
 let observer = null;
 const hosts = /* @__PURE__ */ new Set();
@@ -3325,6 +3373,13 @@ let FabSpotlightCard = class extends i$1 {
       if (e2.key === "Escape" && this.overlayImageUrl) {
         this.closeOverlay();
       }
+    };
+    this.onCommentaryActivate = (e2) => {
+      if (e2 instanceof KeyboardEvent && e2.key !== "Enter" && e2.key !== " ") return;
+      const mention = e2.target?.closest?.("[data-card-img]");
+      if (!mention) return;
+      e2.preventDefault();
+      this.openOverlay(mention.dataset.cardImg, mention.dataset.cardName ?? "");
     };
   }
   async connectedCallback() {
@@ -3459,7 +3514,8 @@ let FabSpotlightCard = class extends i$1 {
   }
   renderCard() {
     const displayTitle = this.title || this.card.display_name || this.card.name;
-    const editionDisplay = this.getEditionDisplay(this.card.edition);
+    const editionDisplay = editionLabel(this.card.edition);
+    const rarityDisplay = rarityLabel(this.card.rarity);
     const foilingInfo = this.getFoilingInfo(this.card.foiling);
     return b`
       <div class="card">
@@ -3492,16 +3548,18 @@ let FabSpotlightCard = class extends i$1 {
               <div class="meta">
                 ${this.card.set ? b`<span>${this.card.set.toUpperCase()}</span>` : ""}
                 ${editionDisplay ? b`<span>${editionDisplay}</span>` : ""}
-                ${this.card.rarity ? b`<span>${this.card.rarity.toUpperCase()}</span>` : ""}
+                ${rarityDisplay ? b`<span>${rarityDisplay}</span>` : ""}
                 ${this.card.foiling && foilingInfo ? b`<span>${foilingInfo}</span>` : ""}
               </div>
 
               <!-- Commentary -->
               ${this.commentary ? b`
                 <div class="commentary">
-                  <div class="commentary-text">
-                    ${this.parseCommentary(this.commentary)}
-                  </div>
+                  <div
+                    class="commentary-text"
+                    @click="${this.onCommentaryActivate}"
+                    @keydown="${this.onCommentaryActivate}"
+                  >${o(buildCommentaryHtml(this.commentary, this.cardDataMap, this.loadingCards))}</div>
                 </div>
               ` : ""}
 
@@ -3529,77 +3587,6 @@ let FabSpotlightCard = class extends i$1 {
         </div>
       </div>
     `;
-  }
-  parseCommentary(text) {
-    if (!text) return b``;
-    const cardMentions = [];
-    const cardMentionRegex = /\*\*([^*]+)\*\*/g;
-    const withPlaceholders = text.replace(cardMentionRegex, (match, cardName2) => {
-      const isLikelyCardName = /[A-Z]/.test(cardName2) || cardName2.includes("'");
-      if (isLikelyCardName) {
-        const index = cardMentions.length;
-        cardMentions.push(cardName2);
-        return `{{CARDMENTION${index}}}`;
-      }
-      return match;
-    });
-    const htmlContent = marked.parse(withPlaceholders, {
-      breaks: true,
-      // Convert \n to <br>
-      gfm: true
-      // GitHub Flavored Markdown
-    });
-    const parts = [];
-    let lastIndex = 0;
-    cardMentions.forEach((cardName2, index) => {
-      const placeholder = `{{CARDMENTION${index}}}`;
-      const placeholderIndex = htmlContent.indexOf(placeholder, lastIndex);
-      if (placeholderIndex !== -1) {
-        if (placeholderIndex > lastIndex) {
-          parts.push(o(htmlContent.substring(lastIndex, placeholderIndex)));
-        }
-        const cardData = this.cardDataMap.get(cardName2);
-        const isLoading = this.loadingCards.has(cardName2);
-        if (cardData && cardData.image_url) {
-          parts.push(b`
-            <span class="inline-card-wrapper" @click="${() => this.openOverlay(cardData.image_url, cardName2)}" title="Click to view full size">
-              <img
-                class="inline-card-thumbnail"
-                src="${cardData.image_url}"
-                alt="${cardName2}"
-              />
-              <span class="inline-card-name">${cardName2}</span>
-            </span>
-          `);
-        } else if (isLoading) {
-          parts.push(b`
-            <span class="inline-card-wrapper">
-              <span class="inline-card-loading"></span>
-              <span class="inline-card-name">${cardName2}</span>
-            </span>
-          `);
-        } else {
-          parts.push(b`<span class="card-mention">${cardName2}</span>`);
-        }
-        lastIndex = placeholderIndex + placeholder.length;
-      }
-    });
-    if (lastIndex < htmlContent.length) {
-      parts.push(o(htmlContent.substring(lastIndex)));
-    }
-    return parts;
-  }
-  getEditionDisplay(code) {
-    if (!code) return "";
-    const lookupCode = code.toLowerCase();
-    const editions = {
-      a: "Alpha",
-      f: "1st",
-      u: "UNL",
-      n: "",
-      normal: ""
-    };
-    return editions[lookupCode] || code.toUpperCase();
   }
   getFoilingInfo(foiling) {
     const foilingMap = {
@@ -3755,7 +3742,9 @@ FabSpotlightCard.styles = i$4`
       flex-shrink: 0;
     }
 
-    .card-image img {
+    /* Direct child only: the TCGplayer logo is an <img> inside .card-image too,
+       and this rule (more specific than .purchase-link-logo) blew it up to 300px. */
+    .card-image > img {
       width: 100%;
       max-width: 300px;
       height: auto;
@@ -4001,8 +3990,8 @@ FabSpotlightCard.styles = i$4`
     }
 
     .inline-card-thumbnail {
-      width: 28px;
-      height: 39px;
+      width: 16px;
+      height: 22px;
       border-radius: 2px;
       object-fit: cover;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -4022,8 +4011,8 @@ FabSpotlightCard.styles = i$4`
 
     .inline-card-loading {
       display: inline-block;
-      width: 28px;
-      height: 39px;
+      width: 16px;
+      height: 22px;
       background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
       background-size: 200% 100%;
       animation: loading 1.5s ease-in-out infinite;
