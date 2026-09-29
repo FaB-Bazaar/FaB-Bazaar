@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { buildTcgAffiliateLink, shouldShowAffiliateLink } from './utils/affiliate-link-builder';
 import { buildCommentaryHtml, editionLabel, rarityLabel } from './utils/spotlight-commentary';
+import { whoHasRows, whoHasUrl, type WhoHasRow, type WhoHasTarget } from './utils/who-has';
 import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
@@ -29,17 +30,17 @@ export class FabSpotlightCard extends LitElement {
   static styles = css`
     :host {
       /* CSS Variables for theming - Light Mode */
-      --fab-spotlight-bg: #eff6ff;
-      --fab-spotlight-border: #93c5fd;
-      --fab-spotlight-badge-bg: #6366f1;
+      --fab-spotlight-bg: #ffffff;
+      --fab-spotlight-border: #d1d5db;
+      --fab-spotlight-badge-bg: #1d4ed8; /* link / accent: the site's plain blue */
       --fab-spotlight-badge-text: #ffffff;
-      --fab-spotlight-text: #0f172a;
-      --fab-spotlight-text-muted: #64748b;
-      --fab-spotlight-commentary-bg: #f0f9ff;
-      --fab-spotlight-commentary-border: #bae6fd;
-      --fab-spotlight-action-bg: #f0f9ff;
-      --fab-spotlight-action-hover-bg: #e0f2fe;
-      --fab-spotlight-action-border: #bae6fd;
+      --fab-spotlight-text: #111827;
+      --fab-spotlight-text-muted: #6b7280;
+      --fab-spotlight-commentary-bg: transparent;
+      --fab-spotlight-commentary-border: transparent;
+      --fab-spotlight-action-bg: transparent;
+      --fab-spotlight-action-hover-bg: #f3f4f6;
+      --fab-spotlight-action-border: #e5e7eb;
       --fab-spotlight-error-bg: #fef2f2;
       --fab-spotlight-error-border: #fca5a5;
       --fab-spotlight-error-text: #dc2626;
@@ -51,17 +52,17 @@ export class FabSpotlightCard extends LitElement {
     /* Dark Mode */
     @media (prefers-color-scheme: dark) {
       :host {
-        --fab-spotlight-bg: #1e293b;
-        --fab-spotlight-border: #475569;
-        --fab-spotlight-badge-bg: #818cf8;
-        --fab-spotlight-badge-text: #0f172a;
-        --fab-spotlight-text: #f1f5f9;
-        --fab-spotlight-text-muted: #94a3b8;
-        --fab-spotlight-commentary-bg: #0f172a;
-        --fab-spotlight-commentary-border: #334155;
-        --fab-spotlight-action-bg: #0f172a;
-        --fab-spotlight-action-hover-bg: #1e293b;
-        --fab-spotlight-action-border: #334155;
+        --fab-spotlight-bg: #182132;
+        --fab-spotlight-border: #374151;
+        --fab-spotlight-badge-bg: #60a5fa;
+        --fab-spotlight-badge-text: #111827;
+        --fab-spotlight-text: #f3f4f6;
+        --fab-spotlight-text-muted: #9ca3af;
+        --fab-spotlight-commentary-bg: transparent;
+        --fab-spotlight-commentary-border: transparent;
+        --fab-spotlight-action-bg: transparent;
+        --fab-spotlight-action-hover-bg: #263145;
+        --fab-spotlight-action-border: #374151;
         --fab-spotlight-error-bg: #450a0a;
         --fab-spotlight-error-border: #991b1b;
         --fab-spotlight-error-text: #fca5a5;
@@ -70,17 +71,17 @@ export class FabSpotlightCard extends LitElement {
 
     /* Tailwind class-based dark mode */
     :host([dark]) {
-      --fab-spotlight-bg: #1e293b;
-      --fab-spotlight-border: #475569;
-      --fab-spotlight-badge-bg: #818cf8;
-      --fab-spotlight-badge-text: #0f172a;
-      --fab-spotlight-text: #f1f5f9;
-      --fab-spotlight-text-muted: #94a3b8;
-      --fab-spotlight-commentary-bg: #0f172a;
-      --fab-spotlight-commentary-border: #334155;
-      --fab-spotlight-action-bg: #0f172a;
-      --fab-spotlight-action-hover-bg: #1e293b;
-      --fab-spotlight-action-border: #334155;
+      --fab-spotlight-bg: #182132;
+      --fab-spotlight-border: #374151;
+      --fab-spotlight-badge-bg: #60a5fa;
+      --fab-spotlight-badge-text: #111827;
+      --fab-spotlight-text: #f3f4f6;
+      --fab-spotlight-text-muted: #9ca3af;
+      --fab-spotlight-commentary-bg: transparent;
+      --fab-spotlight-commentary-border: transparent;
+      --fab-spotlight-action-bg: transparent;
+      --fab-spotlight-action-hover-bg: #263145;
+      --fab-spotlight-action-border: #374151;
       --fab-spotlight-error-bg: #450a0a;
       --fab-spotlight-error-border: #991b1b;
       --fab-spotlight-error-text: #fca5a5;
@@ -88,8 +89,8 @@ export class FabSpotlightCard extends LitElement {
 
     .card {
       background: var(--fab-spotlight-bg);
-      border: 2px solid var(--fab-spotlight-border);
-      border-radius: 0.5rem;
+      border: 1px solid var(--fab-spotlight-border);
+      border-radius: 0.25rem;
       overflow: hidden;
     }
 
@@ -137,21 +138,13 @@ export class FabSpotlightCard extends LitElement {
       gap: 0.75rem;
     }
 
+    /* A plain label, not a coloured pill. */
     .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.25rem 0.75rem;
-      background: var(--fab-spotlight-badge-bg);
-      color: var(--fab-spotlight-badge-text);
-      border-radius: 0.375rem;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 600;
-    }
-
-    .badge svg {
-      width: 1rem;
-      height: 1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--fab-spotlight-text-muted);
     }
 
     .title {
@@ -181,19 +174,19 @@ export class FabSpotlightCard extends LitElement {
     .commentary {
       background: var(--fab-spotlight-commentary-bg);
       border: 1px solid var(--fab-spotlight-commentary-border);
-      border-radius: 0.5rem;
-      padding: 1rem;
+      border-radius: 0;
+      padding: 0;
     }
 
     .commentary-text {
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
       line-height: 1.6;
       color: var(--fab-spotlight-text);
     }
 
     .card-mention {
       font-weight: 600;
-      color: var(--fab-spotlight-badge-bg);
+      color: var(--fab-spotlight-text);
     }
 
     /* Markdown-specific styles */
@@ -277,26 +270,71 @@ export class FabSpotlightCard extends LitElement {
 
     .action-row {
       display: flex;
+      width: 100%;
       align-items: center;
       justify-content: space-between;
       padding: 0.5rem;
       background: var(--fab-spotlight-action-bg);
-      border-radius: 0.375rem;
-      margin-bottom: 0.5rem;
-      transition: background-color 0.2s;
+      border: 0;
+      border-bottom: 1px solid var(--fab-spotlight-action-border);
+      border-radius: 0;
+      font: inherit;
+      text-align: left;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .action-row:focus-visible {
+      outline: 2px solid var(--fab-spotlight-badge-bg);
+      outline-offset: -2px;
+    }
+
+    .action-caret {
+      color: var(--fab-spotlight-text-muted);
+      font-size: 0.75rem;
+    }
+
+    .who-has-list {
+      list-style: none;
+      margin: 0;
+      padding: 0.25rem 0.5rem 0.5rem;
+      font-size: 0.875rem;
+      color: var(--fab-spotlight-text);
+    }
+
+    .who-has-list li {
+      padding: 0.25rem 0;
+    }
+
+    .who-has-list a {
+      color: var(--fab-spotlight-badge-bg);
+      text-decoration: underline;
+    }
+
+    .who-has-list a:hover {
+      text-decoration: none;
+    }
+
+    .who-has-note {
+      margin: 0;
+      padding: 0.25rem 0.5rem 0.5rem;
+      font-size: 0.875rem;
+      color: var(--fab-spotlight-text-muted);
     }
 
     .action-row:hover {
       background: var(--fab-spotlight-action-hover-bg);
     }
 
-    .action-row:last-child {
-      margin-bottom: 0;
-    }
 
     .action-label {
       flex: 1;
       font-size: 0.875rem;
+    }
+
+    .action-title,
+    .action-subtitle {
+      display: block;
     }
 
     .action-title {
@@ -533,6 +571,8 @@ export class FabSpotlightCard extends LitElement {
   @state() private loadingCards: Set<string> = new Set();
   @state() private overlayImageUrl: string | null = null;
   @state() private overlayAlt: string = '';
+  @state() private whoHasOpen: 'exact' | 'any' | null = null;
+  @state() private whoHas: Partial<Record<'exact' | 'any', WhoHasRow[] | 'loading'>> = {};
 
   async connectedCallback() {
     super.connectedCallback();
@@ -728,10 +768,7 @@ export class FabSpotlightCard extends LitElement {
             <div class="info">
               <!-- Badge -->
               <div class="badge-container">
-                <span class="badge">
-                  ${this.renderStarIcon()}
-                  Card Spotlight
-                </span>
+                <span class="badge">Card spotlight</span>
               </div>
 
               <!-- Title -->
@@ -758,22 +795,8 @@ export class FabSpotlightCard extends LitElement {
 
               <!-- Actions -->
               <div class="actions">
-                ${this.card.printing_id ? html`
-                  <div class="action-row">
-                    <div class="action-label">
-                      <div class="action-title">Who has this exact copy</div>
-                      <div class="action-subtitle">Same set, edition, and foiling</div>
-                    </div>
-                  </div>
-                ` : ''}
-                ${this.card.card_unique_id ? html`
-                  <div class="action-row">
-                    <div class="action-label">
-                      <div class="action-title">Who has other versions</div>
-                      <div class="action-subtitle">Any set, edition, or foiling</div>
-                    </div>
-                  </div>
-                ` : ''}
+                ${this.card.printing_id ? this.renderWhoHas('exact', 'Who has this exact copy', 'Same set, edition, and foiling', { printingId: this.card.printing_id }) : ''}
+                ${this.card.card_unique_id ? this.renderWhoHas('any', 'Who has other versions', 'Any set, edition, or foiling', { cardUniqueId: this.card.card_unique_id }) : ''}
               </div>
             </div>
           </div>
@@ -824,11 +847,36 @@ export class FabSpotlightCard extends LitElement {
     `;
   }
 
-  private renderStarIcon() {
+  // "Who has": the same for-trade lookup as the React WhoHasDropdown, loaded
+  // when a row is first opened and listed as plain binder links.
+  private async toggleWhoHas(key: 'exact' | 'any', target: WhoHasTarget) {
+    const open = this.whoHasOpen === key ? null : key;
+    this.whoHasOpen = open;
+    if (!open || this.whoHas[key]) return;
+    this.whoHas = { ...this.whoHas, [key]: 'loading' };
+    try {
+      const res = await fetch(whoHasUrl(target, this.apiBase || window.location.origin));
+      this.whoHas = { ...this.whoHas, [key]: whoHasRows(res.ok ? await res.json() : null) };
+    } catch {
+      this.whoHas = { ...this.whoHas, [key]: [] };
+    }
+  }
+
+  private renderWhoHas(key: 'exact' | 'any', title: string, subtitle: string, target: WhoHasTarget) {
+    const open = this.whoHasOpen === key;
+    const rows = this.whoHas[key];
     return html`
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-      </svg>
+      <button type="button" class="action-row" aria-expanded="${open}" @click="${() => this.toggleWhoHas(key, target)}">
+        <span class="action-label">
+          <span class="action-title">${title}</span>
+          <span class="action-subtitle">${subtitle}</span>
+        </span>
+        <span class="action-caret" aria-hidden="true">${open ? '▲' : '▼'}</span>
+      </button>
+      ${!open ? '' : rows === 'loading' || !rows ? html`<p class="who-has-note">Loading…</p>`
+        : rows.length === 0 ? html`<p class="who-has-note">Nobody has this listed for trade.</p>`
+        : html`<ul class="who-has-list">${rows.map(r => html`
+            <li><a href="${r.href}">${r.name}</a> — ${r.count} in ${r.binderName}</li>`)}</ul>`}
     `;
   }
 

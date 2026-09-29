@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/popover";
 
 interface MiniCard {
-  display_name: string;
+  name?: string;
+  display_name?: string;
   image_url: string;
 }
 
@@ -64,7 +65,8 @@ export default function InlineCard({ printingId, children, thumbnail = false, si
   }, [printingId]);
 
   // Get display name from children or card data
-  const displayName = children ? String(children) : card?.display_name;
+  // The search API sends `name` (there is no `display_name` on the wire).
+  const displayName = children ? String(children) : card?.name ?? card?.display_name;
 
   // Loading state
   if (!card) {
@@ -95,7 +97,7 @@ export default function InlineCard({ printingId, children, thumbnail = false, si
         <PopoverContent className="w-auto p-0 border-none bg-transparent">
           <img
             src={card.image_url}
-            alt={card.display_name}
+            alt={displayName}
             className="w-[250px] aspect-[63/88] rounded-lg shadow-xl"
           />
         </PopoverContent>
@@ -110,8 +112,8 @@ export default function InlineCard({ printingId, children, thumbnail = false, si
         <span className="inline items-center gap-1 cursor-pointer group">
           <img
             src={card.image_url}
-            alt={card.display_name}
-            title={`${card.display_name} - Click for larger view`}
+            alt={displayName}
+            title={displayName}
             className="inline-block rounded shadow-sm object-cover transition-all group-hover:shadow-md group-hover:scale-110 align-baseline"
             style={{ width: `${thumbnailWidth}px`, height: `${thumbnailHeight}px`, verticalAlign: 'baseline' }}
           />
@@ -123,7 +125,7 @@ export default function InlineCard({ printingId, children, thumbnail = false, si
       <PopoverContent className="w-auto p-0 border-none bg-transparent">
         <img
           src={card.image_url}
-          alt={card.display_name}
+          alt={displayName}
           className="w-[250px] aspect-[63/88] rounded-lg shadow-xl"
         />
       </PopoverContent>
