@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
-import { brewFacetRows, deckCopiesByZone, deckHeroName, kitSearchFilters, kitSummary, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck, pitchSiblings } from './brew'
+import { brewFacetRows, brewPool, deckCopiesByZone, deckHeroName, kitSearchFilters, kitSummary, facetsToSearchFilters, facetsLabel, lensToSearchFilters, notInDeck, pitchSiblings } from './brew'
 
 const card = (id: string, cardId: string): DeckPrintingDTO => ({
   printingId: id,
@@ -166,5 +166,28 @@ describe('starter kits', () => {
       benched: [withDetails('p2', 1, { card_unique_id: 'c' })],
     } as unknown as DeckDTO
     expect(kitSummary(kit, deck)).toEqual({ total: 3, inDeck: 2 })
+  })
+})
+
+describe('brewPool', () => {
+  const kit = { id: 'k', name: 'Items', cards: [{ cardUniqueId: 'a' }] }
+  const narrowed = { lens: { stat: 'keyword', value: 'go again' } as const, facets: { class: 'mechanologist' }, kit }
+
+  it('browsing (no name): the lens, facets and kit narrow the pool and in-deck cards are hidden', () => {
+    const pool = brewPool('', narrowed)
+    expect(pool.filters).toEqual({ keywords: ['go again'], classes: ['mechanologist'], cardUniqueIds: ['a'] })
+    expect(pool.hideInDeck).toBe(true)
+    expect(pool.label).toBe('Legal cards not in your deck — Kit: Items · Go again · Mechanologist')
+  })
+
+  it('a typed name searches every legal card: no kit/panel narrowing, cards already run stay', () => {
+    const pool = brewPool('hyper scrapper', narrowed)
+    expect(pool.filters).toEqual({})
+    expect(pool.hideInDeck).toBe(false)
+    expect(pool.label).toBe('All legal cards — "hyper scrapper"')
+  })
+
+  it('no name and nothing picked: the plain pool label', () => {
+    expect(brewPool('', { lens: null, facets: {}, kit: null }).label).toBe('Legal cards not in your deck')
   })
 })

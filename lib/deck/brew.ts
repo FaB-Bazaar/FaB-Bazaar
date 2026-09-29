@@ -5,6 +5,7 @@
 import type { DeckDTO, DeckPrintingDTO } from '@/lib/services/contracts/IDeckService'
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService'
 import type { Lens } from './deck-table'
+import { lensLabel } from './deck-lens'
 import type { HeroFilter } from './resolve-hero-filter'
 
 // Type buckets (deck-lens TYPE_BUCKETS) expressed as server filters:
@@ -154,4 +155,22 @@ export function kitSummary(kit: StarterKit, deck: DeckDTO): { total: number; inD
     }
   }
   return { total: ids.length, inDeck: ids.filter(id => inDeck.has(id)).length }
+}
+
+/** What the Brew pool shows. Browsing (empty box): the lens, facets and kit
+ *  narrow the pool, and cards already in the deck are hidden. A typed name
+ *  searches every legal card instead — ignoring the kit and panel filters, and
+ *  keeping cards the deck already runs (their tile badge shows the count). */
+export function brewPool(name: string, { lens, facets, kit }: { lens: Lens | null; facets: BrewFacets; kit: StarterKit | null }): {
+  filters: Partial<PrintingsSearchFilters>
+  hideInDeck: boolean
+  label: string
+} {
+  if (name) return { filters: {}, hideInDeck: false, label: `All legal cards — "${name}"` }
+  const picked = [kit && `Kit: ${kit.name}`, lens && lensLabel(lens), facetsLabel(facets)].filter(Boolean).join(' · ')
+  return {
+    filters: { ...lensToSearchFilters(lens), ...facetsToSearchFilters(facets), ...kitSearchFilters(kit) },
+    hideInDeck: true,
+    label: `Legal cards not in your deck${picked ? ` — ${picked}` : ''}`,
+  }
 }

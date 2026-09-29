@@ -22,9 +22,8 @@ import { DEFAULT_OPT_STATE } from "@/lib/search/opt-url-state";
 import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
 import { groupSearchPrintingsToCards, type CardResultWithCount } from "@/lib/deck/group-search-results";
 import {
-  deckCopiesByZone, deckHeroName, facetsLabel, kitSearchFilters, kitSummary, type StarterKit, facetsToSearchFilters, lensToSearchFilters, notInDeck, pitchSiblings, type BrewFacets,
+  brewPool, deckCopiesByZone, deckHeroName, kitSummary, type StarterKit, notInDeck, pitchSiblings, type BrewFacets,
 } from "@/lib/deck/brew";
-import { lensLabel } from "@/lib/deck/deck-lens";
 import type { Lens } from "@/lib/deck/deck-table";
 import { RulesText } from "@/components/cards/CardDetailsLightbox";
 
@@ -87,12 +86,12 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
     return () => clearTimeout(t);
   }, [nameQuery]);
 
+  // A typed name searches every legal card; the kit and panel filters only narrow browsing.
+  const pool = brewPool(debouncedName, { lens: active, facets, kit });
   const filters = useMemo(
     () => ({
       ...buildDeckAddFilters(DEFAULT_OPT_STATE, debouncedName, { hero, deckFormat: deck.format, targetCategory: "maindeck", heroName }),
-      ...lensToSearchFilters(active),
-      ...facetsToSearchFilters(facets),
-      ...kitSearchFilters(kit),
+      ...pool.filters,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hero is keyed by content
     [heroKey, heroName, deck.format, active, facets, kit, debouncedName],
@@ -114,7 +113,7 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
   useEffect(() => { setKept(new Set()); }, [filtersKey]);
 
   const allLoaded = useMemo(() => groupSearchPrintingsToCards(search.results as any), [search.results]);
-  const cards = useMemo(() => notInDeck(allLoaded, deck, kept), [allLoaded, deck, kept]);
+  const cards = useMemo(() => (pool.hideInDeck ? notInDeck(allLoaded, deck, kept) : allLoaded), [pool.hideInDeck, allLoaded, deck, kept]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // The details panel lives in the page's full-height right column (so its add
   // buttons sit near the top of the window, not below the card grid's header).
@@ -129,9 +128,8 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
     await onAdd(printing.printing_id, zone, quantity);
   };
 
-  const picked = [debouncedName && `"${debouncedName}"`, kit && `Kit: ${kit.name}`, active && lensLabel(active), facetsLabel(facets)].filter(Boolean).join(" · ");
   const summary = kit ? kitSummary(kit, deck) : null;
-  const label = `Legal cards not in your deck${picked ? ` — ${picked}` : ""}`;
+  const label = pool.label;
 
   return (
     <>
@@ -191,7 +189,9 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
           <p className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">Loading legal cards…</p>
         ) : cards.length === 0 ? (
           <p className="px-3 py-3 text-sm text-gray-600 dark:text-gray-400">
-            {summary && summary.inDeck >= summary.total
+            {debouncedName
+              ? `No legal cards match "${debouncedName}".`
+              : summary && summary.inDeck >= summary.total
               ? "You already play every card in this kit."
               : `No legal cards left to add${active || kit ? " for this filter" : ""}.`}
           </p>
