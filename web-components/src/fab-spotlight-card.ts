@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { buildTcgAffiliateLink, shouldShowAffiliateLink } from './utils/affiliate-link-builder';
-import { buildCommentaryHtml, editionLabel, rarityLabel } from './utils/spotlight-commentary';
+import { buildCommentaryHtml, commentaryMentions, editionLabel, rarityLabel } from './utils/spotlight-commentary';
 import { whoHasRows, whoHasUrl, whoWantsRows, whoWantsUrl } from './utils/who-has';
 
 type WhoTab = 'exact' | 'any' | 'wants';
@@ -612,22 +612,10 @@ export class FabSpotlightCard extends LitElement {
     }
   }
 
+  // Same parsing as the renderer: `**Card**` and `**shown words|Card**` both
+  // look up the card name.
   private extractCardNames(): string[] {
-    if (!this.commentary) return [];
-
-    const cardNames: string[] = [];
-    const cardMentionRegex = /\*\*([^*]+)\*\*/g;
-    let match;
-
-    while ((match = cardMentionRegex.exec(this.commentary)) !== null) {
-      const cardName = match[1];
-      const isLikelyCardName = /[A-Z]/.test(cardName) || cardName.includes("'");
-      if (isLikelyCardName) {
-        cardNames.push(cardName);
-      }
-    }
-
-    return [...new Set(cardNames)]; // Remove duplicates
+    return [...new Set(commentaryMentions(this.commentary || ''))];
   }
 
   private async fetchCardDataByNames() {

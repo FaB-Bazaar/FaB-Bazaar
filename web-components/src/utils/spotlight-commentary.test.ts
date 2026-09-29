@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCommentaryHtml, editionLabel, rarityLabel } from './spotlight-commentary';
+import { buildCommentaryHtml, commentaryMentions, editionLabel, rarityLabel } from './spotlight-commentary';
 
 // The commentary from the live "Farewell to Dash, Hello to Maxx" article.
 const COMMENTARY = `**Hyper Driver** is often a liability in the deck. I tried playing Nitro Mechanoid Dash for quite some time.
@@ -63,5 +63,28 @@ describe('spotlight meta labels', () => {
     expect(rarityLabel('m')).toBe('Majestic');
     expect(rarityLabel('V')).toBe('Marvel');
     expect(rarityLabel('')).toBe('');
+  });
+});
+
+describe('tagged text: **shown words|Card Name**', () => {
+  it('shows the writer\'s words with the named card\'s thumbnail', () => {
+    const html = buildCommentaryHtml('thin your deck of **Hyper Drivers|Hyper Driver**.', ALL, new Set());
+    expect(html).toContain('data-card-name="Hyper Driver"');
+    expect(html).toContain('alt="Hyper Driver"');
+    expect(html).toContain('<span class="inline-card-name">Hyper Drivers</span></span>.');
+  });
+
+  it('looks cards up by the card name, not the shown words', () => {
+    expect(commentaryMentions('**Hyper Drivers|Hyper Driver** and **Assembly|Assembly Module** and **Heist**'))
+      .toEqual(['Hyper Driver', 'Assembly Module', 'Heist']);
+  });
+
+  it('works while loading and for unknown cards too', () => {
+    expect(buildCommentaryHtml('**Hyper Drivers|Hyper Driver**', new Map(), new Set(['Hyper Driver']))).toContain('<span class="inline-card-name">Hyper Drivers</span>');
+    expect(buildCommentaryHtml('**Hyper Drivers|Hyper Driver**', new Map(), new Set())).toContain('<span class="card-mention">Hyper Drivers</span>');
+  });
+
+  it('a lowercase card name after the bar is still a tag (the name decides, not the shown words)', () => {
+    expect(commentaryMentions('**the drivers|Hyper Driver**')).toEqual(['Hyper Driver']);
   });
 });

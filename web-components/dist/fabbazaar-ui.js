@@ -3273,29 +3273,46 @@ marked.parseInline;
 _Parser.parse;
 _Lexer.lex;
 const escapeHtml = (s2) => s2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-function mentionHtml(name, card, loading) {
+function parseMention(raw) {
+  const bar = raw.lastIndexOf("|");
+  const label = (bar >= 0 ? raw.slice(0, bar) : raw).trim();
+  const name = (bar >= 0 ? raw.slice(bar + 1) : raw).trim();
+  if (!name || !label) return null;
+  return /[A-Z]/.test(name) || name.includes("'") ? { label, name } : null;
+}
+function mentionHtml(label, name, card, loading) {
+  const safeLabel = escapeHtml(label);
   const safeName = escapeHtml(name);
   if (card?.image_url) {
     const src = escapeHtml(card.image_url);
-    return `<span class="inline-card-wrapper" role="button" tabindex="0" data-card-name="${safeName}" data-card-img="${src}" title="Click to view full size"><img class="inline-card-thumbnail" src="${src}" alt="${safeName}" loading="lazy" /><span class="inline-card-name">${safeName}</span></span>`;
+    return `<span class="inline-card-wrapper" role="button" tabindex="0" data-card-name="${safeName}" data-card-img="${src}" title="Click to view full size"><img class="inline-card-thumbnail" src="${src}" alt="${safeName}" loading="lazy" /><span class="inline-card-name">${safeLabel}</span></span>`;
   }
   if (loading) {
-    return `<span class="inline-card-wrapper"><span class="inline-card-loading"></span><span class="inline-card-name">${safeName}</span></span>`;
+    return `<span class="inline-card-wrapper"><span class="inline-card-loading"></span><span class="inline-card-name">${safeLabel}</span></span>`;
   }
-  return `<span class="card-mention">${safeName}</span>`;
+  return `<span class="card-mention">${safeLabel}</span>`;
+}
+function commentaryMentions(text) {
+  const names = [];
+  for (const m2 of text.matchAll(/\*\*([^*]+)\*\*/g)) {
+    const mention = parseMention(m2[1]);
+    if (mention) names.push(mention.name);
+  }
+  return names;
 }
 function buildCommentaryHtml(text, cards, loading) {
   if (!text) return "";
   const mentions = [];
-  const withPlaceholders = text.replace(/\*\*([^*]+)\*\*/g, (match, name) => {
-    if (!/[A-Z]/.test(name) && !name.includes("'")) return match;
-    mentions.push(name);
+  const withPlaceholders = text.replace(/\*\*([^*]+)\*\*/g, (match, raw) => {
+    const mention = parseMention(raw);
+    if (!mention) return match;
+    mentions.push(mention);
     return `{{CARDMENTION${mentions.length - 1}}}`;
   });
   const html2 = marked.parse(withPlaceholders, { breaks: true, gfm: true });
   return html2.replace(/\{\{CARDMENTION(\d+)\}\}/g, (_m, i3) => {
-    const name = mentions[Number(i3)];
-    return mentionHtml(name, cards.get(name), loading.has(name));
+    const { label, name } = mentions[Number(i3)];
+    return mentionHtml(label, name, cards.get(name), loading.has(name));
   });
 }
 const EDITIONS = { a: "Alpha", f: "1st Edition", u: "Unlimited", n: "", normal: "" };
@@ -3460,19 +3477,10 @@ let FabSpotlightCard = class extends i$1 {
       this.loading = false;
     }
   }
+  // Same parsing as the renderer: `**Card**` and `**shown words|Card**` both
+  // look up the card name.
   extractCardNames() {
-    if (!this.commentary) return [];
-    const cardNames = [];
-    const cardMentionRegex = /\*\*([^*]+)\*\*/g;
-    let match;
-    while ((match = cardMentionRegex.exec(this.commentary)) !== null) {
-      const cardName2 = match[1];
-      const isLikelyCardName = /[A-Z]/.test(cardName2) || cardName2.includes("'");
-      if (isLikelyCardName) {
-        cardNames.push(cardName2);
-      }
-    }
-    return [...new Set(cardNames)];
+    return [...new Set(commentaryMentions(this.commentary || ""))];
   }
   async fetchCardDataByNames() {
     const cardNames = this.extractCardNames();

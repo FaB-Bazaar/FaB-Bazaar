@@ -21,7 +21,7 @@ Update an existing section in an article by its index. Replaces the entire secti
 • creator-spotlight: Highlight content creators
 • callout: Important notice boxes
 • opportunity-card: Trading opportunities
-• spotlight-card: Featured card highlights
+• spotlight-card: Featured card highlights. In its commentary, **Card Name** adds a card thumbnail; **shown words|Card Name** tags any wording ("**Hyper Drivers|Hyper Driver**", "**Assembly|Assembly Module**").
 • decklist-block: A decklist. Pass deckId + snapshotLabel (e.g. "Week of Calling: Atlanta") to freeze the list as it is now — readers see that snapshot first, with the live list and what changed one click away. deckId alone = always-live list.
 
 🔄 TWO-STEP PROCESS:

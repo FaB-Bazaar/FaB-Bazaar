@@ -15,25 +15,41 @@ type MentionCard = { image_url?: string | null };
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-function mentionHtml(name: string, card: MentionCard | undefined, loading: boolean): string {
+/**
+ * `**Card Name**`, or `**shown words|Card Name**` to tag any wording ("Hyper
+ * Drivers", "Assembly") with a card: the part after the bar is looked up, the
+ * part before it is what readers see. Null when it's ordinary bold text.
+ */
+function parseMention(raw: string): { label: string; name: string } | null {
+  const bar = raw.lastIndexOf('|');
+  const label = (bar >= 0 ? raw.slice(0, bar) : raw).trim();
+  const name = (bar >= 0 ? raw.slice(bar + 1) : raw).trim();
+  if (!name || !label) return null;
+  // Heuristic: card names have a capital or an apostrophe; lowercase bold is emphasis.
+  return /[A-Z]/.test(name) || name.includes("'") ? { label, name } : null;
+}
+
+function mentionHtml(label: string, name: string, card: MentionCard | undefined, loading: boolean): string {
+  const safeLabel = escapeHtml(label);
   const safeName = escapeHtml(name);
   if (card?.image_url) {
     const src = escapeHtml(card.image_url);
     return `<span class="inline-card-wrapper" role="button" tabindex="0" data-card-name="${safeName}" data-card-img="${src}" title="Click to view full size">`
       + `<img class="inline-card-thumbnail" src="${src}" alt="${safeName}" loading="lazy" />`
-      + `<span class="inline-card-name">${safeName}</span></span>`;
+      + `<span class="inline-card-name">${safeLabel}</span></span>`;
   }
   if (loading) {
-    return `<span class="inline-card-wrapper"><span class="inline-card-loading"></span><span class="inline-card-name">${safeName}</span></span>`;
+    return `<span class="inline-card-wrapper"><span class="inline-card-loading"></span><span class="inline-card-name">${safeLabel}</span></span>`;
   }
-  return `<span class="card-mention">${safeName}</span>`;
+  return `<span class="card-mention">${safeLabel}</span>`;
 }
 
 /** Card names in the commentary: bold text that looks like a card name (has a capital or an apostrophe). */
 export function commentaryMentions(text: string): string[] {
   const names: string[] = [];
   for (const m of text.matchAll(/\*\*([^*]+)\*\*/g)) {
-    if (/[A-Z]/.test(m[1]) || m[1].includes("'")) names.push(m[1]);
+    const mention = parseMention(m[1]);
+    if (mention) names.push(mention.name);
   }
   return names;
 }
@@ -44,16 +60,17 @@ export function buildCommentaryHtml(
   loading: Set<string>,
 ): string {
   if (!text) return '';
-  const mentions: string[] = [];
-  const withPlaceholders = text.replace(/\*\*([^*]+)\*\*/g, (match, name: string) => {
-    if (!/[A-Z]/.test(name) && !name.includes("'")) return match; // plain bold
-    mentions.push(name);
+  const mentions: Array<{ label: string; name: string }> = [];
+  const withPlaceholders = text.replace(/\*\*([^*]+)\*\*/g, (match, raw: string) => {
+    const mention = parseMention(raw);
+    if (!mention) return match; // plain bold
+    mentions.push(mention);
     return `{{CARDMENTION${mentions.length - 1}}}`;
   });
   const html = marked.parse(withPlaceholders, { breaks: true, gfm: true }) as string;
   return html.replace(/\{\{CARDMENTION(\d+)\}\}/g, (_m, i: string) => {
-    const name = mentions[Number(i)];
-    return mentionHtml(name, cards.get(name), loading.has(name));
+    const { label, name } = mentions[Number(i)];
+    return mentionHtml(label, name, cards.get(name), loading.has(name));
   });
 }
 
