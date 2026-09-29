@@ -4,6 +4,7 @@ import { Outfit } from "next/font/google"
 
 const OutfitFont = Outfit({ subsets: ["latin"] })
 import Script from "next/script"
+import { wcBundleSrc } from "@/lib/wc-bundle-src"
 import "./globals.css"
 import Navbar from "@/components/navbar"
 import { AuthProvider } from "@/contexts/AuthContext"
@@ -236,7 +237,7 @@ export default async function RootLayout({
 
         {/* Web Components - Load after DOM is ready */}
         <Script
-          src="/wc/fabbazaar-ui.js"
+          src={wcBundleSrc()}
           strategy="afterInteractive"
           type="module"
           crossOrigin="anonymous"
