@@ -97,6 +97,20 @@ describe('validateCopyLimit', () => {
     expect(result.ok).toBe(false);
   });
 
+  // Blitz went singleton on 2026-01-01 (TRP 7.3: "up to 1 copy of each unique card").
+  it('Blitz: 1 copy ok, a 2nd copy rejected', () => {
+    expect(validateCopyLimit(1, 'Blitz', {})).toEqual({ ok: true });
+    const result = validateCopyLimit(2, 'Blitz', {});
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/max 1/);
+  });
+
+  it('Commoner: 2 copies ok, 3 rejected', () => {
+    expect(validateCopyLimit(2, 'Commoner', {})).toEqual({ ok: true });
+    expect(validateCopyLimit(3, 'Commoner', {}).ok).toBe(false);
+  });
+
   it('Classic Constructed: 3 copies ok', () => {
     expect(validateCopyLimit(3, 'Classic Constructed', {})).toEqual({ ok: true });
   });

@@ -6,6 +6,8 @@
  * MCP client (or other API consumer) on a per-card basis.
  */
 
+import { maxCopiesFor } from '@/lib/deck/format-rules';
+
 export interface HeroLegality {
   classes: string[];
   talents: string[];
@@ -171,17 +173,10 @@ export function validateCopyLimit(
     return { ok: true };
   }
 
-  if (f === 'classic constructed' || f === 'future classic constructed') {
-    if (newTotalCount > 3) {
-      return { ok: false, reason: `${format} allows max 3 copies (would be ${newTotalCount})` };
-    }
-    return { ok: true };
-  }
-
-  // Silver Age, Blitz, Commoner — 2-of formats
-  if (newTotalCount > 2) {
-    const label = format;
-    return { ok: false, reason: `${label} allows max 2 copies per card+pitch (would be ${newTotalCount})` };
+  // CC, Blitz, Silver Age, Commoner — limits from the shared rules table.
+  const max = maxCopiesFor(format) ?? 2;
+  if (newTotalCount > max) {
+    return { ok: false, reason: `${format} allows max ${max} copies per card+pitch (would be ${newTotalCount})` };
   }
   return { ok: true };
 }
