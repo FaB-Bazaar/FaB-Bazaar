@@ -1,5 +1,6 @@
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { ARTICLE_MDX_OPTIONS } from '@/lib/articles/mdx-options';
+import { decklistBlockAttrs } from '@/lib/articles/decklist-attrs';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
@@ -343,14 +344,7 @@ export default async function HeroArticlePage({ params }: { params: { publicId: 
                 return (
                   <div
                     key={index}
-                    dangerouslySetInnerHTML={createSafeInnerHTML('fab-decklist-block', {
-                      'deck-id': section.deckId,
-                      'hero-public-id': articleDoc.publicId,
-                      title: section.title || '',
-                      sections: section.sections,
-                      'export-url': section.exportUrl,
-                      notes: section.notes,
-                    })}
+                    dangerouslySetInnerHTML={createSafeInnerHTML('fab-decklist-block', decklistBlockAttrs(section, { heroPublicId: articleDoc.publicId }))}
                   />
                 );
 

@@ -5566,6 +5566,161 @@ function resolveDecklistViewMode(saved, isNarrow) {
   if (saved === "grid" || saved === "list") return saved;
   return isNarrow ? "list" : "grid";
 }
+function deckToSections(deck) {
+  const sections = [];
+  const heroAndEquipment = [
+    ...Array.isArray(deck.hero) ? deck.hero : [],
+    ...Array.isArray(deck.equipment) ? deck.equipment : []
+  ];
+  if (heroAndEquipment.length > 0) {
+    const cardMap = /* @__PURE__ */ new Map();
+    for (const card of heroAndEquipment) {
+      const printingId = card.printingId;
+      const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+      const qty = card.quantity ?? 1;
+      if (cardMap.has(printingId)) {
+        cardMap.get(printingId).quantity += qty;
+      } else {
+        cardMap.set(printingId, {
+          cardName: cardName2,
+          printingId,
+          quantity: qty,
+          foiling: card.printingDetails?.foiling || card.foiling,
+          imageUrl: card.printingDetails?.image_url,
+          pitch: card.printingDetails?.pitch ?? null,
+          cost: card.printingDetails?.cost ?? null,
+          power: card.printingDetails?.power ?? null,
+          defense: card.printingDetails?.defense ?? null,
+          types: card.printingDetails?.types ?? [],
+          keywords: card.printingDetails?.keywords ?? []
+        });
+      }
+    }
+    const totalEquip = Array.from(cardMap.values()).reduce((s2, c2) => s2 + c2.quantity, 0);
+    sections.push({
+      label: "EQUIPMENT & WEAPONS",
+      pitchColor: null,
+      totalCards: totalEquip,
+      uniqueCards: cardMap.size,
+      cards: Array.from(cardMap.values())
+    });
+  }
+  const remainingCategories = [
+    { key: "maindeck", label: "Main Deck" },
+    { key: "inventory", label: "Inventory" },
+    { key: "maybeboard", label: "Maybeboard" },
+    { key: "tokens", label: "Tokens" }
+  ];
+  for (const { key } of remainingCategories) {
+    const categoryCards = deck[key];
+    if (!Array.isArray(categoryCards) || categoryCards.length === 0) continue;
+    if (key === "maindeck") {
+      const pitchBuckets = [
+        { label: "LIBRARY — RED", pitchColor: "red", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
+        { label: "LIBRARY — YELLOW", pitchColor: "yellow", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
+        { label: "LIBRARY — BLUE", pitchColor: "blue", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
+        { label: "Other", pitchColor: null, cardMap: /* @__PURE__ */ new Map(), totalCards: 0 }
+      ];
+      for (const card of categoryCards) {
+        const pitch = card.printingDetails?.pitch;
+        const bucketIndex = pitch === 1 ? 0 : pitch === 2 ? 1 : pitch === 3 ? 2 : 3;
+        const bucket = pitchBuckets[bucketIndex];
+        const printingId = card.printingId;
+        const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+        const qty = card.quantity ?? 1;
+        bucket.totalCards += qty;
+        if (bucket.cardMap.has(printingId)) {
+          bucket.cardMap.get(printingId).quantity += qty;
+        } else {
+          bucket.cardMap.set(printingId, {
+            cardName: cardName2,
+            printingId,
+            quantity: qty,
+            foiling: card.printingDetails?.foiling || card.foiling,
+            imageUrl: card.printingDetails?.image_url,
+            pitch: pitch ?? null,
+            cost: card.printingDetails?.cost ?? null,
+            power: card.printingDetails?.power ?? null,
+            defense: card.printingDetails?.defense ?? null,
+            types: card.printingDetails?.types ?? [],
+            keywords: card.printingDetails?.keywords ?? []
+          });
+        }
+      }
+      for (const bucket of pitchBuckets) {
+        if (bucket.cardMap.size > 0) {
+          sections.push({
+            label: bucket.label,
+            pitchColor: bucket.pitchColor,
+            totalCards: bucket.totalCards,
+            uniqueCards: bucket.cardMap.size,
+            cards: Array.from(bucket.cardMap.values())
+          });
+        }
+      }
+      continue;
+    }
+    const cardMap = /* @__PURE__ */ new Map();
+    for (const card of categoryCards) {
+      const printingId = card.printingId;
+      const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+      const qty = card.quantity ?? 1;
+      if (cardMap.has(printingId)) {
+        cardMap.get(printingId).quantity += qty;
+      } else {
+        cardMap.set(printingId, {
+          cardName: cardName2,
+          printingId,
+          quantity: qty,
+          foiling: card.printingDetails?.foiling || card.foiling,
+          imageUrl: card.printingDetails?.image_url,
+          pitch: card.printingDetails?.pitch ?? null,
+          cost: card.printingDetails?.cost ?? null,
+          power: card.printingDetails?.power ?? null,
+          defense: card.printingDetails?.defense ?? null,
+          types: card.printingDetails?.types ?? [],
+          keywords: card.printingDetails?.keywords ?? []
+        });
+      }
+    }
+    const label = key === "inventory" ? "Inventory" : key === "maybeboard" ? "Maybeboard" : "Tokens";
+    sections.push({
+      label,
+      pitchColor: null,
+      totalCards: categoryCards.length,
+      uniqueCards: cardMap.size,
+      cards: Array.from(cardMap.values())
+    });
+  }
+  return {
+    sections,
+    title: deck.name || "Decklist",
+    exportUrl: deck.fabraryUrl,
+    notes: deck.description
+  };
+}
+function diffDecklists(before, after) {
+  const totals = (sections) => {
+    const m2 = /* @__PURE__ */ new Map();
+    for (const c2 of sections.flatMap((s2) => s2.cards)) {
+      const key = `${c2.cardName}|${c2.pitch ?? ""}`;
+      const cur = m2.get(key) ?? { cardName: c2.cardName, pitch: c2.pitch ?? null, quantity: 0 };
+      cur.quantity += c2.quantity;
+      m2.set(key, cur);
+    }
+    return m2;
+  };
+  const a2 = totals(before), b2 = totals(after);
+  const added = [], removed = [];
+  for (const key of /* @__PURE__ */ new Set([...a2.keys(), ...b2.keys()])) {
+    const was = a2.get(key)?.quantity ?? 0, now = b2.get(key)?.quantity ?? 0;
+    const base = a2.get(key) ?? b2.get(key);
+    if (now > was) added.push({ cardName: base.cardName, pitch: base.pitch, quantity: now - was });
+    if (was > now) removed.push({ cardName: base.cardName, pitch: base.pitch, quantity: was - now });
+  }
+  const order = (x2, y3) => x2.cardName.localeCompare(y3.cardName) || (x2.pitch ?? 0) - (y3.pitch ?? 0);
+  return { added: added.sort(order), removed: removed.sort(order) };
+}
 var __defProp$3 = Object.defineProperty;
 var __getOwnPropDesc$3 = Object.getOwnPropertyDescriptor;
 var __decorateClass$3 = (decorators, target, key, kind) => {
@@ -5589,12 +5744,16 @@ let FabDecklistBlock = class extends i$1 {
     this.title = "Decklist";
     this.articlePublicId = "";
     this.heroPublicId = "";
+    this.snapshot = "";
     this._loading = false;
     this._error = "";
     this._deckData = null;
     this._viewMode = "grid";
     this._highlightFilters = [];
     this._overlayImage = null;
+    this._tab = "snapshot";
+    this._snap = null;
+    this._hudSections = [];
     this._onKeyDown = (e2) => {
       if (e2.key === "Escape") this._overlayImage = null;
     };
@@ -5616,15 +5775,31 @@ let FabDecklistBlock = class extends i$1 {
     unwatchTheme(this);
     document.removeEventListener("keydown", this._onKeyDown);
   }
+  willUpdate(changed) {
+    if (changed.has("snapshot")) {
+      try {
+        const parsed = this.snapshot ? JSON.parse(this.snapshot) : null;
+        this._snap = parsed && Array.isArray(parsed.sections) ? parsed : null;
+      } catch {
+        this._snap = null;
+      }
+    }
+  }
+  // With a snapshot the live deck is fetched only when a reader asks for it.
   firstUpdated() {
-    if (this.deckId && !this._lastFetchedDeckId) {
+    if (this.deckId && !this._lastFetchedDeckId && !this.snapshot) {
       this._fetchDeck();
     }
   }
   updated(changedProperties) {
-    if (changedProperties.has("deckId") && this.deckId && this.deckId !== this._lastFetchedDeckId) {
+    if (changedProperties.has("deckId") && this.deckId && this.deckId !== this._lastFetchedDeckId && !this.snapshot) {
       this._fetchDeck();
     }
+  }
+  _setTab(tab) {
+    this._tab = tab;
+    this._highlightFilters = [];
+    if (tab !== "snapshot" && !this._deckData && !this._loading && this.deckId) this._fetchDeck();
   }
   _setViewMode(mode) {
     this._viewMode = mode;
@@ -5662,8 +5837,7 @@ let FabDecklistBlock = class extends i$1 {
     return this._highlightFilters.every((f2) => this._matchesStat(card, f2.stat, f2.value));
   }
   _computeAllCards() {
-    if (!this._deckData) return [];
-    return this._deckData.sections.flatMap((s2) => s2.cards);
+    return this._hudSections.flatMap((s2) => s2.cards);
   }
   // Count total copies (with quantity) matching a chip
   _getChipCount(stat, value) {
@@ -5691,145 +5865,12 @@ let FabDecklistBlock = class extends i$1 {
       if (!response.ok || !result.success) {
         throw new Error(result.error || "Failed to fetch deck");
       }
-      this._deckData = this._transformDeckToSections(result.data);
+      this._deckData = deckToSections(result.data);
     } catch (e2) {
       this._error = e2 instanceof Error ? e2.message : "Failed to fetch deck";
     } finally {
       this._loading = false;
     }
-  }
-  _transformDeckToSections(deck) {
-    const sections = [];
-    const heroAndEquipment = [
-      ...Array.isArray(deck.hero) ? deck.hero : [],
-      ...Array.isArray(deck.equipment) ? deck.equipment : []
-    ];
-    if (heroAndEquipment.length > 0) {
-      const cardMap = /* @__PURE__ */ new Map();
-      for (const card of heroAndEquipment) {
-        const printingId = card.printingId;
-        const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
-        const qty = card.quantity ?? 1;
-        if (cardMap.has(printingId)) {
-          cardMap.get(printingId).quantity += qty;
-        } else {
-          cardMap.set(printingId, {
-            cardName: cardName2,
-            printingId,
-            quantity: qty,
-            foiling: card.printingDetails?.foiling || card.foiling,
-            imageUrl: card.printingDetails?.image_url,
-            pitch: card.printingDetails?.pitch ?? null,
-            cost: card.printingDetails?.cost ?? null,
-            power: card.printingDetails?.power ?? null,
-            defense: card.printingDetails?.defense ?? null,
-            types: card.printingDetails?.types ?? [],
-            keywords: card.printingDetails?.keywords ?? []
-          });
-        }
-      }
-      const totalEquip = Array.from(cardMap.values()).reduce((s2, c2) => s2 + c2.quantity, 0);
-      sections.push({
-        label: "EQUIPMENT & WEAPONS",
-        pitchColor: null,
-        totalCards: totalEquip,
-        uniqueCards: cardMap.size,
-        cards: Array.from(cardMap.values())
-      });
-    }
-    const remainingCategories = [
-      { key: "maindeck", label: "Main Deck" },
-      { key: "inventory", label: "Inventory" },
-      { key: "maybeboard", label: "Maybeboard" },
-      { key: "tokens", label: "Tokens" }
-    ];
-    for (const { key } of remainingCategories) {
-      const categoryCards = deck[key];
-      if (!Array.isArray(categoryCards) || categoryCards.length === 0) continue;
-      if (key === "maindeck") {
-        const pitchBuckets = [
-          { label: "LIBRARY — RED", pitchColor: "red", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
-          { label: "LIBRARY — YELLOW", pitchColor: "yellow", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
-          { label: "LIBRARY — BLUE", pitchColor: "blue", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
-          { label: "Other", pitchColor: null, cardMap: /* @__PURE__ */ new Map(), totalCards: 0 }
-        ];
-        for (const card of categoryCards) {
-          const pitch = card.printingDetails?.pitch;
-          const bucketIndex = pitch === 1 ? 0 : pitch === 2 ? 1 : pitch === 3 ? 2 : 3;
-          const bucket = pitchBuckets[bucketIndex];
-          const printingId = card.printingId;
-          const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
-          const qty = card.quantity ?? 1;
-          bucket.totalCards += qty;
-          if (bucket.cardMap.has(printingId)) {
-            bucket.cardMap.get(printingId).quantity += qty;
-          } else {
-            bucket.cardMap.set(printingId, {
-              cardName: cardName2,
-              printingId,
-              quantity: qty,
-              foiling: card.printingDetails?.foiling || card.foiling,
-              imageUrl: card.printingDetails?.image_url,
-              pitch: pitch ?? null,
-              cost: card.printingDetails?.cost ?? null,
-              power: card.printingDetails?.power ?? null,
-              defense: card.printingDetails?.defense ?? null,
-              types: card.printingDetails?.types ?? [],
-              keywords: card.printingDetails?.keywords ?? []
-            });
-          }
-        }
-        for (const bucket of pitchBuckets) {
-          if (bucket.cardMap.size > 0) {
-            sections.push({
-              label: bucket.label,
-              pitchColor: bucket.pitchColor,
-              totalCards: bucket.totalCards,
-              uniqueCards: bucket.cardMap.size,
-              cards: Array.from(bucket.cardMap.values())
-            });
-          }
-        }
-        continue;
-      }
-      const cardMap = /* @__PURE__ */ new Map();
-      for (const card of categoryCards) {
-        const printingId = card.printingId;
-        const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
-        const qty = card.quantity ?? 1;
-        if (cardMap.has(printingId)) {
-          cardMap.get(printingId).quantity += qty;
-        } else {
-          cardMap.set(printingId, {
-            cardName: cardName2,
-            printingId,
-            quantity: qty,
-            foiling: card.printingDetails?.foiling || card.foiling,
-            imageUrl: card.printingDetails?.image_url,
-            pitch: card.printingDetails?.pitch ?? null,
-            cost: card.printingDetails?.cost ?? null,
-            power: card.printingDetails?.power ?? null,
-            defense: card.printingDetails?.defense ?? null,
-            types: card.printingDetails?.types ?? [],
-            keywords: card.printingDetails?.keywords ?? []
-          });
-        }
-      }
-      const label = key === "inventory" ? "Inventory" : key === "maybeboard" ? "Maybeboard" : "Tokens";
-      sections.push({
-        label,
-        pitchColor: null,
-        totalCards: categoryCards.length,
-        uniqueCards: cardMap.size,
-        cards: Array.from(cardMap.values())
-      });
-    }
-    return {
-      sections,
-      title: deck.name || "Decklist",
-      exportUrl: deck.fabraryUrl,
-      notes: deck.description
-    };
   }
   /**
    * Resolve the CDN url for a card. Images are keyed by printing characteristics,
@@ -6058,6 +6099,7 @@ let FabDecklistBlock = class extends i$1 {
     `;
   }
   render() {
+    if (this._snap) return this.renderSnapshotMode(this._snap);
     if (this._loading) {
       return b`
         <div class="decklist">
@@ -6133,6 +6175,10 @@ let FabDecklistBlock = class extends i$1 {
       return b``;
     }
     if (sectionsData.length === 0) return b``;
+    return this.renderBlock(sectionsData, effectiveTitle, effectiveExportUrl, effectiveNotes, hasApiData);
+  }
+  renderBlock(sectionsData, effectiveTitle, effectiveExportUrl, effectiveNotes, showHud, tabs = "", body = null) {
+    this._hudSections = sectionsData;
     return b`
       <div class="decklist">
         <div class="header">
@@ -6171,8 +6217,9 @@ let FabDecklistBlock = class extends i$1 {
             ` : ""}
           </div>
         </div>
+        ${tabs}
         <div class="content">
-          ${hasApiData ? this.renderHud() : ""}
+          ${body ?? b`${showHud ? this.renderHud() : ""}
           ${sectionsData.map((section) => b`
             <div class="section">
               <div class="section-header">
@@ -6186,7 +6233,7 @@ let FabDecklistBlock = class extends i$1 {
               </div>
               ${this._viewMode === "list" ? this.renderListView(section.cards) : this.renderGridView(section.cards)}
             </div>
-          `)}
+          `)}`}
           ${effectiveNotes ? b`
             <div class="notes">
               <div class="notes-title">Notes</div>
@@ -6205,6 +6252,36 @@ let FabDecklistBlock = class extends i$1 {
         </div>
       ` : ""}
     `;
+  }
+  renderSnapshotMode(snap) {
+    const title = this.title !== "Decklist" ? this.title : snap.title || "Decklist";
+    const exportUrl = this.exportUrl || snap.exportUrl || "";
+    const tab = (id, label) => b`<button
+      type="button" role="tab" class="snap-tab" aria-selected="${this._tab === id}"
+      @click="${() => this._setTab(id)}">${label}</button>`;
+    const tabs = b`<div class="snap-tabs" role="tablist" aria-label="Decklist version">
+      ${tab("snapshot", snap.label || "At the time of writing")}
+      ${this.deckId ? b`${tab("current", "Current list")}${tab("changes", "What's changed")}` : ""}
+    </div>`;
+    if (this._tab === "snapshot") return this.renderBlock(snap.sections, title, exportUrl, this.notes, true, tabs);
+    if (this._loading || !this._deckData) {
+      const note = this._error ? `Couldn't load the current list: ${this._error}` : "Loading the current list…";
+      return this.renderBlock([], title, exportUrl, "", false, tabs, b`<p class="snap-note">${note}</p>`);
+    }
+    if (this._tab === "current") return this.renderBlock(this._deckData.sections, title, exportUrl, this.notes, true, tabs);
+    return this.renderBlock([], title, exportUrl, "", false, tabs, this.renderChanges(snap));
+  }
+  renderChanges(snap) {
+    const { added, removed } = diffDecklists(snap.sections, this._deckData.sections);
+    const since = snap.label || "the article";
+    if (added.length === 0 && removed.length === 0) return b`<p class="snap-note">No changes since ${since}.</p>`;
+    const dot = (p2) => p2 === 1 ? "red" : p2 === 2 ? "yellow" : p2 === 3 ? "blue" : "";
+    const list2 = (items) => b`<ul class="change-list">${items.map((c2) => b`
+      <li>${dot(c2.pitch) ? b`<span class="pitch-dot ${dot(c2.pitch)}"></span>` : ""}${c2.quantity}× ${c2.cardName}</li>`)}</ul>`;
+    return b`<div class="changes">
+      <section aria-label="Added since the article"><h4 class="change-title">Added since ${since}</h4>${added.length ? list2(added) : b`<p class="snap-note">Nothing added.</p>`}</section>
+      <section aria-label="Removed since the article"><h4 class="change-title">Removed since ${since}</h4>${removed.length ? list2(removed) : b`<p class="snap-note">Nothing removed.</p>`}</section>
+    </div>`;
   }
   renderGridIcon() {
     return b`
@@ -7052,6 +7129,46 @@ FabDecklistBlock.styles = i$4`
       from { transform: scale(0.92); opacity: 0; }
       to   { transform: scale(1);    opacity: 1; }
     }
+    /* Snapshot tabs: the article's frozen list / the deck today / the diff.
+       Classic tabs — the open one takes the panel colour and joins it. */
+    .snap-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 0 1rem;
+      border-bottom: 1px solid #fde047;
+    }
+    .snap-tab {
+      margin-bottom: -1px;
+      padding: 0.375rem 0.75rem;
+      background: none;
+      border: 1px solid transparent;
+      border-bottom: 0;
+      border-radius: 0.25rem 0.25rem 0 0;
+      font: inherit;
+      font-size: 0.875rem;
+      color: #64748b;
+      cursor: pointer;
+    }
+    .snap-tab:hover { color: #0f172a; }
+    .snap-tab[aria-selected='true'] {
+      background: #fefce8;
+      border-color: #fde047;
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .snap-tab:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+    .snap-note { margin: 0.5rem 0; font-size: 0.875rem; color: #64748b; }
+    .changes { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+    .change-title { margin: 0 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: #0f172a; }
+    .change-list { list-style: none; margin: 0; padding: 0; font-size: 0.875rem; color: #0f172a; }
+    .change-list li { display: flex; align-items: center; gap: 0.375rem; padding: 0.125rem 0; }
+    :host([dark]) .snap-tabs { border-bottom-color: #334155; }
+    :host([dark]) .snap-tab { color: #94a3b8; }
+    :host([dark]) .snap-tab:hover { color: #f1f5f9; }
+    :host([dark]) .snap-tab[aria-selected='true'] { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+    :host([dark]) .snap-note { color: #94a3b8; }
+    :host([dark]) .change-title, :host([dark]) .change-list { color: #f1f5f9; }
+
   `;
 __decorateClass$3([
   n2({ attribute: "deck-id" })
@@ -7075,6 +7192,9 @@ __decorateClass$3([
   n2({ attribute: "hero-public-id" })
 ], FabDecklistBlock.prototype, "heroPublicId", 2);
 __decorateClass$3([
+  n2()
+], FabDecklistBlock.prototype, "snapshot", 2);
+__decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_loading", 2);
 __decorateClass$3([
@@ -7092,6 +7212,9 @@ __decorateClass$3([
 __decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_overlayImage", 2);
+__decorateClass$3([
+  r()
+], FabDecklistBlock.prototype, "_tab", 2);
 FabDecklistBlock = __decorateClass$3([
   t$1("fab-decklist-block")
 ], FabDecklistBlock);

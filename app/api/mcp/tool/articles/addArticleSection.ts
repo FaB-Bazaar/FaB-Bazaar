@@ -1,4 +1,5 @@
 // app/api/mcp/tool/articles/addArticleSection.ts - MCP tool for appending sections to articles
+import { withDecklistSnapshots, deckFetcher, describeSection } from '@/lib/articles/decklist-snapshot';
 
 export const addArticleSectionTool = {
   name: 'add_article_section',
@@ -21,6 +22,7 @@ Append new sections to the end of an article. Supports all section types includi
 • callout: Important notice boxes
 • opportunity-card: Trading opportunities
 • spotlight-card: Featured card highlights
+• decklist-block: A decklist. Pass deckId + snapshotLabel (e.g. "Week of Calling: Atlanta") to freeze the list as it is now — readers see that snapshot first, with the live list and what changed one click away. deckId alone = always-live list.
 
 🔄 TWO-STEP PROCESS:
 1. mode: "preview" - Show what will be added (default)
@@ -59,7 +61,7 @@ Append new sections to the end of an article. Supports all section types includi
         properties: {
           type: {
             type: 'string',
-            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block'],
+            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block'],
             description: 'Section type'
           }
         }
@@ -72,7 +74,7 @@ Append new sections to the end of an article. Supports all section types includi
           properties: {
             type: {
               type: 'string',
-              enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block']
+              enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block']
             }
           }
         }
@@ -140,6 +142,14 @@ Append new sections to the end of an article. Supports all section types includi
 
       const url = endpoint;
 
+      // decklist-block + snapshotLabel → freeze the deck into the section now.
+      let prepared: any[];
+      try {
+        prepared = await withDecklistSnapshots(sectionsToAdd, deckFetcher(API_BASE_URL, tokenToUse));
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Could not snapshot the deck' };
+      }
+
       // Preview mode - don't make the API call
       if (mode === 'preview') {
         return {
@@ -147,12 +157,12 @@ Append new sections to the end of an article. Supports all section types includi
           mode: 'preview',
           operation,
           message: `Preview: Adding ${sectionsToAdd.length} section(s) to article ${articleId}`,
-          sections: sectionsToAdd.map((sec, idx) => ({
+          sections: prepared.map((sec, idx) => ({
             index: `new-${idx}`,
             type: sec.type,
             preview: sec.type === 'text'
               ? (sec.content?.substring(0, 100) || 'No content')
-              : `${sec.type} section`
+              : describeSection(sec)
           })),
           next_step: "Call again with mode='confirm' to execute"
         };
@@ -174,8 +184,8 @@ Append new sections to the end of an article. Supports all section types includi
 
       // Prepare request body
       const requestBody = isBatch
-        ? { operation, sections: sectionsToAdd }
-        : { operation, section: sectionsToAdd[0] };
+        ? { operation, sections: prepared }
+        : { operation, section: prepared[0] };
 
       console.log(`[AddArticleSection] Request body:`, JSON.stringify(requestBody, null, 2));
 

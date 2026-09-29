@@ -2,33 +2,8 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { watchTheme, unwatchTheme } from './utils/theme';
 import { resolveDecklistViewMode } from './utils/decklist-view';
+import { deckToSections, diffDecklists, type DeckCard, type DeckSection, type PitchColor, type DecklistChange } from './utils/deck-sections';
 
-type PitchColor = 'red' | 'yellow' | 'blue' | null;
-
-interface DeckCard {
-  cardName: string;
-  printingId: string;
-  quantity: number;
-  foiling?: string;
-  // Stored CDN url from the printing row. Never construct one from printingId —
-  // the printing_id-keyed Cloudflare images were deleted (2026-07) and 404.
-  imageUrl?: string;
-  // HUD filter stats
-  pitch: number | null;
-  cost: number | null;
-  power: number | null;
-  defense: number | null;
-  types: string[];
-  keywords: string[];
-}
-
-interface DeckSection {
-  label: string;
-  pitchColor: PitchColor;
-  totalCards: number;
-  uniqueCards: number;
-  cards: DeckCard[];
-}
 
 interface HudFilter {
   stat: string;
@@ -872,6 +847,46 @@ export class FabDecklistBlock extends LitElement {
       from { transform: scale(0.92); opacity: 0; }
       to   { transform: scale(1);    opacity: 1; }
     }
+    /* Snapshot tabs: the article's frozen list / the deck today / the diff.
+       Classic tabs — the open one takes the panel colour and joins it. */
+    .snap-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 0 1rem;
+      border-bottom: 1px solid #fde047;
+    }
+    .snap-tab {
+      margin-bottom: -1px;
+      padding: 0.375rem 0.75rem;
+      background: none;
+      border: 1px solid transparent;
+      border-bottom: 0;
+      border-radius: 0.25rem 0.25rem 0 0;
+      font: inherit;
+      font-size: 0.875rem;
+      color: #64748b;
+      cursor: pointer;
+    }
+    .snap-tab:hover { color: #0f172a; }
+    .snap-tab[aria-selected='true'] {
+      background: #fefce8;
+      border-color: #fde047;
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .snap-tab:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+    .snap-note { margin: 0.5rem 0; font-size: 0.875rem; color: #64748b; }
+    .changes { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+    .change-title { margin: 0 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: #0f172a; }
+    .change-list { list-style: none; margin: 0; padding: 0; font-size: 0.875rem; color: #0f172a; }
+    .change-list li { display: flex; align-items: center; gap: 0.375rem; padding: 0.125rem 0; }
+    :host([dark]) .snap-tabs { border-bottom-color: #334155; }
+    :host([dark]) .snap-tab { color: #94a3b8; }
+    :host([dark]) .snap-tab:hover { color: #f1f5f9; }
+    :host([dark]) .snap-tab[aria-selected='true'] { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+    :host([dark]) .snap-note { color: #94a3b8; }
+    :host([dark]) .change-title, :host([dark]) .change-list { color: #f1f5f9; }
+
   `;
 
   @property({ attribute: 'deck-id' }) deckId = '';
@@ -881,6 +896,12 @@ export class FabDecklistBlock extends LitElement {
   @property() title = 'Decklist';
   @property({ attribute: 'article-public-id' }) articlePublicId = '';
   @property({ attribute: 'hero-public-id' }) heroPublicId = '';
+  /**
+   * JSON { label, takenAt, title?, exportUrl?, sections } — the list frozen when
+   * the article was written. Shown first; "Current list" / "What's changed"
+   * load the live deck (deck-id) on demand.
+   */
+  @property() snapshot = '';
 
   @state() private _loading = false;
   @state() private _error = '';
@@ -893,6 +914,10 @@ export class FabDecklistBlock extends LitElement {
   @state() private _viewMode: 'grid' | 'list' = 'grid';
   @state() private _highlightFilters: HudFilter[] = [];
   @state() private _overlayImage: string | null = null;
+  @state() private _tab: 'snapshot' | 'current' | 'changes' = 'snapshot';
+  private _snap: { label: string; takenAt?: string; title?: string; exportUrl?: string; sections: DeckSection[] } | null = null;
+  // The sections the stat filter bar counts — whatever list is on screen.
+  private _hudSections: DeckSection[] = [];
 
   private _onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') this._overlayImage = null;
@@ -921,16 +946,34 @@ export class FabDecklistBlock extends LitElement {
     document.removeEventListener('keydown', this._onKeyDown);
   }
 
+  protected willUpdate(changed: Map<string, unknown>) {
+    if (changed.has('snapshot')) {
+      try {
+        const parsed = this.snapshot ? JSON.parse(this.snapshot) : null;
+        this._snap = parsed && Array.isArray(parsed.sections) ? parsed : null;
+      } catch {
+        this._snap = null;
+      }
+    }
+  }
+
+  // With a snapshot the live deck is fetched only when a reader asks for it.
   protected firstUpdated() {
-    if (this.deckId && !this._lastFetchedDeckId) {
+    if (this.deckId && !this._lastFetchedDeckId && !this.snapshot) {
       this._fetchDeck();
     }
   }
 
   protected updated(changedProperties: Map<string, unknown>) {
-    if (changedProperties.has('deckId') && this.deckId && this.deckId !== this._lastFetchedDeckId) {
+    if (changedProperties.has('deckId') && this.deckId && this.deckId !== this._lastFetchedDeckId && !this.snapshot) {
       this._fetchDeck();
     }
+  }
+
+  private _setTab(tab: 'snapshot' | 'current' | 'changes') {
+    this._tab = tab;
+    this._highlightFilters = [];
+    if (tab !== 'snapshot' && !this._deckData && !this._loading && this.deckId) this._fetchDeck();
   }
 
   private _setViewMode(mode: 'grid' | 'list') {
@@ -974,8 +1017,7 @@ export class FabDecklistBlock extends LitElement {
   }
 
   private _computeAllCards(): DeckCard[] {
-    if (!this._deckData) return [];
-    return this._deckData.sections.flatMap(s => s.cards);
+    return this._hudSections.flatMap(s => s.cards);
   }
 
   // Count total copies (with quantity) matching a chip
@@ -1011,174 +1053,12 @@ export class FabDecklistBlock extends LitElement {
         throw new Error(result.error || 'Failed to fetch deck');
       }
 
-      this._deckData = this._transformDeckToSections(result.data);
+      this._deckData = deckToSections(result.data);
     } catch (e) {
       this._error = e instanceof Error ? e.message : 'Failed to fetch deck';
     } finally {
       this._loading = false;
     }
-  }
-
-  private _transformDeckToSections(deck: any): {
-    sections: DeckSection[];
-    title: string;
-    exportUrl?: string;
-    notes?: string;
-  } {
-    const sections: DeckSection[] = [];
-
-    // === EQUIPMENT & WEAPONS: merge hero + equipment into one section ===
-    const heroAndEquipment = [
-      ...(Array.isArray(deck.hero) ? deck.hero : []),
-      ...(Array.isArray(deck.equipment) ? deck.equipment : []),
-    ];
-    if (heroAndEquipment.length > 0) {
-      const cardMap = new Map<string, DeckCard>();
-      for (const card of heroAndEquipment) {
-        const printingId = card.printingId;
-        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || 'Unknown Card';
-        const qty = card.quantity ?? 1;
-        if (cardMap.has(printingId)) {
-          cardMap.get(printingId)!.quantity += qty;
-        } else {
-          cardMap.set(printingId, {
-            cardName,
-            printingId,
-            quantity: qty,
-            foiling: card.printingDetails?.foiling || card.foiling,
-            imageUrl: card.printingDetails?.image_url,
-            pitch: card.printingDetails?.pitch ?? null,
-            cost: card.printingDetails?.cost ?? null,
-            power: card.printingDetails?.power ?? null,
-            defense: card.printingDetails?.defense ?? null,
-            types: card.printingDetails?.types ?? [],
-            keywords: card.printingDetails?.keywords ?? [],
-          });
-        }
-      }
-      const totalEquip = Array.from(cardMap.values()).reduce((s, c) => s + c.quantity, 0);
-      sections.push({
-        label: 'EQUIPMENT & WEAPONS',
-        pitchColor: null,
-        totalCards: totalEquip,
-        uniqueCards: cardMap.size,
-        cards: Array.from(cardMap.values()),
-      });
-    }
-
-    // === MAINDECK + other sections ===
-    const remainingCategories: Array<{ key: string; label: string }> = [
-      { key: 'maindeck', label: 'Main Deck' },
-      { key: 'inventory', label: 'Inventory' },
-      { key: 'maybeboard', label: 'Maybeboard' },
-      { key: 'tokens', label: 'Tokens' },
-    ];
-
-    for (const { key } of remainingCategories) {
-      const categoryCards = deck[key];
-      if (!Array.isArray(categoryCards) || categoryCards.length === 0) continue;
-
-      if (key === 'maindeck') {
-        type Bucket = {
-          label: string;
-          pitchColor: PitchColor;
-          cardMap: Map<string, DeckCard>;
-          totalCards: number;
-        };
-        const pitchBuckets: Bucket[] = [
-          { label: 'LIBRARY — RED', pitchColor: 'red', cardMap: new Map(), totalCards: 0 },
-          { label: 'LIBRARY — YELLOW', pitchColor: 'yellow', cardMap: new Map(), totalCards: 0 },
-          { label: 'LIBRARY — BLUE', pitchColor: 'blue', cardMap: new Map(), totalCards: 0 },
-          { label: 'Other', pitchColor: null, cardMap: new Map(), totalCards: 0 },
-        ];
-
-        for (const card of categoryCards) {
-          const pitch = card.printingDetails?.pitch;
-          const bucketIndex = pitch === 1 ? 0 : pitch === 2 ? 1 : pitch === 3 ? 2 : 3;
-          const bucket = pitchBuckets[bucketIndex];
-          const printingId = card.printingId;
-          const cardName = card.printingDetails?.display_name || card.printingDetails?.name || 'Unknown Card';
-
-          const qty = card.quantity ?? 1;
-          bucket.totalCards += qty;
-          if (bucket.cardMap.has(printingId)) {
-            bucket.cardMap.get(printingId)!.quantity += qty;
-          } else {
-            bucket.cardMap.set(printingId, {
-              cardName,
-              printingId,
-              quantity: qty,
-              foiling: card.printingDetails?.foiling || card.foiling,
-              imageUrl: card.printingDetails?.image_url,
-              pitch: pitch ?? null,
-              cost: card.printingDetails?.cost ?? null,
-              power: card.printingDetails?.power ?? null,
-              defense: card.printingDetails?.defense ?? null,
-              types: card.printingDetails?.types ?? [],
-              keywords: card.printingDetails?.keywords ?? [],
-            });
-          }
-        }
-
-        for (const bucket of pitchBuckets) {
-          if (bucket.cardMap.size > 0) {
-            sections.push({
-              label: bucket.label,
-              pitchColor: bucket.pitchColor,
-              totalCards: bucket.totalCards,
-              uniqueCards: bucket.cardMap.size,
-              cards: Array.from(bucket.cardMap.values()),
-            });
-          }
-        }
-        continue;
-      }
-
-      // Non-maindeck sections
-      const cardMap = new Map<string, DeckCard>();
-      for (const card of categoryCards) {
-        const printingId = card.printingId;
-        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || 'Unknown Card';
-        const qty = card.quantity ?? 1;
-
-        if (cardMap.has(printingId)) {
-          cardMap.get(printingId)!.quantity += qty;
-        } else {
-          cardMap.set(printingId, {
-            cardName,
-            printingId,
-            quantity: qty,
-            foiling: card.printingDetails?.foiling || card.foiling,
-            imageUrl: card.printingDetails?.image_url,
-            pitch: card.printingDetails?.pitch ?? null,
-            cost: card.printingDetails?.cost ?? null,
-            power: card.printingDetails?.power ?? null,
-            defense: card.printingDetails?.defense ?? null,
-            types: card.printingDetails?.types ?? [],
-            keywords: card.printingDetails?.keywords ?? [],
-          });
-        }
-      }
-
-      const label = key === 'inventory' ? 'Inventory'
-        : key === 'maybeboard' ? 'Maybeboard'
-        : 'Tokens';
-
-      sections.push({
-        label,
-        pitchColor: null,
-        totalCards: categoryCards.length,
-        uniqueCards: cardMap.size,
-        cards: Array.from(cardMap.values()),
-      });
-    }
-
-    return {
-      sections,
-      title: deck.name || 'Decklist',
-      exportUrl: deck.fabraryUrl,
-      notes: deck.description,
-    };
   }
 
   /**
@@ -1425,6 +1305,7 @@ export class FabDecklistBlock extends LitElement {
   }
 
   render() {
+    if (this._snap) return this.renderSnapshotMode(this._snap);
     if (this._loading) {
       return html`
         <div class="decklist">
@@ -1503,7 +1384,19 @@ export class FabDecklistBlock extends LitElement {
     }
 
     if (sectionsData.length === 0) return html``;
+    return this.renderBlock(sectionsData, effectiveTitle, effectiveExportUrl, effectiveNotes, hasApiData);
+  }
 
+  private renderBlock(
+    sectionsData: DeckSection[],
+    effectiveTitle: string,
+    effectiveExportUrl: string,
+    effectiveNotes: string,
+    showHud: boolean,
+    tabs: unknown = '',
+    body: unknown = null,
+  ) {
+    this._hudSections = sectionsData;
     return html`
       <div class="decklist">
         <div class="header">
@@ -1542,8 +1435,9 @@ export class FabDecklistBlock extends LitElement {
             ` : ''}
           </div>
         </div>
+        ${tabs}
         <div class="content">
-          ${hasApiData ? this.renderHud() : ''}
+          ${body ?? html`${showHud ? this.renderHud() : ''}
           ${sectionsData.map(section => html`
             <div class="section">
               <div class="section-header">
@@ -1561,7 +1455,7 @@ export class FabDecklistBlock extends LitElement {
                 ? this.renderListView(section.cards)
                 : this.renderGridView(section.cards)}
             </div>
-          `)}
+          `)}`}
           ${effectiveNotes ? html`
             <div class="notes">
               <div class="notes-title">Notes</div>
@@ -1580,6 +1474,39 @@ export class FabDecklistBlock extends LitElement {
         </div>
       ` : ''}
     `;
+  }
+
+  private renderSnapshotMode(snap: NonNullable<typeof this._snap>) {
+    const title = this.title !== 'Decklist' ? this.title : (snap.title || 'Decklist');
+    const exportUrl = this.exportUrl || snap.exportUrl || '';
+    const tab = (id: 'snapshot' | 'current' | 'changes', label: string) => html`<button
+      type="button" role="tab" class="snap-tab" aria-selected="${this._tab === id}"
+      @click="${() => this._setTab(id)}">${label}</button>`;
+    const tabs = html`<div class="snap-tabs" role="tablist" aria-label="Decklist version">
+      ${tab('snapshot', snap.label || 'At the time of writing')}
+      ${this.deckId ? html`${tab('current', 'Current list')}${tab('changes', "What's changed")}` : ''}
+    </div>`;
+
+    if (this._tab === 'snapshot') return this.renderBlock(snap.sections, title, exportUrl, this.notes, true, tabs);
+    if (this._loading || !this._deckData) {
+      const note = this._error ? `Couldn't load the current list: ${this._error}` : 'Loading the current list…';
+      return this.renderBlock([], title, exportUrl, '', false, tabs, html`<p class="snap-note">${note}</p>`);
+    }
+    if (this._tab === 'current') return this.renderBlock(this._deckData.sections, title, exportUrl, this.notes, true, tabs);
+    return this.renderBlock([], title, exportUrl, '', false, tabs, this.renderChanges(snap));
+  }
+
+  private renderChanges(snap: NonNullable<typeof this._snap>) {
+    const { added, removed } = diffDecklists(snap.sections, this._deckData!.sections);
+    const since = snap.label || 'the article';
+    if (added.length === 0 && removed.length === 0) return html`<p class="snap-note">No changes since ${since}.</p>`;
+    const dot = (p: number | null) => p === 1 ? 'red' : p === 2 ? 'yellow' : p === 3 ? 'blue' : '';
+    const list = (items: DecklistChange[]) => html`<ul class="change-list">${items.map(c => html`
+      <li>${dot(c.pitch) ? html`<span class="pitch-dot ${dot(c.pitch)}"></span>` : ''}${c.quantity}× ${c.cardName}</li>`)}</ul>`;
+    return html`<div class="changes">
+      <section aria-label="Added since the article"><h4 class="change-title">Added since ${since}</h4>${added.length ? list(added) : html`<p class="snap-note">Nothing added.</p>`}</section>
+      <section aria-label="Removed since the article"><h4 class="change-title">Removed since ${since}</h4>${removed.length ? list(removed) : html`<p class="snap-note">Nothing removed.</p>`}</section>
+    </div>`;
   }
 
   private renderGridIcon() {

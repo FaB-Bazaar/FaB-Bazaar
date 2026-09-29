@@ -1,4 +1,5 @@
 // app/api/mcp/tool/articles/updateArticleSection.ts - MCP tool for updating existing article sections
+import { withDecklistSnapshots, deckFetcher, describeSection } from '@/lib/articles/decklist-snapshot';
 
 export const updateArticleSectionTool = {
   name: 'update_article_section',
@@ -21,6 +22,7 @@ Update an existing section in an article by its index. Replaces the entire secti
 • callout: Important notice boxes
 • opportunity-card: Trading opportunities
 • spotlight-card: Featured card highlights
+• decklist-block: A decklist. Pass deckId + snapshotLabel (e.g. "Week of Calling: Atlanta") to freeze the list as it is now — readers see that snapshot first, with the live list and what changed one click away. deckId alone = always-live list.
 
 🔄 TWO-STEP PROCESS:
 1. mode: "preview" - Show what will be updated (default)
@@ -64,7 +66,7 @@ Update an existing section in an article by its index. Replaces the entire secti
         properties: {
           type: {
             type: 'string',
-            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block'],
+            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block'],
             description: 'Section type'
           }
         },
@@ -125,9 +127,17 @@ Update an existing section in an article by its index. Replaces the entire secti
 
       const url = endpoint;
 
+      // decklist-block + snapshotLabel → freeze the deck into the section now.
+      let prepared: any;
+      try {
+        [prepared] = await withDecklistSnapshots([section], deckFetcher(API_BASE_URL, tokenToUse));
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Could not snapshot the deck' };
+      }
+
       // Preview mode - don't make the API call
       if (mode === 'preview') {
-        let sectionPreview = `Type: ${section.type}`;
+        let sectionPreview = prepared.type === 'decklist-block' ? describeSection(prepared) : `Type: ${section.type}`;
 
         if (section.type === 'text' && section.content) {
           const preview = section.content.substring(0, 100).replace(/\n/g, ' ');
@@ -169,7 +179,7 @@ Update an existing section in an article by its index. Replaces the entire secti
       const requestBody = {
         operation: 'update_section',
         index,
-        section
+        section: prepared
       };
 
       console.log(`[UpdateArticleSection] Request body:`, JSON.stringify(requestBody, null, 2));
