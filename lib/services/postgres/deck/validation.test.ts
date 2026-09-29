@@ -103,7 +103,7 @@ describe('validateCopyLimit', () => {
     const result = validateCopyLimit(2, 'Blitz', {});
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toMatch(/max 1/);
+    expect(result.reason).toMatch(/max 1 copy per card\+pitch/);
   });
 
   it('Commoner: 2 copies ok, 3 rejected', () => {

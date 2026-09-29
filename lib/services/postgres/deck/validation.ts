@@ -176,7 +176,7 @@ export function validateCopyLimit(
   // CC, Blitz, Silver Age, Commoner — limits from the shared rules table.
   const max = maxCopiesFor(format) ?? 2;
   if (newTotalCount > max) {
-    return { ok: false, reason: `${format} allows max ${max} copies per card+pitch (would be ${newTotalCount})` };
+    return { ok: false, reason: `${format} allows max ${max} ${max === 1 ? 'copy' : 'copies'} per card+pitch (would be ${newTotalCount})` };
   }
   return { ok: true };
 }
