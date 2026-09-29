@@ -181,6 +181,8 @@ const mockMethod = vi.mocked(binderService.methodName);
 
 See `app/api/collection/transfer/route.test.ts` for a complete example.
 
+- `beforeEach(() => mock.mockReset())` RETURNS the mock, and Vitest runs a returned function as teardown, which calls the mock after the test (a throwing mock fails the test). Use braces: `beforeEach(() => { mock.mockReset(); })`.
+
 ## Environment
 
 See `.env.example` for required environment variables.

@@ -1,0 +1,7 @@
+# MCP server notes
+
+- **Only Claude reads MCP resources.** In `mcp_usage_daily`, every other client (Volzar, Meta Muse, claude-code, browser-style hosts) has 0 `resource:` reads. Guidance an agent must see goes in a tool description or tool result. Examples: the `get_deckbuilding_guide` tool, `🎯 NEXT:` lines in results, `read_mandatory_constants_first`.
+- **Tool registration spans 5 places in `server/route.ts`:** import, `allTools`, the tools/call branch, the unknown-tool "Available tools" text, and the GET `capabilities` list. Hosted chat also needs `HOSTED_EXTRA_TOOLS` in `app/api/volzar/route.ts`; its exact-set test pins it.
+- **`mcp_usage_daily.client` holds the full user-agent since 2026-09-29.** Before that it was only the first token, so every browser-style host logged as `Mozilla/5.0` and Volzar as `fabbazaar-hosted`. A client's history splits at that date.
+- **Format construction rules have one source: `lib/deck/format-rules.ts`**, verified against fabtcg.com/TRP §7. Blitz went singleton, and its B&R list was abolished, on 2026-01-01. The guide and `validateCopyLimit` read it; `PostgresDeckService.validateFormat` still hardcodes the same numbers, so update both until it's migrated.
+- **Deck-service card text is `cards.text`, the lowercased searchable copy.** Search returns rendered text (`card_translations.text`, keeps **bold** keywords). So `get_deck includeText` shows lowercase text until the deck query switches to that COALESCE.
