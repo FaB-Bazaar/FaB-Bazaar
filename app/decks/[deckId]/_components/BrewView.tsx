@@ -79,15 +79,23 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
   }, [heroName]);
   const kit = kits.find(k => k.id === kitId) ?? null;
 
+  // Name search (shorthand like pitch:3 works too — the Add Card dialog's parser).
+  const [nameQuery, setNameQuery] = useState("");
+  const [debouncedName, setDebouncedName] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedName(nameQuery.trim()), 250);
+    return () => clearTimeout(t);
+  }, [nameQuery]);
+
   const filters = useMemo(
     () => ({
-      ...buildDeckAddFilters(DEFAULT_OPT_STATE, "", { hero, deckFormat: deck.format, targetCategory: "maindeck", heroName }),
+      ...buildDeckAddFilters(DEFAULT_OPT_STATE, debouncedName, { hero, deckFormat: deck.format, targetCategory: "maindeck", heroName }),
       ...lensToSearchFilters(active),
       ...facetsToSearchFilters(facets),
       ...kitSearchFilters(kit),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hero is keyed by content
-    [heroKey, heroName, deck.format, active, facets, kit],
+    [heroKey, heroName, deck.format, active, facets, kit, debouncedName],
   );
   const hasLegality = Object.keys(filters).length > 0;
 
@@ -121,14 +129,27 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
     await onAdd(printing.printing_id, zone, quantity);
   };
 
-  const picked = [kit && `Kit: ${kit.name}`, active && lensLabel(active), facetsLabel(facets)].filter(Boolean).join(" · ");
+  const picked = [debouncedName && `"${debouncedName}"`, kit && `Kit: ${kit.name}`, active && lensLabel(active), facetsLabel(facets)].filter(Boolean).join(" · ");
   const summary = kit ? kitSummary(kit, deck) : null;
   const label = `Legal cards not in your deck${picked ? ` — ${picked}` : ""}`;
 
   return (
     <>
+      <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-800 dark:text-gray-200">
+        <label className="flex items-center gap-2">
+          <span className="font-semibold">Search</span>
+          <input
+            type="search"
+            value={nameQuery}
+            onChange={e => setNameQuery(e.target.value)}
+            aria-label="Search by card name"
+            placeholder="Card name, or e.g. pitch:3"
+            autoComplete="off"
+            className="w-64 rounded-sm border border-gray-400 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800"
+          />
+        </label>
       {kits.length > 0 && (
-        <div className="mb-3 text-sm text-gray-800 dark:text-gray-200">
+        <div>
           <label className="flex items-center gap-2">
             <span className="font-semibold">Starter kit</span>
             <select
@@ -152,6 +173,7 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
           )}
         </div>
       )}
+      </div>
       <section aria-label={label} className="border border-gray-300 dark:border-gray-700">
         <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
           <span>{label}</span>

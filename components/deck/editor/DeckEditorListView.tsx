@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check } from "lucide-react";
 import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
+import RetryingImg from "@/components/shared/RetryingImg";
 import { cn } from "@/lib/utils";
 import { useIsTouchDevice } from "@/components/ui/use-client-env";
 import { useToast } from "@/hooks/use-toast";
@@ -854,7 +855,7 @@ function DeckTileSection({
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <RetryingImg
                 src={heroPortrait.imageUrl || '/cardback.webp'}
                 alt={heroPortrait.name}
                 className="w-full block"
@@ -878,7 +879,7 @@ function DeckTileSection({
                   onMouseLeave={onLeave}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <RetryingImg
                     src={tile.imageUrl || '/cardback.webp'}
                     alt={tile.name}
                     className="w-full block"
@@ -1017,7 +1018,7 @@ function DeckTileSection({
               {tile.imageUrl ? (
                 <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53', display: 'flex', flexDirection: 'column', gap: '1px', background: '#111827' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <RetryingImg
                     src={tile.imageUrl}
                     alt={tile.name}
                     className="w-full block"
@@ -1025,7 +1026,7 @@ function DeckTileSection({
                     draggable={false}
                   />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <RetryingImg
                     src={tile.imageUrl}
                     alt=""
                     className="w-full block"
@@ -2791,7 +2792,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                         }}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <RetryingImg
                           src={heroPortrait.imageUrl || '/cardback.webp'}
                           alt={heroPortrait.name}
                           className="w-full block"

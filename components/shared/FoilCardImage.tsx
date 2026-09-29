@@ -12,6 +12,7 @@ import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { getFoilType, resolveFoilInset, type FoilInset } from "@/lib/foil"
 import { useFoilEffects } from "@/components/ui/use-client-env"
+import RetryingImg from "@/components/shared/RetryingImg"
 
 // Re-exported for backward compatibility — the policy now lives in lib/foil.
 export { getInsetFromArtStyle } from "@/lib/foil"
@@ -399,7 +400,7 @@ export default function FoilCardImage({
       <div className="card__rotator w-full h-full">
         <div className={cn("card__front w-full h-full", !isFoilCard && "flex items-center justify-center")}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <RetryingImg
             src={src}
             alt={alt}
             className={imgClassName}
