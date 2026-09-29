@@ -231,6 +231,8 @@ describe('POST /api/volzar', () => {
       'list_curated_lists', 'get_curated_list',
       // Meta reads + SQL-backed aggregates (buildability / performance)
       'get_decks_to_beat',
+      // Official format rules + read-the-text method before building
+      'get_deckbuilding_guide',
       'compare_collection_to_decks_to_beat', 'get_deck_performance',
       // Ban/legality registry (public read) — "is X banned in CC?"
       'list_card_restrictions',

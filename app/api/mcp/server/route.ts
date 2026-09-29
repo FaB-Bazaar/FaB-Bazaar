@@ -13,6 +13,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService, mcpUsageService } from '@/lib/services';
 import { filterToolsForToolset, resolveToolset } from './toolsets';
 import { summarizeClientHello } from './client-hello';
+import { usageClientFromUserAgent } from './usage-client';
 import { validateQueryComplexity } from './query-complexity';
 
 // Import the tools
@@ -56,6 +57,7 @@ import { submitMarketFeedTool, getMarketFeedTool } from '../tool/marketFeed/mark
 
 // Import deck tools
 import { getDecksToBeatTool } from '../tool/getDecksToBeat';
+import { getDeckbuildingGuideTool } from '../tool/getDeckbuildingGuide';
 import { listDecksTool } from '../tool/listDecks';
 import { listResultsTool } from '../tool/listResults';
 import { getResultsTool } from '../tool/getResults';
@@ -174,7 +176,7 @@ async function recordMcpUsage(req: Request, bodyText: string, responseClone: Res
     const userId = userIdFromBearer(req.headers.get('Authorization'));
     if (!userId) return;
 
-    const client = (req.headers.get('user-agent') || 'unknown').split(/[\s(]/)[0].slice(0, 60) || 'unknown';
+    const client = usageClientFromUserAgent(req.headers.get('user-agent'));
     const responseText = await responseClone.text();
     const result = await mcpUsageService.recordCall({
       userId,
@@ -381,6 +383,7 @@ async function handleMcpPost(req: Request) {
               '  4. Read `fab://card-index` once per session before working with decklists (card name → printing ID lookup).',
               '  5. Read `fab://heroes-by-format` before building/validating a hero+format deck pool (e.g. "Oldhim in Silver Age"). DB-derived per-format legality, split adult vs young; note many heroes (e.g. Oldhim) exist as BOTH a young hero and an adult hero legal in different formats.',
               '  6. Read `fab://facet-tags` before using the facetTags[] filter (function-based search: "what beats fatigue", "combo enablers"). Curated vocabulary + definitions; ids alone mislead.',
+              '  7. Building or revising a deck? Call the `get_deckbuilding_guide` tool first (format + hero): official construction rules, the hero\'s text, and how to read cards instead of guessing from their names.',
               '',
               'ERROR CONVENTION:',
               '  All tools return either { success: true, data, message? } or { success: false, error: "..." }.',
@@ -666,6 +669,11 @@ Step 5: get_binder (verify additions)
                 name: getDecksToBeatTool.name,
                 description: getDecksToBeatTool.description,
                 inputSchema: getDecksToBeatTool.parameters
+              },
+              {
+                name: getDeckbuildingGuideTool.name,
+                description: getDeckbuildingGuideTool.description,
+                inputSchema: getDeckbuildingGuideTool.parameters
               },
               {
                 name: listDecksTool.name,
@@ -1081,6 +1089,25 @@ The new tool provides the same functionality with better guidance for proper wor
           }
         }
 
+        if (toolName === 'get_deckbuilding_guide') {
+          try {
+            const result = await getDeckbuildingGuideTool.handler(toolInput);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.success ? result.message : result.error }],
+                isError: !result.success,
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in get_deckbuilding_guide:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error building the deckbuilding guide: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
         if (toolName === 'get_decks_to_beat') {
           if (DEBUG_MCP) console.log('🏆 Executing get_decks_to_beat');
           try {
@@ -1244,6 +1271,7 @@ The new tool provides the same functionality with better guidance for proper wor
               jsonrpc: '2.0', id,
               result: shapeDeckForMcp(result, {
                 showDetails: toolInput?.showDetails !== false,
+                includeText: toolInput?.includeText === true,
               })
             }, { headers: corsHeaders() });
           } catch (err) {
@@ -1990,6 +2018,7 @@ The new tool provides the same functionality with better guidance for proper wor
       - get_article / add_article_section / update_article_section
       - list_decks / get_deck / create_deck / add_cards_to_deck / remove_cards_from_deck / update_deck / save_deck_matchup
       - get_decks_to_beat
+      - get_deckbuilding_guide
       - list_curated_lists / get_curated_list (public — published lists; 🎯 preferred entry point for deck recommendations)
       - Curator-only tools: create_curated_list, update_curated_list, delete_curated_list, add_card_to_list, remove_card_from_list
       - Curator-only facet tools: create_tag (new vocabulary term), assign_card_tag / remove_card_tag (assign existing tag to a card by card_unique_id)
@@ -2314,7 +2343,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     error: "MCP server expects POST requests with JSON-RPC format",
     version: "4.0.0",
-    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "list_articles", "add_article_section", "update_article_section", "get_decks_to_beat", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
+    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "list_articles", "add_article_section", "update_article_section", "get_decks_to_beat", "get_deckbuilding_guide", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
     hint: "Use POST with JSON-RPC. Read fab://constants once per session, then use search_printings for all card lookups.",
     authMethods: ["Bearer <oauth_token>"],
     workflow: "read_mandatory_constants_first({uri:'fab://constants'}) → search_printings → add_to_binder / add_to_wants / add_cards_to_deck",

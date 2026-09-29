@@ -165,7 +165,7 @@ export function getHeroesByFormatDetailed(): {
 
 type HeroAge = 'young' | 'adult' | 'unknown';
 
-function classifyHeroName(name: string): { age: HeroAge; canonical: string } {
+export function classifyHeroName(name: string): { age: HeroAge; canonical: string } {
   const lower = name.trim().toLowerCase();
   if (HERO_INFO[lower]) return { age: 'adult', canonical: lower };
   if (YOUNG_HERO_INFO[lower]) return { age: 'young', canonical: lower };

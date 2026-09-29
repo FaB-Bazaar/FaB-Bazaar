@@ -3,9 +3,9 @@
 // agent loop the same tools, schemas, and behavior Claude/LM Studio see, and
 // the MCP route's usage wrapper records every call in mcp_usage_daily.
 //
-// The User-Agent matters: the wrapper derives `client` from the first token
-// (split on space/paren), so 'fabbazaar-hosted (chat)' records rows with
-// client='fabbazaar-hosted'.
+// The User-Agent matters: the wrapper records the full UA as `client`, so rows
+// carry client='fabbazaar-hosted (chat)' (just 'fabbazaar-hosted' before
+// 2026-09-29, when only the first token was kept).
 //
 // NOTE: ?toolset=lite filters ADVERTISEMENT only — tools/call executes any
 // tool. executeTool therefore allowlists names against the discovered

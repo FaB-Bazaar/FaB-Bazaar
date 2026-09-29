@@ -47,7 +47,9 @@ export const addCardsToDeckTool = {
     { cardName: "Flic Flak", pitch: 3, quantity: 3, category: "maindeck" }
     { cardName: "Scar for a Scar", pitch: 0, quantity: 2, category: "maindeck" }
 
-  ⚠️ For pitch cards, always specify pitch — "Flic Flak" without pitch defaults to pitch 0 (no match).`,
+  ⚠️ For pitch cards, always specify pitch — "Flic Flak" without pitch defaults to pitch 0 (no match).
+  ⚠️ Never infer a card's effect from its name. Read its text first (search_printings with
+     options.includeText) — see get_deckbuilding_guide.`,
 
   parameters: {
     type: 'object',
@@ -215,7 +217,8 @@ export const addCardsToDeckTool = {
       const added = summary?.added ?? 0;
       const failed = summary?.failed ?? 0;
       const totalAdded = summary?.totalCardsAdded ?? 0;
-      const message = `Added ${totalAdded} card(s) to "${deck.name}" (${added} succeeded, ${failed} failed):\n${lines}${failureNote}`;
+      const verifyHint = `\n\nVerify the list against the card text: get_deck(${JSON.stringify({ publicId: deck.publicId, includeText: true })})`;
+      const message = `Added ${totalAdded} card(s) to "${deck.name}" (${added} succeeded, ${failed} failed):\n${lines}${failureNote}${verifyHint}`;
 
       // Tool-level success: true if at least one card was added; false when
       // nothing landed (so the LLM can branch on it without parsing the message).

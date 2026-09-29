@@ -3,7 +3,7 @@
 // POST: gates (session → rate limit → body validation → daily quotas), then
 // runs the agent loop (lib/ai) and streams AgentEvents as SSE data-frames. The
 // loop executes tools through our own MCP endpoint (lib/ai/mcp-bridge), so every
-// tool call is usage-captured in mcp_usage_daily with client='fabbazaar-hosted'.
+// tool call is usage-captured in mcp_usage_daily with client='fabbazaar-hosted (chat)'.
 //
 // Pre-stream failures return plain JSON with real status codes; the SSE stream
 // only starts once every gate has passed.
@@ -48,6 +48,9 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
   // Featured tournament decks ("what are the decks to beat for X?") — public
   // read; without it the model can't answer meta questions in free text.
   'get_decks_to_beat',
+  // Official format rules + the hero's text + "read cards, don't guess from
+  // names" — called before building a deck.
+  'get_deckbuilding_guide',
   // SQL-backed aggregates: one deterministic call each for "which Decks to
   // Beat could I build from my collection?" and "how are my decks
   // performing?" — no decklist+binder inference in the model.

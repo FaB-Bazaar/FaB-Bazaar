@@ -274,3 +274,37 @@ describe('shapeDeckForMcp — zone labels in the text rendering', () => {
     expect(text).toContain('Enlightened Strike');
   });
 });
+
+describe('shapeDeckForMcp — includeText (read the cards, not the names)', () => {
+  const withText = {
+    ...rawDeckResult,
+    deck: {
+      ...rawDeckResult.deck,
+      categories: {
+        ...rawDeckResult.deck.categories,
+        maindeck: [
+          card({ quantity: 2, printingDetails: { display_name: 'Command and Conquer', pitch: 1, types: ['attack action'], text: 'Defense reaction cards cannot be played.' } }),
+          card({ quantity: 1, printingDetails: { display_name: 'Command and Conquer', pitch: 1, types: ['attack action'], text: 'Defense reaction cards cannot be played.' } }),
+          card({ quantity: 1, printingDetails: { display_name: 'Sink Below', pitch: 3, types: ['defense reaction'], text: 'You may put a card from your hand on the bottom of your deck.' } }),
+        ],
+      },
+    },
+  };
+
+  it('does not include card text by default', () => {
+    const text = shapeDeckForMcp(withText).content[0].text as string;
+    expect(text).not.toContain('Defense reaction cards cannot be played.');
+  });
+
+  it('adds a card-text section with each unique card once when includeText is set', () => {
+    const text = shapeDeckForMcp(withText, { includeText: true }).content[0].text as string;
+    expect(text).toContain('**Card text**');
+    expect(text.split('Defense reaction cards cannot be played.').length - 1).toBe(1);
+    expect(text).toContain('Sink Below (blue): You may put a card from your hand on the bottom of your deck.');
+  });
+
+  it('get_deck advertises the includeText option', async () => {
+    const { getDeckTool } = await import('./getDeck');
+    expect((getDeckTool.parameters.properties as any).includeText).toBeDefined();
+  });
+});

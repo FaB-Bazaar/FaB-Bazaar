@@ -115,6 +115,11 @@ export const getDeckTool = {
         type: 'string',
         description: 'The name of the deck to retrieve (case-insensitive; tolerant of flag emoji / dashes). Ignored when publicId is given.'
       },
+      includeText: {
+        type: 'boolean',
+        default: false,
+        description: 'Append each unique card\'s rules text. Use it when building, reviewing or explaining a deck: judge cards by their text, never by their names.'
+      },
       showDetails: {
         type: 'boolean',
         default: true,
@@ -522,9 +527,36 @@ function buildDeckText(deck: any, shaped: any, showDetails: boolean): string {
   return lines.join('\n');
 }
 
+// Each unique card (name + pitch) once, with its rules text — so an agent
+// judges the list by what the cards do, not by what their names suggest.
+function buildCardTextSection(shaped: any): string {
+  const all = [
+    ...(shaped.heroCard ? [shaped.heroCard] : []),
+    ...(shaped.weapon ? [shaped.weapon] : []),
+    ...EQUIPMENT_SLOTS.flatMap((s) => shaped.equipment[s] ?? []),
+    ...(shaped.equipment.other ?? []),
+    ...shaped.categories.maindeck,
+    ...(shaped.categories.inventory ?? []),
+    ...(shaped.categories.benched ?? []),
+    ...(shaped.categories.tokens ?? []),
+  ];
+  const seen = new Set<string>();
+  const lines = ['', '**Card text**'];
+  for (const c of all) {
+    const name = c.display_name || c.name;
+    const key = `${name}|${c.pitch ?? 0}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const color = PITCH_COLOR[String(c.pitch)];
+    const text = String(c.text ?? '').replace(/\s+/g, ' ').trim() || '(no rules text)';
+    lines.push(`- ${name}${color ? ` (${color.toLowerCase()})` : ''}: ${text}`);
+  }
+  return lines.join('\n');
+}
+
 export function shapeDeckForMcp(
   raw: any,
-  opts: { showDetails?: boolean } = {}
+  opts: { showDetails?: boolean; includeText?: boolean } = {}
 ): McpAppResult {
   if (!raw || raw.success === false) {
     return {
@@ -619,7 +651,8 @@ export function shapeDeckForMcp(
     matchups,
   };
 
-  const text = buildDeckText(deck, shaped, showDetails);
+  const text = buildDeckText(deck, shaped, showDetails)
+    + (opts.includeText ? `\n${buildCardTextSection(shaped)}` : '');
 
   return {
     content: [{ type: 'text', text }],

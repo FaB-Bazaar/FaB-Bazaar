@@ -83,6 +83,7 @@ export const createDeckTool = {
     isSystemDeck: true + featured: true + isPublic: true.
 
   💡 WORKFLOW:
+  Step 0: get_deckbuilding_guide — format + hero: official rules, the hero's text, read cards before adding them
   Step 1: create_deck — name + format + heroName (all three at once)
   Step 2: add_cards_to_deck — add all cards by cardName + pitch`,
 
@@ -287,10 +288,11 @@ export const createDeckTool = {
       }
 
       const flagLabel = [isSystemDeck && 'system deck', featured && 'Decks to Beat'].filter(Boolean).join(' + ');
+      const guideArgs = JSON.stringify(heroName?.trim() ? { format, heroName: heroName.trim() } : { format });
 
       return {
         success: true,
-        message: `Deck "${deck.name}" created (${deck.format}, ${deck.visibility}${flagLabel ? `, ${flagLabel}` : ''}). Hero: ${heroLabel}. Use add_cards_to_deck to populate it.`,
+        message: `Deck "${deck.name}" created (${deck.format}, ${deck.visibility}${flagLabel ? `, ${flagLabel}` : ''}). Hero: ${heroLabel}. Use add_cards_to_deck to populate it.\n🎯 NEXT: get_deckbuilding_guide(${guideArgs}) before choosing cards.`,
         publicId: deck.publicId,
         name: deck.name,
         format: deck.format,

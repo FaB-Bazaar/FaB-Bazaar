@@ -428,6 +428,17 @@ export function warnOnMisplacedDescriptorKeys(cards: Array<Record<string, any>>)
   return `⚠️ Ignored unknown card-level key${misplaced.size > 1 ? 's' : ''}: ${[...misplaced].join(', ')}. Filter fields must go INSIDE filters, e.g. { cards: [{ filters: { name: "...", ${[...misplaced][0]}: ... } }] }.`;
 }
 
+// Deckbuilding searches (heroLegal / format) default to returning card text so
+// the agent reads what cards do instead of guessing from their names. An
+// explicit includeText wins either way.
+export function resolveIncludeText(
+  options: { includeText?: boolean },
+  cards: Array<{ query?: string; filters?: Record<string, unknown> }>,
+): boolean {
+  if (typeof options.includeText === 'boolean') return options.includeText;
+  return cards.some(c => !!c.filters?.heroLegal || !!c.filters?.format);
+}
+
 export const searchPrintingsTool = {
   name: 'search_printings',
   description: `🔍 PRIMARY CARD SEARCH TOOL — find cards, look up printings, discover card versions, harvest IDs.
@@ -528,7 +539,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
           language:  { type: 'string', enum: ['en', 'fr', 'de', 'it', 'es', 'ja'], description: 'Localize results for a non-English conversation: each result swaps to that language\'s printing WHEN ONE EXISTS (image, set, collector number, translated rules text) and carries name_local (the translated card name). Cards without a printing in the language keep their English printing (marked "no XX printing exists"). Card-name QUERIES must still use ENGLISH names — translated names are not searchable. Default en = no localization.' },
           includeImage:   { type: 'boolean', description: 'Add an Image: line per printing to the TEXT output. Default false. (The structured results always carry image_url regardless.)' },
           includeArtists: { type: 'boolean', description: 'Include artists[] per printing. Default false.' },
-          includeText:    { type: 'boolean', description: 'Include card text per printing. Default false.' },
+          includeText:    { type: 'boolean', description: 'Include card text per printing. Default: on when a card filters by heroLegal or format (deckbuilding: read the text, never guess from names), off otherwise. Pass false to turn it off.' },
           includeFacets:  { type: 'boolean', description: 'Include facet_tags[] (curated function tags) per printing — shows what a card is currently tagged with. Default false.' },
         },
       },
@@ -733,7 +744,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
     const projectOpts: ProjectOptions = {
       includeImage: !!options.includeImage,
       includeArtists: !!options.includeArtists,
-      includeText: !!options.includeText,
+      includeText: resolveIncludeText(options, cards),
       includeFacets: !!options.includeFacets,
       priceField: firstPriceField,
       language: responseLanguage ?? undefined,
