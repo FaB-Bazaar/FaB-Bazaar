@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 type OpportunityReason = 'underpriced' | 'trending' | 'supply-issue' | 'correction' | 'outlier';
 type ConfidenceLevel = 'low' | 'medium' | 'high';
@@ -320,21 +321,19 @@ export class FabOpportunityCard extends LitElement {
     }
 
     /* Dark mode */
-    @media (prefers-color-scheme: dark) {
-      .card.underpriced { background: rgba(34, 197, 94, 0.1); border-color: #166534; }
-      .card.trending { background: rgba(99, 102, 241, 0.1); border-color: #4338ca; }
-      .card.supply-issue { background: rgba(249, 115, 22, 0.1); border-color: #c2410c; }
-      .card.correction { background: rgba(100, 116, 139, 0.1); border-color: #475569; }
-      .card.outlier { background: rgba(168, 85, 247, 0.1); border-color: #7c3aed; }
+    :host([dark]) .card.underpriced { background: rgba(34, 197, 94, 0.1); border-color: #166534; }
+    :host([dark]) .card.trending { background: rgba(99, 102, 241, 0.1); border-color: #4338ca; }
+    :host([dark]) .card.supply-issue { background: rgba(249, 115, 22, 0.1); border-color: #c2410c; }
+    :host([dark]) .card.correction { background: rgba(100, 116, 139, 0.1); border-color: #475569; }
+    :host([dark]) .card.outlier { background: rgba(168, 85, 247, 0.1); border-color: #7c3aed; }
 
-      .title { color: #f1f5f9; }
-      .meta { color: #94a3b8; }
-      .price-new { color: #f1f5f9; }
-      .note { background: rgba(30, 41, 59, 0.5); border-color: #334155; }
-      .note-text { color: #cbd5e1; }
-      .action-row { background: rgba(30, 41, 59, 0.3); }
-      .action-title { color: #f1f5f9; }
-    }
+    :host([dark]) .title { color: #f1f5f9; }
+    :host([dark]) .meta { color: #94a3b8; }
+    :host([dark]) .price-new { color: #f1f5f9; }
+    :host([dark]) .note { background: rgba(30, 41, 59, 0.5); border-color: #334155; }
+    :host([dark]) .note-text { color: #cbd5e1; }
+    :host([dark]) .action-row { background: rgba(30, 41, 59, 0.3); }
+    :host([dark]) .action-title { color: #f1f5f9; }
   `;
 
   @property({ attribute: 'printing-id' }) printingId = '';
@@ -357,8 +356,14 @@ export class FabOpportunityCard extends LitElement {
     }
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
+
   async connectedCallback() {
     super.connectedCallback();
+    watchTheme(this); // follow the site's theme toggle (not the OS) — utils/theme.ts
     await this.fetchCard();
   }
 

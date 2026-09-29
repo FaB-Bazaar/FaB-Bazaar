@@ -805,43 +805,41 @@ export class FabDecklistBlock extends LitElement {
     }
 
     /* ===== SYSTEM DARK MODE (fallback) ===== */
-    @media (prefers-color-scheme: dark) {
-      .decklist { background: #1e293b; border-color: #334155; }
-      .header { border-bottom-color: #334155; }
-      .title { color: #f1f5f9; }
-      .view-toggle { border-color: #334155; }
-      .view-btn { color: #94a3b8; }
-      .view-btn + .view-btn { border-left-color: #334155; }
-      .view-btn:hover { background: #0f172a; color: #f1f5f9; }
-      .view-btn.active { background: #f1f5f9; color: #0f172a; }
-      .hud { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
-      .hud-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
-      .hud-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
-      .hud-divider { background: rgba(255,255,255,0.1); }
-      .hud-group-icon { filter: invert(1); opacity: 0.6; }
-      .section-header { border-bottom-color: #334155; }
-      .section-title { color: #f1f5f9; }
-      .section-count { color: #94a3b8; }
-      .card-image-wrapper { background: #0f172a; }
-      .list-row:hover { background: rgba(255,255,255,0.04); }
-      .list-row.highlighted { background: rgba(245,158,11,0.12); }
-      .list-card-name { color: #e2e8f0; }
-      .list-card-qty { color: #94a3b8; }
-      .list-rail { background: #475569; }
-      .list-rail.red { background: #ef4444; }
-      .list-rail.yellow { background: #eab308; }
-      .list-rail.blue { background: #3b82f6; }
-      .list-row.highlighted .list-rail { background: #f59e0b; }
-      .list-cost-badge { background: rgba(255,255,255,0.06); border-color: #334155; color: #cbd5e1; }
-      .list-foil-badge.nf { background: rgba(100,116,139,0.3); color: #94a3b8; }
-      .list-foil-badge.rf { background: rgba(234,179,8,0.2); color: #fcd34d; }
-      .list-foil-badge.cf { color: #a78bfa; }
-      .notes { background: #422006; }
-      .notes-title { color: #f1f5f9; }
-      .notes-text { color: #e2e8f0; }
-      .loading { color: #94a3b8; }
-      .loading-spinner { border-color: #334155; border-top-color: #60a5fa; }
-    }
+    :host([dark]) .decklist { background: #1e293b; border-color: #334155; }
+    :host([dark]) .header { border-bottom-color: #334155; }
+    :host([dark]) .title { color: #f1f5f9; }
+    :host([dark]) .view-toggle { border-color: #334155; }
+    :host([dark]) .view-btn { color: #94a3b8; }
+    :host([dark]) .view-btn + .view-btn { border-left-color: #334155; }
+    :host([dark]) .view-btn:hover { background: #0f172a; color: #f1f5f9; }
+    :host([dark]) .view-btn.active { background: #f1f5f9; color: #0f172a; }
+    :host([dark]) .hud { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+    :host([dark]) .hud-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
+    :host([dark]) .hud-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+    :host([dark]) .hud-divider { background: rgba(255,255,255,0.1); }
+    :host([dark]) .hud-group-icon { filter: invert(1); opacity: 0.6; }
+    :host([dark]) .section-header { border-bottom-color: #334155; }
+    :host([dark]) .section-title { color: #f1f5f9; }
+    :host([dark]) .section-count { color: #94a3b8; }
+    :host([dark]) .card-image-wrapper { background: #0f172a; }
+    :host([dark]) .list-row:hover { background: rgba(255,255,255,0.04); }
+    :host([dark]) .list-row.highlighted { background: rgba(245,158,11,0.12); }
+    :host([dark]) .list-card-name { color: #e2e8f0; }
+    :host([dark]) .list-card-qty { color: #94a3b8; }
+    :host([dark]) .list-rail { background: #475569; }
+    :host([dark]) .list-rail.red { background: #ef4444; }
+    :host([dark]) .list-rail.yellow { background: #eab308; }
+    :host([dark]) .list-rail.blue { background: #3b82f6; }
+    :host([dark]) .list-row.highlighted .list-rail { background: #f59e0b; }
+    :host([dark]) .list-cost-badge { background: rgba(255,255,255,0.06); border-color: #334155; color: #cbd5e1; }
+    :host([dark]) .list-foil-badge.nf { background: rgba(100,116,139,0.3); color: #94a3b8; }
+    :host([dark]) .list-foil-badge.rf { background: rgba(234,179,8,0.2); color: #fcd34d; }
+    :host([dark]) .list-foil-badge.cf { color: #a78bfa; }
+    :host([dark]) .notes { background: #422006; }
+    :host([dark]) .notes-title { color: #f1f5f9; }
+    :host([dark]) .notes-text { color: #e2e8f0; }
+    :host([dark]) .loading { color: #94a3b8; }
+    :host([dark]) .loading-spinner { border-color: #334155; border-top-color: #60a5fa; }
 
     /* ===== CARD OVERLAY ===== */
     .card-overlay {

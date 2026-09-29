@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
  * fab-byline - Author/contributor attribution
@@ -48,10 +49,8 @@ export class FabByline extends LitElement {
       font-style: italic;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .role {
-        color: var(--fab-byline-text-dark);
-      }
+    :host([dark]) .role {
+      color: var(--fab-byline-text-dark);
     }
 
     .name {
@@ -60,10 +59,8 @@ export class FabByline extends LitElement {
       margin-left: 0.25rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .name {
-        color: var(--fab-byline-name-dark);
-      }
+    :host([dark]) .name {
+      color: var(--fab-byline-name-dark);
     }
 
     .name-link {
@@ -98,6 +95,17 @@ export class FabByline extends LitElement {
       display: none;
     }
   `;
+
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  override connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
 
   @property() role = 'By';
   @property() name = '';

@@ -469,31 +469,28 @@ export class FabMatchReport extends LitElement {
     }
 
     /* ===== DARK MODE (Safari/iOS fallback via OS preference) ===== */
-    @media (prefers-color-scheme: dark) {
-      .match {
-        background: #0f172a;
-        border-color: #1e293b;
-      }
-      .header { border-bottom-color: #1e293b; }
-      .header.win  { background: rgba(34, 197, 94, 0.08); }
-      .header.loss { background: rgba(239, 68, 68, 0.08); }
-      .header.draw { background: rgba(234, 179, 8, 0.08); }
-      .round { color: #94a3b8; background: #1e293b; border-color: #334155; }
-      .hero { background: #1e293b; border-color: #334155; color: #e2e8f0; }
-      .opponent-inline { color: #64748b; }
-      .record { color: #94a3b8; }
-      .opponent { color: #94a3b8; }
-      .summary { color: #cbd5e1; }
-      .sideboard { background: #422006; }
-      .sideboard-title { color: #fef3c7; }
-      .sideboard-text { color: #fcd34d; }
-      .card-group-label.in { background: #14532d; color: #86efac; }
-      .card-group-label.out { background: #450a0a; color: #fca5a5; }
-      .card-thumbnail-placeholder,
-      .hero-card-placeholder { background: #334155; }
-      .sideboard-card-name { color: #94a3b8; }
-      .inline-card-name { color: #f1f5f9; }
+    :host([dark]) .match {
+      background: #0f172a;
+      border-color: #1e293b;
     }
+    :host([dark]) .header { border-bottom-color: #1e293b; }
+    :host([dark]) .header.win { background: rgba(34, 197, 94, 0.08); }
+    :host([dark]) .header.loss { background: rgba(239, 68, 68, 0.08); }
+    :host([dark]) .header.draw { background: rgba(234, 179, 8, 0.08); }
+    :host([dark]) .round { color: #94a3b8; background: #1e293b; border-color: #334155; }
+    :host([dark]) .hero { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+    :host([dark]) .opponent-inline { color: #64748b; }
+    :host([dark]) .record { color: #94a3b8; }
+    :host([dark]) .opponent { color: #94a3b8; }
+    :host([dark]) .summary { color: #cbd5e1; }
+    :host([dark]) .sideboard { background: #422006; }
+    :host([dark]) .sideboard-title { color: #fef3c7; }
+    :host([dark]) .sideboard-text { color: #fcd34d; }
+    :host([dark]) .card-group-label.in { background: #14532d; color: #86efac; }
+    :host([dark]) .card-group-label.out { background: #450a0a; color: #fca5a5; }
+    :host([dark]) .card-thumbnail-placeholder, :host([dark]) .hero-card-placeholder { background: #334155; }
+    :host([dark]) .sideboard-card-name { color: #94a3b8; }
+    :host([dark]) .inline-card-name { color: #f1f5f9; }
   `;
 
   @property() round = '';

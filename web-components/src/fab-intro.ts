@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
  * fab-intro - Article lead/summary section
@@ -49,10 +50,8 @@ export class FabIntro extends LitElement {
       margin: 0 0 1rem 0;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .intro-text {
-        color: var(--fab-intro-text-dark);
-      }
+    :host([dark]) .intro-text {
+      color: var(--fab-intro-text-dark);
     }
 
     .tags {
@@ -73,11 +72,9 @@ export class FabIntro extends LitElement {
       letter-spacing: 0.025em;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .tag {
-        background: var(--fab-intro-tag-bg-dark);
-        color: var(--fab-intro-tag-text-dark);
-      }
+    :host([dark]) .tag {
+      background: var(--fab-intro-tag-bg-dark);
+      color: var(--fab-intro-tag-text-dark);
     }
 
     /* Hide component if no content */
@@ -85,6 +82,17 @@ export class FabIntro extends LitElement {
       display: none;
     }
   `;
+
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  override connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
 
   @property() text = '';
   @property() tags = '';

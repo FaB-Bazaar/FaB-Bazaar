@@ -4228,6 +4228,15 @@ let FabIntro = class extends i$1 {
     this.text = "";
     this.tags = "";
   }
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
   render() {
     if (!this.text) return b``;
     const tagArray = this.tags ? this.tags.split(",").map((t2) => t2.trim()).filter(Boolean) : [];
@@ -4272,10 +4281,8 @@ FabIntro.styles = i$4`
       margin: 0 0 1rem 0;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .intro-text {
-        color: var(--fab-intro-text-dark);
-      }
+    :host([dark]) .intro-text {
+      color: var(--fab-intro-text-dark);
     }
 
     .tags {
@@ -4296,11 +4303,9 @@ FabIntro.styles = i$4`
       letter-spacing: 0.025em;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .tag {
-        background: var(--fab-intro-tag-bg-dark);
-        color: var(--fab-intro-tag-text-dark);
-      }
+    :host([dark]) .tag {
+      background: var(--fab-intro-tag-bg-dark);
+      color: var(--fab-intro-tag-text-dark);
     }
 
     /* Hide component if no content */
@@ -4333,6 +4338,15 @@ let FabByline = class extends i$1 {
     this.role = "By";
     this.name = "";
     this.link = "";
+  }
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
   }
   render() {
     if (!this.name) return b``;
@@ -4389,10 +4403,8 @@ FabByline.styles = i$4`
       font-style: italic;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .role {
-        color: var(--fab-byline-text-dark);
-      }
+    :host([dark]) .role {
+      color: var(--fab-byline-text-dark);
     }
 
     .name {
@@ -4401,10 +4413,8 @@ FabByline.styles = i$4`
       margin-left: 0.25rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .name {
-        color: var(--fab-byline-name-dark);
-      }
+    :host([dark]) .name {
+      color: var(--fab-byline-name-dark);
     }
 
     .name-link {
@@ -4530,10 +4540,8 @@ FabSectionHeader.styles = i$4`
       font-size: 1.5rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      h2, h3 {
-        color: var(--fab-header-title-dark);
-      }
+    :host([dark]) h2, :host([dark]) h3 {
+      color: var(--fab-header-title-dark);
     }
 
     /* Support Tailwind's class-based dark mode */
@@ -4550,10 +4558,8 @@ FabSectionHeader.styles = i$4`
       line-height: 1.5;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .subtitle {
-        color: var(--fab-header-subtitle-dark);
-      }
+    :host([dark]) .subtitle {
+      color: var(--fab-header-subtitle-dark);
     }
 
     :host([dark]) .subtitle {
@@ -4592,6 +4598,15 @@ let FabKeyTakeaways = class extends i$1 {
     super(...arguments);
     this.items = "";
     this.title = "Key Takeaways";
+  }
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
   }
   render() {
     if (!this.items) {
@@ -4661,10 +4676,8 @@ FabKeyTakeaways.styles = i$4`
       padding: 1.5rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .takeaways {
-        background: var(--fab-takeaways-bg-dark);
-      }
+    :host([dark]) .takeaways {
+      background: var(--fab-takeaways-bg-dark);
     }
 
     .title {
@@ -4677,10 +4690,8 @@ FabKeyTakeaways.styles = i$4`
       gap: 0.5rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .title {
-        color: var(--fab-takeaways-title-dark);
-      }
+    :host([dark]) .title {
+      color: var(--fab-takeaways-title-dark);
     }
 
     .title-icon {
@@ -4711,10 +4722,8 @@ FabKeyTakeaways.styles = i$4`
       line-height: 1.6;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .item {
-        color: var(--fab-takeaways-text-dark);
-      }
+    :host([dark]) .item {
+      color: var(--fab-takeaways-text-dark);
     }
 
     .bullet {
@@ -5448,31 +5457,28 @@ FabMatchReport.styles = i$4`
     }
 
     /* ===== DARK MODE (Safari/iOS fallback via OS preference) ===== */
-    @media (prefers-color-scheme: dark) {
-      .match {
-        background: #0f172a;
-        border-color: #1e293b;
-      }
-      .header { border-bottom-color: #1e293b; }
-      .header.win  { background: rgba(34, 197, 94, 0.08); }
-      .header.loss { background: rgba(239, 68, 68, 0.08); }
-      .header.draw { background: rgba(234, 179, 8, 0.08); }
-      .round { color: #94a3b8; background: #1e293b; border-color: #334155; }
-      .hero { background: #1e293b; border-color: #334155; color: #e2e8f0; }
-      .opponent-inline { color: #64748b; }
-      .record { color: #94a3b8; }
-      .opponent { color: #94a3b8; }
-      .summary { color: #cbd5e1; }
-      .sideboard { background: #422006; }
-      .sideboard-title { color: #fef3c7; }
-      .sideboard-text { color: #fcd34d; }
-      .card-group-label.in { background: #14532d; color: #86efac; }
-      .card-group-label.out { background: #450a0a; color: #fca5a5; }
-      .card-thumbnail-placeholder,
-      .hero-card-placeholder { background: #334155; }
-      .sideboard-card-name { color: #94a3b8; }
-      .inline-card-name { color: #f1f5f9; }
+    :host([dark]) .match {
+      background: #0f172a;
+      border-color: #1e293b;
     }
+    :host([dark]) .header { border-bottom-color: #1e293b; }
+    :host([dark]) .header.win { background: rgba(34, 197, 94, 0.08); }
+    :host([dark]) .header.loss { background: rgba(239, 68, 68, 0.08); }
+    :host([dark]) .header.draw { background: rgba(234, 179, 8, 0.08); }
+    :host([dark]) .round { color: #94a3b8; background: #1e293b; border-color: #334155; }
+    :host([dark]) .hero { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+    :host([dark]) .opponent-inline { color: #64748b; }
+    :host([dark]) .record { color: #94a3b8; }
+    :host([dark]) .opponent { color: #94a3b8; }
+    :host([dark]) .summary { color: #cbd5e1; }
+    :host([dark]) .sideboard { background: #422006; }
+    :host([dark]) .sideboard-title { color: #fef3c7; }
+    :host([dark]) .sideboard-text { color: #fcd34d; }
+    :host([dark]) .card-group-label.in { background: #14532d; color: #86efac; }
+    :host([dark]) .card-group-label.out { background: #450a0a; color: #fca5a5; }
+    :host([dark]) .card-thumbnail-placeholder, :host([dark]) .hero-card-placeholder { background: #334155; }
+    :host([dark]) .sideboard-card-name { color: #94a3b8; }
+    :host([dark]) .inline-card-name { color: #f1f5f9; }
   `;
 __decorateClass$4([
   r()
@@ -6945,43 +6951,41 @@ FabDecklistBlock.styles = i$4`
     }
 
     /* ===== SYSTEM DARK MODE (fallback) ===== */
-    @media (prefers-color-scheme: dark) {
-      .decklist { background: #1e293b; border-color: #334155; }
-      .header { border-bottom-color: #334155; }
-      .title { color: #f1f5f9; }
-      .view-toggle { border-color: #334155; }
-      .view-btn { color: #94a3b8; }
-      .view-btn + .view-btn { border-left-color: #334155; }
-      .view-btn:hover { background: #0f172a; color: #f1f5f9; }
-      .view-btn.active { background: #f1f5f9; color: #0f172a; }
-      .hud { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
-      .hud-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
-      .hud-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
-      .hud-divider { background: rgba(255,255,255,0.1); }
-      .hud-group-icon { filter: invert(1); opacity: 0.6; }
-      .section-header { border-bottom-color: #334155; }
-      .section-title { color: #f1f5f9; }
-      .section-count { color: #94a3b8; }
-      .card-image-wrapper { background: #0f172a; }
-      .list-row:hover { background: rgba(255,255,255,0.04); }
-      .list-row.highlighted { background: rgba(245,158,11,0.12); }
-      .list-card-name { color: #e2e8f0; }
-      .list-card-qty { color: #94a3b8; }
-      .list-rail { background: #475569; }
-      .list-rail.red { background: #ef4444; }
-      .list-rail.yellow { background: #eab308; }
-      .list-rail.blue { background: #3b82f6; }
-      .list-row.highlighted .list-rail { background: #f59e0b; }
-      .list-cost-badge { background: rgba(255,255,255,0.06); border-color: #334155; color: #cbd5e1; }
-      .list-foil-badge.nf { background: rgba(100,116,139,0.3); color: #94a3b8; }
-      .list-foil-badge.rf { background: rgba(234,179,8,0.2); color: #fcd34d; }
-      .list-foil-badge.cf { color: #a78bfa; }
-      .notes { background: #422006; }
-      .notes-title { color: #f1f5f9; }
-      .notes-text { color: #e2e8f0; }
-      .loading { color: #94a3b8; }
-      .loading-spinner { border-color: #334155; border-top-color: #60a5fa; }
-    }
+    :host([dark]) .decklist { background: #1e293b; border-color: #334155; }
+    :host([dark]) .header { border-bottom-color: #334155; }
+    :host([dark]) .title { color: #f1f5f9; }
+    :host([dark]) .view-toggle { border-color: #334155; }
+    :host([dark]) .view-btn { color: #94a3b8; }
+    :host([dark]) .view-btn + .view-btn { border-left-color: #334155; }
+    :host([dark]) .view-btn:hover { background: #0f172a; color: #f1f5f9; }
+    :host([dark]) .view-btn.active { background: #f1f5f9; color: #0f172a; }
+    :host([dark]) .hud { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+    :host([dark]) .hud-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
+    :host([dark]) .hud-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+    :host([dark]) .hud-divider { background: rgba(255,255,255,0.1); }
+    :host([dark]) .hud-group-icon { filter: invert(1); opacity: 0.6; }
+    :host([dark]) .section-header { border-bottom-color: #334155; }
+    :host([dark]) .section-title { color: #f1f5f9; }
+    :host([dark]) .section-count { color: #94a3b8; }
+    :host([dark]) .card-image-wrapper { background: #0f172a; }
+    :host([dark]) .list-row:hover { background: rgba(255,255,255,0.04); }
+    :host([dark]) .list-row.highlighted { background: rgba(245,158,11,0.12); }
+    :host([dark]) .list-card-name { color: #e2e8f0; }
+    :host([dark]) .list-card-qty { color: #94a3b8; }
+    :host([dark]) .list-rail { background: #475569; }
+    :host([dark]) .list-rail.red { background: #ef4444; }
+    :host([dark]) .list-rail.yellow { background: #eab308; }
+    :host([dark]) .list-rail.blue { background: #3b82f6; }
+    :host([dark]) .list-row.highlighted .list-rail { background: #f59e0b; }
+    :host([dark]) .list-cost-badge { background: rgba(255,255,255,0.06); border-color: #334155; color: #cbd5e1; }
+    :host([dark]) .list-foil-badge.nf { background: rgba(100,116,139,0.3); color: #94a3b8; }
+    :host([dark]) .list-foil-badge.rf { background: rgba(234,179,8,0.2); color: #fcd34d; }
+    :host([dark]) .list-foil-badge.cf { color: #a78bfa; }
+    :host([dark]) .notes { background: #422006; }
+    :host([dark]) .notes-title { color: #f1f5f9; }
+    :host([dark]) .notes-text { color: #e2e8f0; }
+    :host([dark]) .loading { color: #94a3b8; }
+    :host([dark]) .loading-spinner { border-color: #334155; border-top-color: #60a5fa; }
 
     /* ===== CARD OVERLAY ===== */
     .card-overlay {
@@ -8285,6 +8289,15 @@ let FabVideo = class extends i$1 {
     this.creatorName = "";
     this.creatorUrl = "";
   }
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
   render() {
     const embedUrl = `https://www.youtube.com/embed/${this.videoId}`;
     return b`
@@ -8439,13 +8452,11 @@ FabVideo.styles = i$4`
     }
 
     /* Dark mode support */
-    @media (prefers-color-scheme: dark) {
-      :host {
-        --fab-video-bg: rgba(30, 41, 59, 0.5);
-        --fab-video-border: #334155;
-        --fab-video-text: #f1f5f9;
-        --fab-video-text-muted: #94a3b8;
-      }
+    :host([dark]) {
+      --fab-video-bg: rgba(30, 41, 59, 0.5);
+      --fab-video-border: #334155;
+      --fab-video-text: #f1f5f9;
+      --fab-video-text-muted: #94a3b8;
     }
   `;
 __decorateClass$1([
@@ -8497,8 +8508,13 @@ let FabOpportunityCard = class extends i$1 {
       return null;
     }
   }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
   async connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     await this.fetchCard();
   }
   async fetchCard() {
@@ -8964,21 +8980,19 @@ FabOpportunityCard.styles = i$4`
     }
 
     /* Dark mode */
-    @media (prefers-color-scheme: dark) {
-      .card.underpriced { background: rgba(34, 197, 94, 0.1); border-color: #166534; }
-      .card.trending { background: rgba(99, 102, 241, 0.1); border-color: #4338ca; }
-      .card.supply-issue { background: rgba(249, 115, 22, 0.1); border-color: #c2410c; }
-      .card.correction { background: rgba(100, 116, 139, 0.1); border-color: #475569; }
-      .card.outlier { background: rgba(168, 85, 247, 0.1); border-color: #7c3aed; }
+    :host([dark]) .card.underpriced { background: rgba(34, 197, 94, 0.1); border-color: #166534; }
+    :host([dark]) .card.trending { background: rgba(99, 102, 241, 0.1); border-color: #4338ca; }
+    :host([dark]) .card.supply-issue { background: rgba(249, 115, 22, 0.1); border-color: #c2410c; }
+    :host([dark]) .card.correction { background: rgba(100, 116, 139, 0.1); border-color: #475569; }
+    :host([dark]) .card.outlier { background: rgba(168, 85, 247, 0.1); border-color: #7c3aed; }
 
-      .title { color: #f1f5f9; }
-      .meta { color: #94a3b8; }
-      .price-new { color: #f1f5f9; }
-      .note { background: rgba(30, 41, 59, 0.5); border-color: #334155; }
-      .note-text { color: #cbd5e1; }
-      .action-row { background: rgba(30, 41, 59, 0.3); }
-      .action-title { color: #f1f5f9; }
-    }
+    :host([dark]) .title { color: #f1f5f9; }
+    :host([dark]) .meta { color: #94a3b8; }
+    :host([dark]) .price-new { color: #f1f5f9; }
+    :host([dark]) .note { background: rgba(30, 41, 59, 0.5); border-color: #334155; }
+    :host([dark]) .note-text { color: #cbd5e1; }
+    :host([dark]) .action-row { background: rgba(30, 41, 59, 0.3); }
+    :host([dark]) .action-title { color: #f1f5f9; }
   `;
 __decorateClass([
   n2({ attribute: "printing-id" })

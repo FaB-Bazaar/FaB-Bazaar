@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
  * fab-key-takeaways - Bullet highlights for article scanning
@@ -52,10 +53,8 @@ export class FabKeyTakeaways extends LitElement {
       padding: 1.5rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .takeaways {
-        background: var(--fab-takeaways-bg-dark);
-      }
+    :host([dark]) .takeaways {
+      background: var(--fab-takeaways-bg-dark);
     }
 
     .title {
@@ -68,10 +67,8 @@ export class FabKeyTakeaways extends LitElement {
       gap: 0.5rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .title {
-        color: var(--fab-takeaways-title-dark);
-      }
+    :host([dark]) .title {
+      color: var(--fab-takeaways-title-dark);
     }
 
     .title-icon {
@@ -102,10 +99,8 @@ export class FabKeyTakeaways extends LitElement {
       line-height: 1.6;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .item {
-        color: var(--fab-takeaways-text-dark);
-      }
+    :host([dark]) .item {
+      color: var(--fab-takeaways-text-dark);
     }
 
     .bullet {
@@ -126,6 +121,17 @@ export class FabKeyTakeaways extends LitElement {
       display: none;
     }
   `;
+
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  override connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
 
   @property() items = '';
   @property() title = 'Key Takeaways';

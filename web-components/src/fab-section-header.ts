@@ -65,10 +65,8 @@ export class FabSectionHeader extends LitElement {
       font-size: 1.5rem;
     }
 
-    @media (prefers-color-scheme: dark) {
-      h2, h3 {
-        color: var(--fab-header-title-dark);
-      }
+    :host([dark]) h2, :host([dark]) h3 {
+      color: var(--fab-header-title-dark);
     }
 
     /* Support Tailwind's class-based dark mode */
@@ -85,10 +83,8 @@ export class FabSectionHeader extends LitElement {
       line-height: 1.5;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .subtitle {
-        color: var(--fab-header-subtitle-dark);
-      }
+    :host([dark]) .subtitle {
+      color: var(--fab-header-subtitle-dark);
     }
 
     :host([dark]) .subtitle {

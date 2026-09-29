@@ -148,6 +148,9 @@ export function FeaturedCardsCarousel({ cards, cardWidth = 240 }: { cards: any[]
     },
     shouldAutoScroll ? [autoScrollPlugin] : []
   );
+  // The plugin is only attached above 5 cards; play() on a detached plugin
+  // throws (it has no carousel to emit on). stop() is already a no-op then.
+  const playAutoScroll = () => { if (shouldAutoScroll) autoScrollPlugin.play(); };
 
   useEffect(() => {
     const imageUrls = cards.map(card => card.image_url).filter(url => url);
@@ -168,7 +171,7 @@ export function FeaturedCardsCarousel({ cards, cardWidth = 240 }: { cards: any[]
 
     Promise.all(promises).then(() => {
       setImagesLoaded(true);
-      setTimeout(() => { autoScrollPlugin.play(); }, 100);
+      setTimeout(playAutoScroll, 100);
     });
   }, [cards, autoScrollPlugin]);
 
@@ -180,7 +183,7 @@ export function FeaturedCardsCarousel({ cards, cardWidth = 240 }: { cards: any[]
     const onPointerUp = () => {
       clearTimeout(resumeTimer);
       resumeTimer = setTimeout(() => {
-        if (!dropdownOpen) autoScrollPlugin.play();
+        if (!dropdownOpen) playAutoScroll();
       }, 2000);
     };
 
@@ -197,7 +200,7 @@ export function FeaturedCardsCarousel({ cards, cardWidth = 240 }: { cards: any[]
         clearTimeout(resumeTimer);
       } else {
         clearTimeout(resumeTimer);
-        resumeTimer = setTimeout(() => { autoScrollPlugin.play(); }, 2000);
+        resumeTimer = setTimeout(playAutoScroll, 2000);
       }
     };
 

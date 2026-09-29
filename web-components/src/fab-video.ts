@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
  * fab-video - YouTube video embed component with title, description, and creator attribution
@@ -128,15 +129,24 @@ export class FabVideo extends LitElement {
     }
 
     /* Dark mode support */
-    @media (prefers-color-scheme: dark) {
-      :host {
-        --fab-video-bg: rgba(30, 41, 59, 0.5);
-        --fab-video-border: #334155;
-        --fab-video-text: #f1f5f9;
-        --fab-video-text-muted: #94a3b8;
-      }
+    :host([dark]) {
+      --fab-video-bg: rgba(30, 41, 59, 0.5);
+      --fab-video-border: #334155;
+      --fab-video-text: #f1f5f9;
+      --fab-video-text-muted: #94a3b8;
     }
   `;
+
+  // Follow the site's theme toggle (not the OS) — see utils/theme.ts.
+  override connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
 
   @property({ attribute: 'video-id' }) videoId = '';
   @property() title = '';
