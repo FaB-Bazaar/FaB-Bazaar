@@ -45,6 +45,7 @@ import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
 import type { BrewFacets } from "@/lib/deck/brew";
 
 type PanelId = "find" | "stats";
+const FIND_COLLAPSED_KEY = "deck-find-panel-collapsed";
 type View = "table" | "cards" | "brew";
 const VIEWS: View[] = ["table", "cards", "brew"];
 const VIEW_LABEL: Record<View, string> = { table: "Table", cards: "Cards", brew: "Brew" };
@@ -102,6 +103,22 @@ function DeckV2Page() {
   const [findKey, setFindKey] = useState(0);
   // Main area: the deck views, or a classic in-page tab (Results).
   const [mainMode, setMainMode] = useState<MainMode>("deck");
+  // "Deck" while the panel is open with nothing highlighted collapses it so the
+  // deck gets the full width (user request); remembered per browser.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(FIND_COLLAPSED_KEY) === "1") setPanel(p => (p === "find" ? null : p));
+    } catch { /* storage blocked — panel just starts open */ }
+  }, []);
+  const onDeckRail = () => {
+    const collapse = panel === "find" && active === null && mainMode === "deck";
+    try {
+      if (collapse) localStorage.setItem(FIND_COLLAPSED_KEY, "1");
+      else localStorage.removeItem(FIND_COLLAPSED_KEY);
+    } catch { /* storage blocked — still toggles for this visit */ }
+    if (collapse) setPanel(null);
+    else resetToDeck();
+  };
   const resetToDeck = () => {
     setMainMode("deck");
     setPanel("find");
@@ -395,8 +412,9 @@ function DeckV2Page() {
                 key={item.id}
                 type="button"
                 aria-pressed={selected}
-                // "Deck" is home base: always open, and a fresh start — every filter resets.
-                onClick={() => (item.id === "find" ? resetToDeck() : setPanel(selected ? null : item.id))}
+                // "Deck" is home base and a fresh start — every filter resets. Pressed
+                // again with nothing highlighted, it collapses the panel instead.
+                onClick={() => (item.id === "find" ? onDeckRail() : setPanel(selected ? null : item.id))}
                 className={cls}
               >
                 {inner}
