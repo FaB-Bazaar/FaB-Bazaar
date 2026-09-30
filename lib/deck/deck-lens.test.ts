@@ -8,8 +8,8 @@ const card = (id: string, quantity: number, details: Record<string, unknown>): D
   printingDetails: details,
 })
 
-const deck = (zones: Partial<Pick<DeckDTO, 'maindeck' | 'equipment' | 'inventory' | 'hero' | 'benched'>>) =>
-  ({ hero: [], equipment: [], maindeck: [], inventory: [], benched: [], ...zones }) as unknown as DeckDTO
+const deck = (zones: Partial<Pick<DeckDTO, 'maindeck' | 'equipment' | 'inventory' | 'hero' | 'benched' | 'tokens'>>) =>
+  ({ hero: [], equipment: [], maindeck: [], inventory: [], benched: [], tokens: [], ...zones }) as unknown as DeckDTO
 
 describe('countTextMatches', () => {
   it('counts copies and distinct cards whose rules text contains the term', () => {
@@ -73,6 +73,31 @@ describe('typeTally', () => {
       { value: 'non-attack', label: 'Non-attack action', copies: 2 },
       { value: 'instant', label: 'Instant', copies: 1 },
     ])
+  })
+})
+
+describe('typeTally — tokens', () => {
+  // Same cards as /opt `t:token`: Gold, Runechant, the Hyper Driver token.
+  it('counts token cards, including the deck\'s Tokens zone', () => {
+    const d = deck({
+      maindeck: [card('hd', 3, { types: ['Mechanologist', 'Token', 'Item'] })],
+      tokens: [card('gold', 2, { types: ['Generic', 'Token', 'Item'] })],
+    })
+    expect(typeTally(d).find(r => r.value === 'token')).toEqual({ value: 'token', label: 'Tokens', copies: 5 })
+  })
+
+  it('counts the Tokens zone toward Tokens only, not its other types', () => {
+    const d = deck({ tokens: [card('gold', 2, { types: ['Generic', 'Token', 'Item'] })] })
+    expect(typeTally(d)).toEqual([{ value: 'token', label: 'Tokens', copies: 2 }])
+  })
+
+  it('shows no Tokens row when the deck has no token cards', () => {
+    const d = deck({ maindeck: [card('a', 3, { types: ['Generic', 'Action', 'Item'] })] })
+    expect(typeTally(d).some(r => r.value === 'token')).toBe(false)
+  })
+
+  it('names the lens "Tokens"', () => {
+    expect(lensLabel({ stat: 'type', value: 'token' })).toBe('Tokens')
   })
 })
 

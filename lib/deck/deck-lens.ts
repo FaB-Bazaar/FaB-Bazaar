@@ -65,6 +65,8 @@ const TYPE_BUCKETS: Array<{ value: string; label: string; test: (types: string[]
   { value: 'aura', label: 'Aura', test: t => t.includes('aura') },
   { value: 'ally', label: 'Ally', test: t => t.includes('ally') },
   { value: 'equipment', label: 'Equipment', test: t => t.includes('equipment') },
+  // Same cards as /opt `t:token` (Gold, Runechant, the Hyper Driver token…).
+  { value: 'token', label: 'Tokens', test: t => t.includes('token') },
 ]
 
 /** Does a card's type list fall in a type bucket (`'attack'`, `'defense-reaction'`, …)? */
@@ -87,6 +89,12 @@ export function typeTally(deck: DeckDTO): Array<{ value: string; label: string; 
     for (const b of TYPE_BUCKETS) {
       if (b.test(types)) counts.set(b.value, (counts.get(b.value) ?? 0) + (c.quantity ?? 1))
     }
+  }
+  // Token cards mostly live in the Tokens zone, which isn't brought to the
+  // match — it counts toward the Tokens row only (a Gold token is not an Item).
+  for (const c of deck.tokens ?? []) {
+    const types = ((c.printingDetails as Details | undefined)?.types ?? []).map(t => t.toLowerCase())
+    if (types.includes('token')) counts.set('token', (counts.get('token') ?? 0) + (c.quantity ?? 1))
   }
   return TYPE_BUCKETS
     .filter(b => counts.has(b.value))
