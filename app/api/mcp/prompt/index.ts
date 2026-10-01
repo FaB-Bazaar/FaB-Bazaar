@@ -69,56 +69,48 @@ Show me the results in a clear format with pricing, set info, and availability.`
 
   {
     name: 'build-deck',
-    description: 'Help build a deck around a specific hero or strategy - /build-deck {hero/strategy}',
+    description: 'Research the meta and card pool, agree a plan with you, then build a deck - /build-deck {hero}',
     arguments: [
       {
         name: 'hero',
-        description: 'Hero name or deck strategy (e.g., "Rhinar", "Aggro Warrior", "Control Wizard")',
+        description: 'Hero name (e.g. "dorinthea ironsong", or "dorinthea" for the young hero)',
         required: true
       },
       {
-        name: 'budget',
-        description: 'Optional: Budget constraint (e.g., "budget", "mid-range", "competitive")',
+        name: 'format',
+        description: 'Optional: Classic Constructed, Blitz, Silver Age, Living Legend or Commoner',
         required: false
       },
       {
-        name: 'format',
-        description: 'Optional: Format (e.g., "blitz", "classic", "commoner")',
+        name: 'budget',
+        description: 'Optional: Budget constraint (e.g. "under $100", "no limit")',
         required: false
       }
     ],
     handler: (args) => {
       const hero = args.hero || '';
-      const budget = args.budget ? ` with ${args.budget} budget` : '';
-      const format = args.format ? ` for ${args.format} format` : '';
-      
+      const format = args.format || '';
+      const budget = args.budget ? ` My budget: ${args.budget}.` : '';
+
       return {
-        description: `Build a Flesh and Blood deck for ${hero}${format}${budget}`,
+        description: `Build a Flesh and Blood deck for ${hero}${format ? ` (${format})` : ''}`,
         messages: [
           {
             role: 'user',
             content: {
               type: 'text',
-              text: `Help me build a Flesh and Blood deck for: ${hero}${format}${budget}
+              text: `Help me build a Flesh and Blood deck for ${hero}${format ? ` in ${format}` : ''}.${budget}
 
-Please follow this workflow:
-1. First complete the mandatory setup:
-   - read_mandatory_constants_first({"uri": "fab://constants"})
-   - read_mandatory_constants_first({"uri": "searchable://card/fields"})
+Work from data, not memory. Only name, propose or add cards a tool returned in this session. If you remember a card that might fit, search for it and read its text before mentioning it.
 
-2. Then search for cards using search_printings with "_resourcesConfirmed": true for:
-   - Core hero cards and weapons
-   - Key attack actions and defensive cards
-   - Equipment and accessories
-   - Supporting cards for the strategy
-
-3. Provide deck recommendations with:
-   - Card quantities and ratios
-   - Pricing information for budget consideration
-   - Alternative card options at different price points
-   - Basic strategy and play tips
-
-Focus on playable, competitive options that fit the requested constraints.`
+1. Call get_deckbuilding_guide({ "format": "${format || '<ask me the format first>'}", "heroName": "${hero}" }) and follow its method.
+2. Research before suggesting anything:
+   - get_decks_to_beat with format and heroName: which cards do recent lists share, and where do they disagree?
+   - search_printings with filters.heroLegal and filters.format, by card type and by facetTags, reading the card text.
+   - If I'm signed in, compare_collection_to_decks_to_beat to see which recent lists I could build from my cards.
+3. Report what you found: the core cards, the flex slots, and 2-3 possible game plans, each backed by the tool results above.
+4. Stop and ask me which plan I want, my budget, cards I want to use, and the matchups I expect.
+5. Only after I answer: create_deck, add_cards_to_deck, then get_deck({ "includeText": true }) and run the guide's self-check. For each card, say which deck list or search it came from.`
             }
           }
         ]

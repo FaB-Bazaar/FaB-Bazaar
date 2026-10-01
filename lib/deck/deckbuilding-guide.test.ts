@@ -67,6 +67,39 @@ describe('buildDeckbuildingGuide', () => {
     expect(text).toMatch(/young hero/i);
   });
 
+  describe('method is data-first', () => {
+    const method = () => {
+      const text = ok(buildDeckbuildingGuide({ format: 'Classic Constructed', heroName: 'dorinthea ironsong' }));
+      return text.slice(text.indexOf('Method'));
+    };
+
+    it('researches the meta and the pool before choosing a game plan', () => {
+      const m = method();
+      const plan = m.search(/game plan/i);
+      expect(plan).toBeGreaterThan(-1);
+      expect(m.indexOf('get_decks_to_beat')).toBeGreaterThan(-1);
+      expect(m.indexOf('get_decks_to_beat')).toBeLessThan(plan);
+      expect(m.indexOf('heroLegal')).toBeLessThan(plan);
+    });
+
+    it('stops to ask the user before building anything', () => {
+      const m = method();
+      const ask = m.search(/stop and ask the user/i);
+      expect(ask).toBeGreaterThan(-1);
+      expect(ask).toBeLessThan(m.indexOf('create_deck'));
+      expect(ask).toBeLessThan(m.indexOf('add_cards_to_deck'));
+    });
+
+    it('forbids naming a card that no tool returned this session', () => {
+      expect(method()).toMatch(/only name[^.]*cards a tool returned/i);
+    });
+
+    it('self-check asks where each card came from', () => {
+      const text = ok(buildDeckbuildingGuide({ format: 'Blitz' }));
+      expect(text.slice(text.indexOf('Self-check'))).toMatch(/which (tool|search|deck)/i);
+    });
+  });
+
   it('explains the class/talent subset rule and the slash hybrid', () => {
     const text = ok(buildDeckbuildingGuide({ format: 'Classic Constructed', heroName: 'dorinthea ironsong' }));
     expect(text).toMatch(/subset/i);

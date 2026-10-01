@@ -14,12 +14,13 @@ export const getDeckbuildingGuideTool = {
   Returns the official construction rules for the format (deck size, card pool, copy limit),
   the hero's classes/talents and card text, the class-legality rule, a build method and a
   self-check list. Card names do not tell you what a card does. This guide explains how to
-  read the text first.
+  read the text first. Work from data, not memory: only propose cards a tool returned.
 
   No authentication required.
 
-  💡 WORKFLOW: get_deckbuilding_guide → create_deck → search_printings (heroLegal/format;
-  text is included) → add_cards_to_deck → get_deck({ includeText: true }) to verify.`,
+  💡 WORKFLOW: get_deckbuilding_guide → research: get_decks_to_beat (format + heroName) and
+  search_printings (heroLegal/format; text is included) → report 2-3 plans and ask the user
+  which one → create_deck → add_cards_to_deck → get_deck({ includeText: true }) to verify.`,
 
   parameters: {
     type: 'object',

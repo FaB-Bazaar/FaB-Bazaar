@@ -153,13 +153,25 @@ function heroSection(format: string, hero: GuideHero, card: GuideHeroCard | null
 function methodSection(format: string, rules: FormatRules | null): string {
   const deckSize = rules && 'exact' in rules.deckSize ? rules.deckSize.exact : rules && 'min' in rules.deckSize ? rules.deckSize.min : null;
   return [
-    '## 4. Method',
-    '1. Read the hero card and decide the game plan it supports: aggressive, midrange, control or combo, and which turn you win on.',
-    '2. Pick the core: cards whose TEXT advances that plan. Look at the facet tags (`facetTags`) and the Decks to Beat (`get_decks_to_beat`) for what currently works, then read each card before taking it.',
-    '3. Resource math. Each card you play is paid for by pitching others: red pitches 1, yellow 2, blue 3. Add up the costs you plan to pay per turn and check the pitch mix covers them. A deck of 0-1 cost attacks can run mostly red; expensive cards and defense reactions need yellows and blues.',
-    '4. Defense. Count cards with printed defense and the defense reactions. Decide what you block with and what you hold.',
-    '5. Arena: weapon(s), then one equipment per slot (head, chest, arms, legs) for the main game plan. Put alternative pieces and matchup cards in inventory.',
-    `6. Fill the deck${deckSize ? ` to ${deckSize}` : ''}, then build inventory from real matchup needs. For each sideboard plan, \`save_deck_matchup\` records the in/out swaps.`,
+    '## 4. Method: data first, then the user, then the build',
+    'Your memory of this game is out of date and mixes up cards. Only name, propose or add cards a tool returned in this session. If you remember a card that might fit, search for it and read it before you mention it.',
+    '',
+    '**Phase A: research (no deck yet).**',
+    '1. Read the hero card: what its text triggers on, counts and rewards.',
+    '2. Recent decks: `get_decks_to_beat` with `format` and `heroName`. With no month it returns the latest month that has decks; if that month has none for this hero, try earlier months. Note the cards most lists share, the weapon and equipment choices, and where lists disagree.',
+    '3. The pool: `search_printings` with `filters.heroLegal` and `filters.format`, by type (attack actions, non-attack actions, instants, defense reactions, equipment, weapons) and by `facetTags` for the roles you need (read `fab://facet-tags` first). Read the text of what comes back.',
+    '4. If the user is signed in, `compare_collection_to_decks_to_beat` shows which recent lists they could build from their own cards.',
+    '',
+    '**Phase B: report and ask.**',
+    '5. Report what the data shows: the core cards recent lists agree on, the flex slots, and 2-3 possible game plans (aggressive, midrange, control or combo, and which turn each wins on), each with the tool results that support it.',
+    '6. Stop and ask the user before building: which plan, budget, cards they already own or want to use, and the matchups they expect. Do not call `create_deck` or `add_cards_to_deck` until they answer.',
+    '',
+    '**Phase C: build the chosen plan.**',
+    '7. Core: cards whose TEXT advances that plan, starting from what the recent lists agree on.',
+    '8. Resource math. Each card you play is paid for by pitching others: red pitches 1, yellow 2, blue 3. Add up the costs you plan to pay per turn and check the pitch mix covers them. A deck of 0-1 cost attacks can run mostly red; expensive cards and defense reactions need yellows and blues.',
+    '9. Defense. Count cards with printed defense and the defense reactions. Decide what you block with and what you hold.',
+    '10. Arena: weapon(s), then one equipment per slot (head, chest, arms, legs) for the main game plan. Put alternative pieces and matchup cards in inventory.',
+    `11. \`create_deck\`, then \`add_cards_to_deck\`. Fill the deck${deckSize ? ` to ${deckSize}` : ''}, then build inventory from real matchup needs. For each sideboard plan, \`save_deck_matchup\` records the in/out swaps.`,
   ].join('\n');
 }
 
@@ -168,6 +180,7 @@ function selfCheckSection(rules: FormatRules | null): string {
     '## 5. Self-check before presenting the deck',
     '- Did you read the text of every card you added? Could you quote why each one is in?',
     '- Does every synergy you claim come from card text, not from names?',
+    '- For each card, can you say which tool result it came from: a Decks to Beat list or a search? Cut or search for any card that came from memory.',
     rules ? `- Deck size, pool size (${rules.maxCardPool}) and copy limit (${rules.maxCopies}) respected?` : '- Card counts agreed for this format?',
     '- Is the pitch mix enough to pay for your most expensive turn?',
     '- Verify with `get_deck` (`includeText: true`) and fix anything that does not match the plan.',
