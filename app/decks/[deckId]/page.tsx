@@ -25,6 +25,7 @@ import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
 import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
+import { deckSizeLabel as formatDeckSizeLabel } from "@/lib/deck/deck-size-label";
 import { resolveDefaultDeckViewMode } from "@/lib/deck/deckViewMode";
 import { pitchSplit, playableCount } from "@/lib/deck/deck-lens";
 import { cn } from "@/lib/utils";
@@ -706,8 +707,7 @@ function DeckV2Page() {
 // Header size: the deck proper, with the inventory called out separately.
 function deckSizeLabel(deck: NonNullable<ReturnType<typeof useDeckEditor>["state"]["deck"]>): string {
   const z = computeDeckSectionCounts(deck);
-  const main = z.weapon + z.equipment + z.maindeck;
-  return z.inventory ? `${main} cards + ${z.inventory} inventory` : `${main} cards`;
+  return formatDeckSizeLabel(z.weapon + z.equipment + z.maindeck, z.inventory);
 }
 
 const PANEL_H2 = "text-base font-semibold text-gray-900 dark:text-gray-100";
