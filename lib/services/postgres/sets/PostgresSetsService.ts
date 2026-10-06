@@ -21,6 +21,7 @@ function mapToSetDTO(row: typeof sets.$inferSelect): SetDTO {
     unlimitedBeforeFirst: row.unlimitedBeforeFirst,
     defaultRarity: row.defaultRarity,
     imageId: row.imageId,
+    inCardFilters: row.inCardFilters,
   };
 }
 

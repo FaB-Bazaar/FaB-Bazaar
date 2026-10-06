@@ -36,7 +36,9 @@ export const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slat
 // Sets selectable in the main set grid: the shared curated booster-set list.
 // GEM (and the other promo sets) render in the dedicated Promos section below,
 // so it no longer needs appending here; its per-pack facet stays reachable.
-export const OPT_FILTER_SETS: string[] = [...CARD_FILTER_SETS];
+// An alias, not a copy: the list gains sets registered at runtime
+// (lib/fab-constants/set-overlay.ts patches it in place).
+export const OPT_FILTER_SETS: readonly string[] = CARD_FILTER_SETS;
 
 // ─── Popover (filter dropdown) ────────────────────────────────────────────────
 // Self-contained: closes on outside-click and Escape. No extra deps.

@@ -18,6 +18,9 @@ import { Toaster } from "@/components/ui/toaster"
 import { AnalyticsListener } from "@/components/analytics/AnalyticsListener"
 import { PinchZoomPanGuard } from "@/components/PinchZoomPanGuard"
 import { Suspense } from "react"
+import { SetOverlayProvider } from "@/components/SetOverlayProvider"
+import { getSetOverlay } from "@/lib/fab-constants/set-overlay-server"
+import { EMPTY_SET_OVERLAY } from "@/lib/fab-constants/set-overlay"
 
 
 
@@ -112,6 +115,12 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Sets registered in the DB after this build (runtime set overlay). Skipped
+  // while `next build` prerenders — CI has no database; those pages fetch it
+  // client-side instead (SetOverlayProvider).
+  const setOverlay = process.env.NEXT_PHASE === 'phase-production-build'
+    ? EMPTY_SET_OVERLAY
+    : await getSetOverlay()
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -196,6 +205,7 @@ export default async function RootLayout({
         "min-h-dvh font-sans antialiased bg-page",
         OutfitFont.className
       )}>
+        <SetOverlayProvider overlay={setOverlay}>
         <DarkModeProvider>
           <CookieConsentProvider>
             <AuthSessionProvider>
@@ -234,6 +244,7 @@ export default async function RootLayout({
             </AuthSessionProvider>
           </CookieConsentProvider>
         </DarkModeProvider>
+        </SetOverlayProvider>
 
         {/* Web Components - Load after DOM is ready */}
         <Script

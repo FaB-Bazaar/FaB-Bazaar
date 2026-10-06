@@ -18,7 +18,9 @@ const PITCH_COLORS: Record<number, string> = {
 
 // SET_MAP has no aliases — every key is a unique set code.
 // Sorted by code with code first so the native <select> keyboard prefix-search works (e.g. press M-P-W).
-const SET_OPTIONS = Object.entries(SET_MAP)
+// A function, not a module-level list: SET_MAP gains sets registered at
+// runtime (lib/fab-constants/set-overlay.ts).
+const setOptions = () => Object.entries(SET_MAP)
   .map(([key, label]) => ({ value: key, label: `${key.toUpperCase()} — ${label}` }))
   .sort((a, b) => a.value.localeCompare(b.value));
 
@@ -418,7 +420,7 @@ export function ImageUploadsClient() {
             onChange={e => setSetFilter(e.target.value)}
           >
             <option value="">All sets</option>
-            {SET_OPTIONS.map(o => (
+            {setOptions().map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>

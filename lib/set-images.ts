@@ -55,9 +55,15 @@ export const getGemPackImageUrl = (groupId: number): string | null => {
   return imageId ? `${CLOUDFLARE_IMAGE_BASE}/${imageId}/public` : null;
 };
 
+// A logo registered at runtime (sets.image_id, published by the DB set overlay
+// — lib/fab-constants/set-overlay.ts) wins over the compiled map. Read straight
+// from the shared slot: this module can't import sets.ts (it imports us).
+const overlayImageId = (code: string): string | undefined =>
+  ((globalThis as Record<string, unknown>).__FAB_SET_OVERLAY__ as { images?: Record<string, string> } | undefined)?.images?.[code];
+
 // Helper function to get set image URL
 export const getSetImageUrl = (setCode: string): string => {
-  const imageId = SET_IMAGES[setCode.toLowerCase()];
+  const imageId = overlayImageId(setCode.toLowerCase()) ?? SET_IMAGES[setCode.toLowerCase()];
   if (!imageId) {
     // Fallback to a default image or return null
     return `${CLOUDFLARE_IMAGE_BASE}/default-set-placeholder/public`;
@@ -67,6 +73,6 @@ export const getSetImageUrl = (setCode: string): string => {
 
 // Helper function with fallback to text
 export const getSetImageOrFallback = (setCode: string, setLabel: string): string => {
-  const imageId = SET_IMAGES[setCode.toLowerCase()];
+  const imageId = overlayImageId(setCode.toLowerCase()) ?? SET_IMAGES[setCode.toLowerCase()];
   return imageId ? `${CLOUDFLARE_IMAGE_BASE}/${imageId}/public` : '';
 };

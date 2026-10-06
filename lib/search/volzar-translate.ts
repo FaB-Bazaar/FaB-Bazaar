@@ -39,7 +39,6 @@ const TYPE_SET = new Set<string>(TYPE_CHIPS.map((c) => c.apiType));
 const RARITY_SET = new Set<string>(RARITY_OPTIONS.map((r) => r.value));
 const FOILING_SET = new Set<string>(FOILING_OPTIONS.map((f) => f.value));
 const EDITION_SET = new Set<string>(EDITION_OPTIONS.map((e) => e.value));
-const SET_SET = new Set<string>(CARD_FILTER_SETS);
 const FORMAT_SET = new Set<string>(FORMATS);
 
 export type Translation = Record<string, unknown>;
@@ -85,7 +84,7 @@ export function parseTranslation(raw: string, opts: { facetTagIds?: ReadonlySet<
   const rarities = pickList(f.rarities, RARITY_SET); if (rarities) out.rarities = rarities;
   const foilings = pickList(f.foilings, FOILING_SET); if (foilings) out.foilings = foilings;
   const editions = pickList(f.editions, EDITION_SET); if (editions) out.editions = editions;
-  const sets = pickList(f.sets, SET_SET, (s) => normalizeSetCode(lc(s))); if (sets) out.sets = sets;
+  const sets = pickList(f.sets, new Set<string>(CARD_FILTER_SETS) /* live: runtime-registered sets */, (s) => normalizeSetCode(lc(s))); if (sets) out.sets = sets;
   const heroAges = pickList(f.heroAges, new Set(['adult', 'young'])); if (heroAges) out.heroAges = heroAges;
   const pitchIn = Array.isArray(f.pitch) ? f.pitch : [f.pitch];
   const pitch = pitchIn.filter((p): p is number => typeof p === 'number' && [1, 2, 3].includes(p));

@@ -1226,6 +1226,7 @@ export const sets = pgTable('sets', {
   unlimitedBeforeFirst: boolean('unlimited_before_first').notNull().default(false),
   defaultRarity: text('default_rarity'),
   imageId: text('image_id'),                          // Cloudflare image id (set logo)
+  inCardFilters: boolean('in_card_filters'),          // set filter chips: true/false, NULL = compiled list (0123)
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({

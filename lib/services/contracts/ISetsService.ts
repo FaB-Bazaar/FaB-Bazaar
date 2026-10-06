@@ -32,6 +32,8 @@ export interface SetDTO {
   defaultRarity: string | null;
   /** Cloudflare image id for the set logo */
   imageId: string | null;
+  /** Set filter chips: TRUE include, FALSE exclude, NULL = compiled CARD_FILTER_SETS (migration 0123) */
+  inCardFilters: boolean | null;
 }
 
 export interface ISetsService {

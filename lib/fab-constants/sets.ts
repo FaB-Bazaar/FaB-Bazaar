@@ -5,6 +5,7 @@
 // (source of truth; migration 0061). To add a set or fix metadata, update
 // the table and run: npx tsx --env-file=.env.local scripts/generate-set-constants.ts
 import { SET_MAP, SET_METADATA } from './sets-data.generated';
+import { SET_IMAGES } from '@/lib/set-images';
 export { SET_MAP, SET_METADATA };
 
 export type SetCode = keyof typeof SET_MAP;
@@ -112,12 +113,27 @@ function codesWhere(pred: (m: SetMetadata) => boolean): string[] {
     .map(([code]) => code);
 }
 
-export const SET_FILTER_GROUPS: SetFilterGroup[] = [
-  { token: 'grp:blitz', label: 'Blitz Decks', codes: codesWhere(m => m.name.includes('Blitz Deck:')) },
-  { token: 'grp:armory', label: 'Armory Decks', codes: codesWhere(m => m.category === 'armory') },
-  { token: 'grp:silver-age', label: 'Silver Age Decks', codes: codesWhere(m => m.name.startsWith('Silver Age Deck:')) },
-  { token: 'grp:hero-decks', label: 'Hero Decks', codes: codesWhere(m => m.name.startsWith('Hero Deck:')) },
+const SET_GROUP_MEMBERSHIP: Array<{ token: string; label: string; member: (m: SetMetadata) => boolean }> = [
+  { token: 'grp:blitz', label: 'Blitz Decks', member: m => m.name.includes('Blitz Deck:') },
+  { token: 'grp:armory', label: 'Armory Decks', member: m => m.category === 'armory' },
+  { token: 'grp:silver-age', label: 'Silver Age Decks', member: m => m.name.startsWith('Silver Age Deck:') },
+  { token: 'grp:hero-decks', label: 'Hero Decks', member: m => m.name.startsWith('Hero Deck:') },
 ];
+
+export const SET_FILTER_GROUPS: SetFilterGroup[] = SET_GROUP_MEMBERSHIP.map(
+  ({ token, label, member }) => ({ token, label, codes: codesWhere(member) }));
+
+/**
+ * Re-derive group membership after SET_METADATA changes at runtime (the DB
+ * set overlay, lib/fab-constants/set-overlay.ts). Mutates the existing arrays
+ * so every holder of SET_FILTER_GROUPS sees the new members.
+ */
+export function refreshSetFilterGroups(): void {
+  SET_GROUP_MEMBERSHIP.forEach(({ member }, i) => {
+    const codes = SET_FILTER_GROUPS[i].codes;
+    codes.splice(0, codes.length, ...codesWhere(member));
+  });
+}
 
 const SET_GROUPS_BY_TOKEN = new Map(SET_FILTER_GROUPS.map(g => [g.token, g]));
 
@@ -128,6 +144,7 @@ export function isSetGroupToken(value: string): boolean {
 
 /** Display label for a group token, or undefined for plain codes / unknown tokens. */
 export function setGroupLabel(token: string): string | undefined {
+  syncSetOverlay();
   return SET_GROUPS_BY_TOKEN.get(token)?.label;
 }
 
@@ -137,6 +154,7 @@ export function setGroupLabel(token: string): string | undefined {
  * are dropped rather than sent to the server as bogus codes.
  */
 export function expandSetSelections(selected: string[]): string[] {
+  syncSetOverlay();
   const out: string[] = [];
   const seen = new Set<string>();
   for (const value of selected) {
@@ -198,6 +216,7 @@ function languageRank(language?: string | null): number {
  * Works with any printing object that has `set`, `foiling`, `rarity`, and `edition` fields.
  */
 export function sortPrintings<T extends { set?: string; foiling?: string; rarity?: string; edition?: string; language?: string | null }>(printings: T[]): T[] {
+  syncSetOverlay();
   return [...printings].sort((a, b) => {
     // 0. Language — English first, unknown languages grouped alphabetically
     const aLangRank = languageRank(a.language);
@@ -247,6 +266,7 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
 
 // Helper functions
 export function getSetMetadata(setCode: string): SetMetadata | undefined {
+  syncSetOverlay();
   return SET_METADATA[setCode.toLowerCase()];
 }
 
@@ -256,10 +276,12 @@ export function hasFirstEdition(setCode: string): boolean {
 }
 
 export function getAllSetCodes(): string[] {
+  syncSetOverlay();
   return Object.keys(SET_METADATA);
 }
 
 export function getSetsInDisplayOrder(): SetMetadata[] {
+  syncSetOverlay();
   const allSets = Object.values(SET_METADATA);
 
   const standard = allSets
@@ -281,6 +303,7 @@ export function getOrderedSets(): {
   standard: SetMetadata[];
   nonStandard: SetMetadata[];
 } {
+  syncSetOverlay();
   const allSets = Object.values(SET_METADATA);
 
   const standard = allSets
@@ -292,4 +315,72 @@ export function getOrderedSets(): {
     .filter(Boolean);
 
   return { standard, nonStandard };
+}
+
+// ── Runtime set overlay ───────────────────────────────────────────────────
+// The DB can be ahead of this compiled snapshot (a set registered from
+// /admin/cardvault). lib/fab-constants/set-overlay.ts builds the difference and
+// publishes it to globalThis; each copy of this module patches its own
+// constants IN PLACE on the next helper call (Next.js keeps separate module
+// copies for server components, SSR and route handlers, so the shared slot is
+// globalThis, not a module variable). Direct constant reads (CARD_FILTER_SETS,
+// SET_MAP) see it once anything has synced — the root layout and
+// SetOverlayProvider do so before rendering.
+
+export interface SetOverlay {
+  version: string;
+  /** lowercase code → full metadata, only for new or changed sets. */
+  meta: Record<string, SetMetadata>;
+  /** lowercase code → Cloudflare image id, only where the DB adds/changes one. */
+  images: Record<string, string>;
+  /** The full filter-chip list when it differs from the compiled one, else null. */
+  filterSets: string[] | null;
+}
+
+export const SET_OVERLAY_GLOBAL = '__FAB_SET_OVERLAY__';
+
+const COMPILED = {
+  map: { ...SET_MAP } as Record<string, string>,
+  meta: { ...SET_METADATA },
+  filters: [...CARD_FILTER_SETS] as string[],
+  images: { ...SET_IMAGES },
+};
+
+/** The compiled snapshot as shipped, before any overlay. Do not mutate. */
+export function compiledSetSnapshot(): Readonly<typeof COMPILED> {
+  return COMPILED;
+}
+
+let appliedOverlayVersion: string | null = null;
+
+/** Version patched into THIS module copy (null = compiled snapshot). */
+export function appliedSetOverlayVersion(): string | null {
+  return appliedOverlayVersion;
+}
+
+/** Bring this module copy in line with the published overlay. Cheap when unchanged. */
+export function syncSetOverlay(): void {
+  const overlay = (globalThis as Record<string, unknown>)[SET_OVERLAY_GLOBAL] as SetOverlay | undefined;
+  const version = overlay?.version ?? null;
+  if (version === appliedOverlayVersion) return;
+
+  const map = SET_MAP as Record<string, string>;
+  for (const k of Object.keys(map)) if (!(k in COMPILED.map)) delete map[k];
+  Object.assign(map, COMPILED.map);
+  for (const k of Object.keys(SET_METADATA)) if (!(k in COMPILED.meta)) delete SET_METADATA[k];
+  Object.assign(SET_METADATA, COMPILED.meta);
+  for (const k of Object.keys(SET_IMAGES)) if (!(k in COMPILED.images)) delete SET_IMAGES[k];
+  Object.assign(SET_IMAGES, COMPILED.images);
+  const filters = CARD_FILTER_SETS as unknown as string[];
+
+  if (overlay) {
+    for (const [code, m] of Object.entries(overlay.meta)) {
+      SET_METADATA[code] = m;
+      map[code] = m.name;
+    }
+    Object.assign(SET_IMAGES, overlay.images);
+  }
+  filters.splice(0, filters.length, ...(overlay?.filterSets ?? COMPILED.filters));
+  refreshSetFilterGroups();
+  appliedOverlayVersion = version;
 }
