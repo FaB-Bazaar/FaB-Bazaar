@@ -13,6 +13,7 @@ import re
 import requests
 from datetime import datetime
 import time
+from group_mappings import load_group_rows, psycopg2_connector
 
 # tcgcsv.com's owner (CptSpaceToaster) 401s requests with the default `python-requests`
 # UA and asks apps to identify themselves per their stated convention:
@@ -355,6 +356,8 @@ class TCGPriceEnhancer:
     def __init__(self, use_production=False, apply_overrides=True):
         self.group_csv_file = "fab_set_with_db.csv"
         self.use_production = use_production
+        # tcg_group_sets rows (sets registered from /admin/cardvault) merge in.
+        self.group_db_connect = psycopg2_connector(resolve_overrides_db_url(use_production))
         self.apply_overrides = apply_overrides
         self.override_stats = None
         self.product_url_mismatches = []
@@ -382,30 +385,24 @@ class TCGPriceEnhancer:
             group_mappings = {}  # set_code -> list of group_ids
             duplicate_sets = {}  # Track sets with multiple groups
             
-            with open(self.group_csv_file, 'r') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    set_code = row['printings.set'].strip()
-                    group_id = int(row['group_id'])
-                    set_name = row['set_name'].strip()
-                    
-                    # Handle multiple groups per set code
-                    if set_code not in group_mappings:
-                        group_mappings[set_code] = []
-                    else:
-                        # Track duplicate sets for debugging
-                        if set_code not in duplicate_sets:
-                            duplicate_sets[set_code] = []
-                        duplicate_sets[set_code].append(set_name)
-                    
-                    group_mappings[set_code].append(group_id)
-                    
-                    # Also add uppercase version for case-insensitive lookup
-                    set_code_upper = set_code.upper()
-                    if set_code_upper not in group_mappings:
-                        group_mappings[set_code_upper] = []
-                    group_mappings[set_code_upper].append(group_id)
-            
+            for set_name, group_id, set_code in load_group_rows(self.group_csv_file, connect=self.group_db_connect):
+                # Handle multiple groups per set code
+                if set_code not in group_mappings:
+                    group_mappings[set_code] = []
+                else:
+                    # Track duplicate sets for debugging
+                    if set_code not in duplicate_sets:
+                        duplicate_sets[set_code] = []
+                    duplicate_sets[set_code].append(set_name)
+                
+                group_mappings[set_code].append(group_id)
+                
+                # Also add uppercase version for case-insensitive lookup
+                set_code_upper = set_code.upper()
+                if set_code_upper not in group_mappings:
+                    group_mappings[set_code_upper] = []
+                group_mappings[set_code_upper].append(group_id)
+        
             # Debug output for sets with multiple groups
             print(f"✅ Loaded mappings for {len(set(k.lower() for k in group_mappings.keys()))} unique sets")
             if duplicate_sets:

@@ -255,8 +255,10 @@ fi
 # Step 01: API-Only Enhancer
 ################################################################################
 
+# DB_FLAG so tcg_group_sets (sets registered from /admin/cardvault) come from
+# the DB this run targets; the CSV is used alone if the DB can't be read.
 run_script "01" "API-Only Enhancer - Download and enhance cards from GitHub" \
-    "python3 001_api_only_enhancer.py --output ${CARDS_ENHANCED}"
+    "python3 001_api_only_enhancer.py --output ${CARDS_ENHANCED} ${DB_FLAG}"
 
 ################################################################################
 # Step 02: TCG Price Enhancer

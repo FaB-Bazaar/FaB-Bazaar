@@ -1935,3 +1935,17 @@ export const cardvaultPayloadCache = pgTable('cardvault_payload_cache', {
   payload: jsonb('payload').notNull(),
   fetchedAt: timestamp('fetched_at').defaultNow().notNull(),
 });
+
+// Which TCGplayer (tcgcsv) groups price which set (migration 0124). Read by
+// pipeline steps 001/002/009 merged with pipeline/scripts/fab_set_with_db.csv;
+// written by set registration in /admin/cardvault. Many-to-many; set_code has
+// no FK (price-only codes like 'iar-prerelease' are not sets).
+export const tcgGroupSets = pgTable('tcg_group_sets', {
+  groupId: integer('group_id').notNull(),
+  setCode: text('set_code').notNull(),
+  setName: text('set_name').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.groupId, table.setCode] }),
+  setCodeIdx: index('idx_tcg_group_sets_set_code').on(table.setCode),
+}));

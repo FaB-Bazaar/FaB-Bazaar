@@ -22,6 +22,7 @@ import csv
 import requests
 from datetime import datetime
 import time
+from group_mappings import load_group_rows, psycopg2_connector, resolve_db_url
 
 # tcgcsv.com's owner (CptSpaceToaster) 401s requests with the default `python-requests`
 # UA and asks apps to identify themselves per their stated convention:
@@ -38,6 +39,9 @@ class APIOnlyEnhancer:
         # self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/compendium-of-rathe/json/english/card.json"
         # self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/omens-of-the-third-age/json/english/card.json"
         self.group_csv_file = "fab_set_with_db.csv"
+        # tcg_group_sets rows (sets registered from /admin/cardvault) are merged
+        # in when set — main() wires it from --production / the env.
+        self.group_db_connect = None
         
         # Statistics tracking
         self.stats = {
@@ -81,28 +85,22 @@ class APIOnlyEnhancer:
             group_mappings = {}  # set_code -> list of group_ids
             set_names = {}  # set_code -> set_name mapping
 
-            with open(self.group_csv_file, 'r') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    set_code = row['printings.set'].strip()
-                    group_id = int(row['group_id'])
-                    set_name = row.get('set_name', '').strip()
+            for set_name, group_id, set_code in load_group_rows(self.group_csv_file, connect=self.group_db_connect):
+                # Collect all group_ids per set code (handles GEM Pack 1-4, Silver Age, etc.)
+                if set_code not in group_mappings:
+                    group_mappings[set_code] = []
+                if group_id not in group_mappings[set_code]:
+                    group_mappings[set_code].append(group_id)
 
-                    # Collect all group_ids per set code (handles GEM Pack 1-4, Silver Age, etc.)
-                    if set_code not in group_mappings:
-                        group_mappings[set_code] = []
-                    if group_id not in group_mappings[set_code]:
-                        group_mappings[set_code].append(group_id)
+                # Also add uppercase version for case-insensitive lookup
+                set_code_upper = set_code.upper()
+                if set_code_upper not in group_mappings:
+                    group_mappings[set_code_upper] = []
+                if group_id not in group_mappings[set_code_upper]:
+                    group_mappings[set_code_upper].append(group_id)
 
-                    # Also add uppercase version for case-insensitive lookup
-                    set_code_upper = set_code.upper()
-                    if set_code_upper not in group_mappings:
-                        group_mappings[set_code_upper] = []
-                    if group_id not in group_mappings[set_code_upper]:
-                        group_mappings[set_code_upper].append(group_id)
-
-                    if set_name:
-                        set_names[set_code] = set_name
+                if set_name:
+                    set_names[set_code] = set_name
 
             print(f"✅ Loaded {len(set(k.lower() for k in group_mappings.keys()))} unique sets and {len(set_names)} set names")
             return group_mappings, set_names
@@ -887,10 +885,13 @@ def main():
     parser = argparse.ArgumentParser(description='API-Only FAB Cards Enhancer - Add missing TCGPlayer data without overwriting')
     parser.add_argument('--output', '-o', default='cards.enhanced.json', 
                        help='Output filename (default: cards.enhanced.json)')
+    parser.add_argument('--production', action='store_true',
+                       help='Read tcg_group_sets from the production DB (POSTGRES_URL_PROD)')
     
     args = parser.parse_args()
     
     enhancer = APIOnlyEnhancer()
+    enhancer.group_db_connect = psycopg2_connector(resolve_db_url(args.production))
     success = enhancer.run(args.output)
     
     exit(0 if success else 1)

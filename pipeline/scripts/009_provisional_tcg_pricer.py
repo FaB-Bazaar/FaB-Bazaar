@@ -150,14 +150,11 @@ def build_price_updates(rows, price_data):
 
 # ─── I/O ──────────────────────────────────────────────────────────────────────
 
-def load_group_mappings(csv_path=HERE / "fab_set_with_db.csv"):
-    """{set_code(lower): [group_ids]} from the same CSV 002 uses."""
-    import csv
-    mappings = {}
-    with open(csv_path) as f:
-        for row in csv.DictReader(f):
-            mappings.setdefault(row['printings.set'].strip().lower(), []).append(int(row['group_id']))
-    return mappings
+def load_group_mappings(csv_path=HERE / "fab_set_with_db.csv", connect=None):
+    """{set_code(lower): [group_ids]} — the CSV 002 uses + tcg_group_sets."""
+    sys.path.insert(0, str(HERE))
+    from group_mappings import load_group_rows, set_to_groups
+    return set_to_groups(load_group_rows(csv_path, connect=connect))
 
 
 def price_group_ids(mappings):
@@ -206,11 +203,13 @@ def run(use_production, dry_run):
     import psycopg2
     import psycopg2.extras
 
-    mappings = load_group_mappings()
     db_url = enhancer.resolve_overrides_db_url(use_production)
     if not db_url:
         print("❌ No database URL (POSTGRES_URL_PROD / POSTGRES_URL_STAGING / POSTGRES_URL)")
         return 1
+    sys.path.insert(0, str(HERE))
+    from group_mappings import psycopg2_connector
+    mappings = load_group_mappings(connect=psycopg2_connector(db_url))
 
     conn = psycopg2.connect(db_url)
     try:
