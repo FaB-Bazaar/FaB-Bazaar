@@ -4,9 +4,13 @@
 // SET_MAP and SET_METADATA are GENERATED from the `sets` database table
 // (source of truth; migration 0061). To add a set or fix metadata, update
 // the table and run: npx tsx --env-file=.env.local scripts/generate-set-constants.ts
-import { SET_MAP, SET_METADATA } from './sets-data.generated';
+import { SET_MAP as RAW_SET_MAP, SET_METADATA as RAW_SET_METADATA } from './sets-data.generated';
 import { SET_IMAGES } from '@/lib/set-images';
-export { SET_MAP, SET_METADATA };
+// Exported as live views (see liveSetConstant below): every read first brings
+// this module copy in line with the runtime set overlay. Internal code uses
+// the RAW objects so nothing syncs while this module is still initializing.
+export const SET_MAP = liveSetConstant(RAW_SET_MAP);
+export const SET_METADATA = liveSetConstant(RAW_SET_METADATA);
 
 export type SetCode = keyof typeof SET_MAP;
 
@@ -16,12 +20,13 @@ export type SetCode = keyof typeof SET_MAP;
  * `/sets` landing page ordering. Update this single list when new sets ship —
  * every filter component reads from it.
  */
-export const CARD_FILTER_SETS = [
+const RAW_CARD_FILTER_SETS = [
   'mpa', 'mpw', 'iar', 'omn', 'pen', 'anq', 'sup', 'mpg', 'sea', 'hnt', 'ros', 'mst', 'hvy',
   'evo', 'dtd', 'out', 'dyn', 'upr', '1hp', 'evr', 'ele', 'mon', 'cru', 'arc', 'wtr',
 ] as const;
+export const CARD_FILTER_SETS = liveSetConstant(RAW_CARD_FILTER_SETS);
 
-export type CardFilterSet = typeof CARD_FILTER_SETS[number];
+export type CardFilterSet = typeof RAW_CARD_FILTER_SETS[number];
 
 /**
  * Common community/legacy set-code spellings → the canonical DB code.
@@ -108,7 +113,7 @@ export interface SetFilterGroup {
 const SET_GROUP_TOKEN_PREFIX = 'grp:';
 
 function codesWhere(pred: (m: SetMetadata) => boolean): string[] {
-  return Object.entries(SET_METADATA)
+  return Object.entries(RAW_SET_METADATA)
     .filter(([, m]) => pred(m))
     .map(([code]) => code);
 }
@@ -120,8 +125,9 @@ const SET_GROUP_MEMBERSHIP: Array<{ token: string; label: string; member: (m: Se
   { token: 'grp:hero-decks', label: 'Hero Decks', member: m => m.name.startsWith('Hero Deck:') },
 ];
 
-export const SET_FILTER_GROUPS: SetFilterGroup[] = SET_GROUP_MEMBERSHIP.map(
+const RAW_SET_FILTER_GROUPS: SetFilterGroup[] = SET_GROUP_MEMBERSHIP.map(
   ({ token, label, member }) => ({ token, label, codes: codesWhere(member) }));
+export const SET_FILTER_GROUPS = liveSetConstant(RAW_SET_FILTER_GROUPS);
 
 /**
  * Re-derive group membership after SET_METADATA changes at runtime (the DB
@@ -130,12 +136,12 @@ export const SET_FILTER_GROUPS: SetFilterGroup[] = SET_GROUP_MEMBERSHIP.map(
  */
 export function refreshSetFilterGroups(): void {
   SET_GROUP_MEMBERSHIP.forEach(({ member }, i) => {
-    const codes = SET_FILTER_GROUPS[i].codes;
+    const codes = RAW_SET_FILTER_GROUPS[i].codes;
     codes.splice(0, codes.length, ...codesWhere(member));
   });
 }
 
-const SET_GROUPS_BY_TOKEN = new Map(SET_FILTER_GROUPS.map(g => [g.token, g]));
+const SET_GROUPS_BY_TOKEN = new Map(RAW_SET_FILTER_GROUPS.map(g => [g.token, g]));
 
 /** True for `grp:` group tokens stored alongside plain codes in selectedSets. */
 export function isSetGroupToken(value: string): boolean {
@@ -181,7 +187,7 @@ const NON_STANDARD_ORDER = [
  * unlimited; everyone else alpha → 1st → unlimited → normal.
  */
 function getEditionPriority(setCode: string): Record<string, number> {
-  if (SET_METADATA[setCode]?.unlimitedBeforeFirst) {
+  if (RAW_SET_METADATA[setCode]?.unlimitedBeforeFirst) {
     return { u: 0, a: 1, f: 2, n: 3 };
   }
   return { a: 0, f: 1, u: 2, n: 3 };
@@ -242,8 +248,8 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
 
     const aCode = (a.set || '').toLowerCase();
     const bCode = (b.set || '').toLowerCase();
-    const aMeta = SET_METADATA[aCode];
-    const bMeta = SET_METADATA[bCode];
+    const aMeta = RAW_SET_METADATA[aCode];
+    const bMeta = RAW_SET_METADATA[bCode];
 
     // 1. Curated set ranking — sets unknown to the table sort last until seeded
     const aOrder = aMeta?.displayOrder ?? Number.MAX_SAFE_INTEGER;
@@ -267,7 +273,7 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
 // Helper functions
 export function getSetMetadata(setCode: string): SetMetadata | undefined {
   syncSetOverlay();
-  return SET_METADATA[setCode.toLowerCase()];
+  return RAW_SET_METADATA[setCode.toLowerCase()];
 }
 
 export function hasFirstEdition(setCode: string): boolean {
@@ -277,19 +283,19 @@ export function hasFirstEdition(setCode: string): boolean {
 
 export function getAllSetCodes(): string[] {
   syncSetOverlay();
-  return Object.keys(SET_METADATA);
+  return Object.keys(RAW_SET_METADATA);
 }
 
 export function getSetsInDisplayOrder(): SetMetadata[] {
   syncSetOverlay();
-  const allSets = Object.values(SET_METADATA);
+  const allSets = Object.values(RAW_SET_METADATA);
 
   const standard = allSets
     .filter(s => s.category === 'standard')
     .sort((a, b) => new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime());
 
   const nonStandard = NON_STANDARD_ORDER
-    .map(code => SET_METADATA[code])
+    .map(code => RAW_SET_METADATA[code])
     .filter(Boolean);
 
   return [...standard, ...nonStandard];
@@ -304,14 +310,14 @@ export function getOrderedSets(): {
   nonStandard: SetMetadata[];
 } {
   syncSetOverlay();
-  const allSets = Object.values(SET_METADATA);
+  const allSets = Object.values(RAW_SET_METADATA);
 
   const standard = allSets
     .filter(s => s.category === 'standard')
     .sort((a, b) => new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime());
 
   const nonStandard = NON_STANDARD_ORDER
-    .map(code => SET_METADATA[code])
+    .map(code => RAW_SET_METADATA[code])
     .filter(Boolean);
 
   return { standard, nonStandard };
@@ -323,9 +329,8 @@ export function getOrderedSets(): {
 // publishes it to globalThis; each copy of this module patches its own
 // constants IN PLACE on the next helper call (Next.js keeps separate module
 // copies for server components, SSR and route handlers, so the shared slot is
-// globalThis, not a module variable). Direct constant reads (CARD_FILTER_SETS,
-// SET_MAP) see it once anything has synced — the root layout and
-// SetOverlayProvider do so before rendering.
+// globalThis, not a module variable). The exported constants are live views,
+// so direct reads (CARD_FILTER_SETS, SET_MAP, …) sync too.
 
 export interface SetOverlay {
   version: string;
@@ -340,9 +345,9 @@ export interface SetOverlay {
 export const SET_OVERLAY_GLOBAL = '__FAB_SET_OVERLAY__';
 
 const COMPILED = {
-  map: { ...SET_MAP } as Record<string, string>,
-  meta: { ...SET_METADATA },
-  filters: [...CARD_FILTER_SETS] as string[],
+  map: { ...RAW_SET_MAP } as Record<string, string>,
+  meta: { ...RAW_SET_METADATA },
+  filters: [...RAW_CARD_FILTER_SETS] as string[],
   images: { ...SET_IMAGES },
 };
 
@@ -364,18 +369,18 @@ export function syncSetOverlay(): void {
   const version = overlay?.version ?? null;
   if (version === appliedOverlayVersion) return;
 
-  const map = SET_MAP as Record<string, string>;
+  const map = RAW_SET_MAP as Record<string, string>;
   for (const k of Object.keys(map)) if (!(k in COMPILED.map)) delete map[k];
   Object.assign(map, COMPILED.map);
-  for (const k of Object.keys(SET_METADATA)) if (!(k in COMPILED.meta)) delete SET_METADATA[k];
-  Object.assign(SET_METADATA, COMPILED.meta);
+  for (const k of Object.keys(RAW_SET_METADATA)) if (!(k in COMPILED.meta)) delete RAW_SET_METADATA[k];
+  Object.assign(RAW_SET_METADATA, COMPILED.meta);
   for (const k of Object.keys(SET_IMAGES)) if (!(k in COMPILED.images)) delete SET_IMAGES[k];
   Object.assign(SET_IMAGES, COMPILED.images);
-  const filters = CARD_FILTER_SETS as unknown as string[];
+  const filters = RAW_CARD_FILTER_SETS as unknown as string[];
 
   if (overlay) {
     for (const [code, m] of Object.entries(overlay.meta)) {
-      SET_METADATA[code] = m;
+      RAW_SET_METADATA[code] = m;
       map[code] = m.name;
     }
     Object.assign(SET_IMAGES, overlay.images);
@@ -383,4 +388,18 @@ export function syncSetOverlay(): void {
   filters.splice(0, filters.length, ...(overlay?.filterSets ?? COMPILED.filters));
   refreshSetFilterGroups();
   appliedOverlayVersion = version;
+}
+
+/**
+ * A read-through view of a set constant: any read (property, `in`, keys,
+ * iteration, array methods) first syncs this module copy with the published
+ * overlay. Writes go to the target untouched.
+ */
+function liveSetConstant<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(t, p, r) { syncSetOverlay(); return Reflect.get(t, p, r); },
+    has(t, p) { syncSetOverlay(); return Reflect.has(t, p); },
+    ownKeys(t) { syncSetOverlay(); return Reflect.ownKeys(t); },
+    getOwnPropertyDescriptor(t, p) { syncSetOverlay(); return Reflect.getOwnPropertyDescriptor(t, p); },
+  });
 }

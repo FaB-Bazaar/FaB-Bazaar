@@ -10,9 +10,10 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { AlertTriangle, Check, ChevronRight, Loader2, PartyPopper, Square } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, Loader2, PartyPopper, Pencil, Plus, Square } from 'lucide-react';
 import type { CardVaultJob, CardVaultJobAction, ProbeProblem } from '@/lib/import/cardvault-job';
 import type { IngestSetSummary } from '@/lib/services/postgres/cardvault/PostgresCardVaultService';
+import { SetForm } from './SetForm';
 
 type JobSummary = Omit<CardVaultJob, 'log'>;
 type StepState = 'todo' | 'next' | 'running' | 'done' | 'attention' | 'locked';
@@ -46,6 +47,8 @@ export function CardVaultClient() {
   const [live, setLive] = useState<CardVaultJob | null>(null); // the running job, polled
   const [starting, setStarting] = useState(false);
   const [confirmAdd, setConfirmAdd] = useState(false);
+  const [formMode, setFormMode] = useState<'register' | 'edit' | null>(null);
+  const [notice, setNotice] = useState('');
   const [, tick] = useState(0); // re-render "x min ago"
 
   const loadOverview = useCallback(async () => {
@@ -138,14 +141,16 @@ export function CardVaultClient() {
     && (!checkDone || checkDone.action !== 'ingest' || checkDone.startedAt < probeJob!.startedAt);
 
   const newToAdd = plan && !added ? plan.newPrintings.length : 0;
+  const hasCards = (set?.printings ?? 0) > 0;
   const imagesPending = set?.imagesNotOnCloudflare ?? 0;
 
   const nextStep: 1 | 2 | 3 | 4 | null =
     !checkDone ? 1
       : newToAdd > 0 ? 2
-        : imagesPending > 0 && cloudflareConfigured ? 3
-          : !probeFresh ? 4
-            : null;
+        : !hasCards ? null
+          : imagesPending > 0 && cloudflareConfigured ? 3
+            : !probeFresh ? 4
+              : null;
 
   const stateOf = (step: 1 | 2 | 3 | 4, actions: CardVaultJobAction[], done: boolean, attention = false): StepState => {
     if (runningHere && actions.includes(runningHere.action)) return 'running';
@@ -166,8 +171,8 @@ export function CardVaultClient() {
         <select
           id="cv-set"
           value={setCode}
-          onChange={(e) => setSetCode(e.target.value)}
-          disabled={busy}
+          onChange={(e) => { setSetCode(e.target.value); setNotice(''); }}
+          disabled={busy || formMode !== null}
           className={`w-full rounded-md border bg-background px-3 py-2 text-base ${focusRing}`}
         >
           <option value="">Choose a set…</option>
@@ -189,9 +194,44 @@ export function CardVaultClient() {
           </ul>
         )}
         {busy && <p className="text-sm text-muted-foreground">You can switch sets once the current step finishes.</p>}
+        {!formMode && (
+          <div className="flex flex-wrap gap-3 pt-1">
+            <Button variant="outline" onClick={() => { setNotice(''); setFormMode('register'); }} disabled={busy}
+              className={`text-base ${focusRing}`}>
+              <Plus className="mr-2 h-4 w-4" />Register a new set
+            </Button>
+            {set && (
+              <Button variant="outline" onClick={() => { setNotice(''); setFormMode('edit'); }} disabled={busy}
+                className={`text-base ${focusRing}`}>
+                <Pencil className="mr-2 h-4 w-4" />Edit set details
+              </Button>
+            )}
+          </div>
+        )}
       </section>
 
-      {set && nextStep === null && !runningHere && (
+      {formMode && (
+        <SetForm
+          key={formMode === 'edit' ? setCode : 'new'}
+          editCode={formMode === 'edit' ? setCode : undefined}
+          onCancel={() => setFormMode(null)}
+          onDone={async (saved, message) => {
+            setFormMode(null);
+            await loadOverview();
+            setSetCode(saved.code);
+            setNotice(message);
+          }}
+        />
+      )}
+
+      {notice && !formMode && (
+        <div role="status" className="flex items-center gap-3 rounded-lg border border-green-700 p-4 text-base">
+          <Check className="h-5 w-5 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {set && hasCards && !formMode && nextStep === null && !runningHere && (
         <div className="flex items-center gap-3 rounded-lg border border-green-700 p-4 text-base">
           <PartyPopper className="h-5 w-5 shrink-0" />
           <span><strong>{set.displayCode} is up to date.</strong> Nothing new on CardVault, and every image is on Cloudflare and loads.</span>
@@ -199,7 +239,7 @@ export function CardVaultClient() {
       )}
 
       {/* ── the four steps ─────────────────────────────────────────────── */}
-      {set && (
+      {set && !formMode && (
         <ol className="space-y-3">
           <Step
             n={1} title="Check CardVault for new cards"
@@ -235,10 +275,11 @@ export function CardVaultClient() {
 
           <Step
             n={3} title="Put the card images on Cloudflare"
-            state={!cloudflareConfigured ? 'attention' : stateOf(3, ['images'], imagesPending === 0)}
+            state={!hasCards && !runningHere ? 'locked' : !cloudflareConfigured ? 'attention' : stateOf(3, ['images'], imagesPending === 0)}
             live={runningHere?.action === 'images' ? runningHere : null} onStop={stop}
             status={
-              !cloudflareConfigured ? <>Cloudflare isn&apos;t configured on this server, so images can&apos;t be uploaded here.</>
+              !hasCards ? <>Nothing to upload until the set has cards.</>
+              : !cloudflareConfigured ? <>Cloudflare isn&apos;t configured on this server, so images can&apos;t be uploaded here.</>
                 : imagesJob && imagesJob.status !== 'done' && imagesJob.status !== 'running' ? <Failed job={imagesJob} />
                   : imagesPending > 0 ? (
                     <>
@@ -261,7 +302,7 @@ export function CardVaultClient() {
 
           <Step
             n={4} title="Make sure every image loads"
-            state={stateOf(4, ['probe'], probeFresh && probe!.problems.length === 0, probeFresh && probe!.problems.length > 0)}
+            state={!hasCards && !runningHere ? 'locked' : stateOf(4, ['probe'], probeFresh && probe!.problems.length === 0, probeFresh && probe!.problems.length > 0)}
             live={runningHere?.action === 'probe' ? runningHere : null} onStop={stop}
             status={
               probeJob && probeJob.status !== 'done' && probeJob.status !== 'running' ? <Failed job={probeJob} />
@@ -269,16 +310,17 @@ export function CardVaultClient() {
                   probe.problems.length === 0
                     ? <>All {n(probe.probed)} images load — checked {timeAgo(probeJob!.finishedAt)}.</>
                     : <><strong>{plural(probe.problems.length, 'printing')} need{probe.problems.length === 1 ? 's' : ''} attention</strong> — checked {timeAgo(probeJob!.finishedAt)}{probeFresh ? '' : ', before the latest changes'}.</>
-                ) : <>Opens every image in the set and lists any that don&apos;t load.</>
+                ) : !hasCards ? <>Nothing to check until the set has cards.</>
+                  : <>Opens every image in the set and lists any that don&apos;t load.</>
             }
-            action={{ label: probe ? 'Check again' : 'Check all images', onClick: () => start('probe'), disabled: busy }}
+            action={hasCards ? { label: probe ? 'Check again' : 'Check all images', onClick: () => start('probe'), disabled: busy } : undefined}
           >
             {probe && probe.problems.length > 0 && <ProbeGroups problems={probe.problems} />}
           </Step>
         </ol>
       )}
 
-      {set && (
+      {set && !formMode && (
         <details className="rounded-lg border p-4">
           <summary className={`cursor-pointer text-base ${focusRing} rounded`}>Advanced options</summary>
           <div className="mt-3 grid gap-4 md:grid-cols-2 text-sm">

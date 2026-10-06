@@ -22,7 +22,9 @@ describe('fab-constants ↔ sets table sync', () => {
     expect(res.data.length).toBeGreaterThan(100);
 
     const mismatches: string[] = [];
-    for (const s of res.data) {
+    // 'zz…' codes are transient fixtures of the set-registration tests
+    // (PostgresSetsService.register.test.ts) that may exist while files run in parallel.
+    for (const s of res.data.filter((row) => !row.code.startsWith('zz'))) {
       const mapName = (SET_MAP as Record<string, string>)[s.code];
       if (mapName !== s.name) {
         mismatches.push(`${s.code}: SET_MAP name "${mapName}" ≠ DB "${s.name}"`);

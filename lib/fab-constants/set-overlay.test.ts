@@ -143,4 +143,18 @@ describe('separate module copies (Next.js server components vs SSR vs route hand
     resetSetOverlay();
     expect(otherCopy.getSetMetadata('zzn')).toBeUndefined();
   });
+
+  it('direct constant reads in a fresh copy see the overlay too — no helper call needed', async () => {
+    vi.resetModules();
+    const otherCopy = await import('./sets');
+    applySetOverlay(buildSetOverlay([...snapshotRows(), newSet({ inCardFilters: true, category: 'armory', name: 'Armory Deck: Zz' })]));
+    expect((otherCopy.SET_MAP as Record<string, string>).zzn).toBe('Armory Deck: Zz');
+    expect(otherCopy.SET_METADATA.zzn?.code).toBe('ZZN');
+    expect([...otherCopy.CARD_FILTER_SETS]).toContain('zzn');
+    expect(otherCopy.SET_FILTER_GROUPS.find((g) => g.token === 'grp:armory')!.codes).toContain('zzn');
+    expect(Object.keys(otherCopy.SET_METADATA)).toContain('zzn');
+    resetSetOverlay();
+    expect(Object.keys(otherCopy.SET_MAP)).not.toContain('zzn');
+  });
 });
+

@@ -1,10 +1,11 @@
 // lib/services/postgres/sets/PostgresSetsService.ts
 
 import { db } from '@/lib/postgres/db';
-import { sets } from '@/lib/postgres/schema';
+import { sets, tcgGroupSets } from '@/lib/postgres/schema';
+import type { SetFields } from '@/lib/sets/set-input';
 import { asc, eq, inArray } from 'drizzle-orm';
 import type { AsyncResult } from '../../contracts/common';
-import type { ISetsService, SetDTO } from '../../contracts/ISetsService';
+import type { ISetsService, SetDTO, SetUpdate, TcgGroupSetDTO } from '../../contracts/ISetsService';
 
 function mapToSetDTO(row: typeof sets.$inferSelect): SetDTO {
   return {
@@ -22,6 +23,7 @@ function mapToSetDTO(row: typeof sets.$inferSelect): SetDTO {
     defaultRarity: row.defaultRarity,
     imageId: row.imageId,
     inCardFilters: row.inCardFilters,
+    legalFrom: row.legalFrom,
   };
 }
 
@@ -96,4 +98,90 @@ export class PostgresSetsService implements ISetsService {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to reorder sets' };
     }
   }
+
+  async registerSet(input: SetFields): AsyncResult<SetDTO> {
+    try {
+      const code = input.code.toLowerCase();
+      const created = await db.transaction(async (tx) => {
+        const [taken] = await tx.select({ code: sets.code }).from(sets).where(eq(sets.code, code)).limit(1);
+        if (taken) return null;
+        const all = await tx.select({ tier: sets.tier, releaseOrder: sets.releaseOrder, displayOrder: sets.displayOrder }).from(sets);
+        const releaseOrder = Math.max(0, ...all.map((s) => s.releaseOrder)) + 1;
+        const [row] = await tx.insert(sets).values({
+          code,
+          displayCode: input.displayCode,
+          name: input.name,
+          releaseDate: input.releaseDate,
+          legalFrom: input.legalFrom,
+          releaseOrder,
+          displayOrder: nextDisplayOrder(all, input.tier),
+          category: input.category,
+          tier: input.tier,
+          hasFirstEdition: input.hasFirstEdition,
+          unlimitedBeforeFirst: input.unlimitedBeforeFirst,
+          inCardFilters: input.inCardFilters,
+        }).returning();
+        if (input.tcgGroups.length) {
+          await tx.insert(tcgGroupSets)
+            .values(input.tcgGroups.map((g) => ({ groupId: g.groupId, setCode: code, setName: g.name })))
+            .onConflictDoNothing();
+        }
+        return row;
+      });
+      if (!created) return { success: false, error: `set '${code}' is already registered` };
+      return { success: true, data: mapToSetDTO(created) };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to register set' };
+    }
+  }
+
+  async updateSet(code: string, update: SetUpdate): AsyncResult<SetDTO> {
+    try {
+      const lc = code.toLowerCase();
+      const { tcgGroups, ...fields } = update;
+      const row = await db.transaction(async (tx) => {
+        const [current] = await tx.select().from(sets).where(eq(sets.code, lc)).limit(1);
+        if (!current) return null;
+        let next = current;
+        if (Object.keys(fields).length) {
+          [next] = await tx.update(sets).set({ ...fields, updatedAt: new Date() }).where(eq(sets.code, lc)).returning();
+        }
+        if (tcgGroups?.length) {
+          await tx.insert(tcgGroupSets)
+            .values(tcgGroups.map((g) => ({ groupId: g.groupId, setCode: lc, setName: g.name })))
+            .onConflictDoNothing();
+        }
+        return next;
+      });
+      if (!row) return { success: false, error: `unknown set '${lc}'` };
+      return { success: true, data: mapToSetDTO(row) };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to update set' };
+    }
+  }
+
+  async listTcgGroupSets(): AsyncResult<TcgGroupSetDTO[]> {
+    try {
+      const rows = await db.select({ groupId: tcgGroupSets.groupId, setCode: tcgGroupSets.setCode, setName: tcgGroupSets.setName })
+        .from(tcgGroupSets).orderBy(asc(tcgGroupSets.setCode), asc(tcgGroupSets.groupId));
+      return { success: true, data: rows };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to list TCGplayer groups' };
+    }
+  }
+}
+
+/**
+ * display_order for a new set: right after the last set of its tier (printing
+ * carousels sort tier 1 → 2 → 5 → 3 → 4 by this column), skipping values
+ * already taken — the column is UNIQUE. Bounded; falls back to the very end.
+ */
+function nextDisplayOrder(all: Array<{ tier: number; displayOrder: number }>, tier: number): number {
+  const taken = new Set(all.map((s) => s.displayOrder));
+  const end = Math.max(0, ...all.map((s) => s.displayOrder)) + 1;
+  const sameTier = all.filter((s) => s.tier === tier).map((s) => s.displayOrder);
+  if (!sameTier.length) return end;
+  let candidate = Math.max(...sameTier) + 1;
+  for (let i = 0; i < 1000 && taken.has(candidate); i++) candidate++;
+  return taken.has(candidate) ? end : candidate;
 }

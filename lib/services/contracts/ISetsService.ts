@@ -34,6 +34,30 @@ export interface SetDTO {
   imageId: string | null;
   /** Set filter chips: TRUE include, FALSE exclude, NULL = compiled CARD_FILTER_SETS (migration 0123) */
   inCardFilters: boolean | null;
+  /** Constructed-legal from (YYYY-MM-DD); null = release date (migration 0112) */
+  legalFrom: string | null;
+}
+
+/** A set ↔ TCGplayer (tcgcsv) group link (tcg_group_sets, migration 0124). */
+export interface TcgGroupSetDTO {
+  groupId: number;
+  setCode: string;
+  setName: string;
+}
+
+/** Editable fields of a set (not its code). */
+export interface SetUpdate {
+  name?: string;
+  releaseDate?: string | null;
+  legalFrom?: string | null;
+  category?: SetDTO['category'];
+  tier?: number;
+  hasFirstEdition?: boolean;
+  unlimitedBeforeFirst?: boolean;
+  inCardFilters?: boolean | null;
+  imageId?: string | null;
+  /** Groups to ADD (existing links are kept). */
+  tcgGroups?: Array<{ groupId: number; name: string }>;
 }
 
 export interface ISetsService {
@@ -47,4 +71,14 @@ export interface ISetsService {
    * nothing is changed. Remember to regenerate the constants snapshot after.
    */
   reorderSets(orders: Array<{ code: string; displayOrder: number }>): AsyncResult<{ updated: number }>;
+  /**
+   * Register a new set (/admin/cardvault): newest in release order, ranked
+   * after its own tier in display order, with its TCGplayer groups. Fails
+   * without writing when the code exists.
+   */
+  registerSet(input: import('@/lib/sets/set-input').SetFields): AsyncResult<SetDTO>;
+  /** Edit a set's fields; tcgGroups are ADDED. */
+  updateSet(code: string, update: SetUpdate): AsyncResult<SetDTO>;
+  /** Every set ↔ TCGplayer group link. */
+  listTcgGroupSets(): AsyncResult<TcgGroupSetDTO[]>;
 }

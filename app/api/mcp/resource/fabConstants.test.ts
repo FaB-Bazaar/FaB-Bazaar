@@ -42,3 +42,24 @@ describe('fabConstantsResource', () => {
     expect(serialized).toMatch(/1hp/);
   });
 });
+
+describe('fabConstantsResource and sets registered at runtime', () => {
+  it('lists a set the DB overlay added, even from its own module copy (route handlers get one)', async () => {
+    const { vi } = await import('vitest');
+    const { applySetOverlay, resetSetOverlay } = await import('@/lib/fab-constants/set-overlay');
+    try {
+      applySetOverlay({
+        version: 'test-runtime-set',
+        meta: { zzm: { code: 'ZZM', name: 'Zz MCP Set', releaseDate: '2027-01-01', hasFirstEdition: false, category: 'standard', tier: 1, displayOrder: 9999, unlimitedBeforeFirst: false } },
+        images: {},
+        filterSets: ['zzm', 'wtr'],
+      });
+      vi.resetModules(); // a fresh copy of sets.ts, as Next.js gives each route handler bundle
+      const { fabConstantsResource: fresh } = await import('./fabConstants');
+      const data = await (fresh as any).handler();
+      expect(data.set_mappings.core_sets.zzm).toBe('Zz MCP Set');
+    } finally {
+      resetSetOverlay();
+    }
+  });
+});

@@ -20,8 +20,9 @@ export default async function CardVaultAdminPage() {
       <h1 className="text-3xl font-bold mb-2">CardVault Ingest</h1>
       <p className="text-muted-foreground mb-8">
         Pull a set&apos;s English printings from CardVault and put their images on Cloudflare. Every step
-        is safe to repeat: rows that already exist are skipped and nothing is ever deleted. The set must
-        already be registered. Translated printings (FR/JA/…) are a separate step.
+        is safe to repeat: rows that already exist are skipped and nothing is ever deleted. A brand-new
+        set? Register it first — it goes live across the site straight away. Translated printings
+        (FR/JA/…) are a separate step.
       </p>
       <CardVaultClient />
     </div>

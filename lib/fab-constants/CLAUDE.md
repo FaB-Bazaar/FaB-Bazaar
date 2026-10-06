@@ -42,10 +42,18 @@ Re-exports everything from `heroes-rosters` and `heroes-meta`, plus owns the loo
 
 ## Registering a new set
 
-1. SQL migration inserting the `sets` row — see 0102 for precedents (armory deck:
-   category=armory/tier 4/MAX+1 ordering; mastery pack: standard/tier 2,
-   display_order next to MPW's 400). Then `scripts/generate-set-constants.ts`.
-2. Standard sets ALSO need two manual edits the snapshot does NOT cover: add the
-   code to `CARD_FILTER_SETS` (sets.ts, newest first) and a logo entry in
-   `lib/set-images.ts` SET_IMAGES (deterministic Cloudflare id `set-<code>-logo`).
-   Deck-product sets skip both — groups derive from category/name prefix.
+Use `/admin/cardvault` → "Register a new set" (superadmin): set row, TCGplayer
+groups, logo — live site-wide within a minute via the runtime set overlay
+(`set-overlay.ts`; filter-chip membership = `sets.in_card_filters`, logo =
+`sets.image_id`). No migration or code edit needed.
+
+The compiled snapshot (`sets-data.generated.ts`, `CARD_FILTER_SETS`,
+`SET_IMAGES`) is the floor the overlay patches. Catching it up is optional
+housekeeping: `scripts/generate-set-constants.ts` (+ the list/logo entries) —
+do it when convenient so prerendered pages and `sets-sync.test.ts` match.
+
+Rules for consumers: read set constants at USE time. The exports are proxies
+that sync on read; a top-level copy (`[...CARD_FILTER_SETS]`, `new Set(...)`,
+`Object.keys(SET_MAP)`) freezes the compiled list — `set-overlay-consumers.test.ts`
+fails on it. `set-images.ts` can't import `sets.ts` (it's imported by it), so
+`getSetImageUrl` reads overlay logos straight from the `globalThis` slot.
