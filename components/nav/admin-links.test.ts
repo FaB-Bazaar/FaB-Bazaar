@@ -43,6 +43,12 @@ describe('accessibleAdminLinks', () => {
     expect(hrefs({ isContentCreator: true })).not.toContain('/admin/collectibles')
   })
 
+  it('lists CardVault Ingest for superadmins only', () => {
+    expect(hrefs({ isSuperAdmin: true })).toContain('/admin/cardvault')
+    expect(hrefs({ isCurator: true })).not.toContain('/admin/cardvault')
+    expect(hrefs({ isContentCreator: true })).not.toContain('/admin/cardvault')
+  })
+
   it('does not list Volzar — it moved to /volzar, gated by canUseVolzar', () => {
     expect(ADMIN_LINKS.some((l) => l.href.includes('volzar'))).toBe(false)
     expect(hrefs({ isSuperAdmin: true })).not.toContain('/volzar')

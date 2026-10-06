@@ -1925,3 +1925,12 @@ export const marketFeedListings = pgTable('market_feed_listings', {
 }, (table) => ({
   regionDateIdx: index('idx_market_feed_listings_region_date').on(table.region, table.feedDate),
 }));
+
+// CardVault `card_id/<slug>/` responses cached for the /admin/cardvault ingest
+// job (migration 0122) — the app container's FS is read-only, so the CLI's
+// disk cache lives here. Raw API payloads; only lib/import reads them.
+export const cardvaultPayloadCache = pgTable('cardvault_payload_cache', {
+  slug: text('slug').primaryKey(),
+  payload: jsonb('payload').notNull(),
+  fetchedAt: timestamp('fetched_at').defaultNow().notNull(),
+});

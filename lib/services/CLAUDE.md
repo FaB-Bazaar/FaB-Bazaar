@@ -52,6 +52,7 @@ import { userService, binderService, printingsService } from "@/lib/services"
 | `setsService` | Set metadata reference data (`sets` table = source of truth: names, release dates/order, category/tier, core-set flag). After editing the table, regenerate the client snapshot: `npx tsx --env-file=.env.local scripts/generate-set-constants.ts` |
 | `scanService` | Card scanner: `upsertHashes`/`listHashIndex` over `printing_image_hashes` + `identify(hashPair, {limit, pitchHint})` — loads the whole index into memory (10-min TTL, `clearIndexCache()` in tests), ranks by Hamming distance, groups by card name → pitch → ALL printings of the card (unhashed ones carry `distance: null`); `filterKnownPrintingIds` + `countHashes` back the admin push route |
 | `ingestService` | Remote set ingest (`POST /api/admin/printings/ingest`, superadmin): upserts snake_case cards/printings/card_translations rows shipped from another FaB Bazaar DB (`scripts/push-set-ingest.ts`). Resolves by natural identity (talishar_card_id / lss_print_id / natural key), mints its own ids — payload ids are local refs only. Enriches provisional cards, never touches fab-cube-anchored ones. `dryRun` returns the plan without writing |
+| `cardVaultService` | DB half of the `/admin/cardvault` ingest job (`lib/import/cardvault-job.ts`): CardVault payload cache (`cardvault_payload_cache`, 0122), planner context, `commitPlan` (one transaction, INSERT/UPDATE only, enriches provisional cards only), image-upload bookkeeping. Same writes as `scripts/import-new-set.ts` |
 
 ## Testing
 

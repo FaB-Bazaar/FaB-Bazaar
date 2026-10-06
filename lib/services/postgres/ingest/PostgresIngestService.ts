@@ -53,12 +53,12 @@ function snakeToPropMap(
   return map;
 }
 
-const cardProps = snakeToPropMap(cards);
-const printingProps = snakeToPropMap(printings);
+export const cardProps = snakeToPropMap(cards);
+export const printingProps = snakeToPropMap(printings);
 const translationProps = snakeToPropMap(cardTranslations);
 const TRANSLATION_STRIP = new Set(['card_unique_id', 'updated_at']);
 
-function convertRow(
+export function convertRow(
   row: Record<string, unknown>,
   props: Map<string, { prop: string; dataType: string }>,
   strip: Set<string>,

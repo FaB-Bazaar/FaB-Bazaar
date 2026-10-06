@@ -64,6 +64,7 @@ import { PostgresFeedOverridesService } from './postgres/feed-overrides/Postgres
 import { PostgresMarketFeedService } from './postgres/market-feed/PostgresMarketFeedService';
 import { PostgresFoilMaskService } from './postgres/foil-mask/PostgresFoilMaskService';
 import { PostgresIngestService } from './postgres/ingest/PostgresIngestService';
+import { PostgresCardVaultService } from './postgres/cardvault/PostgresCardVaultService';
 import { PostgresScanService } from './postgres/scan/PostgresScanService';
 import { PostgresMcpUsageService } from './postgres/mcp-usage/PostgresMcpUsageService';
 import { PostgresLlmUsageService } from './postgres/llm-usage/PostgresLlmUsageService';
@@ -601,6 +602,7 @@ export const feedOverridesService = new PostgresFeedOverridesService();
 export const marketFeedService = new PostgresMarketFeedService();
 export const foilMaskService = new PostgresFoilMaskService();
 export const ingestService = new PostgresIngestService();
+export const cardVaultService = new PostgresCardVaultService();
 export const scanService = new PostgresScanService();
 
 
