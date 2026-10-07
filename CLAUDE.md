@@ -157,6 +157,7 @@ For React components and multi-step UI flows (admin forms, dialogs, pages), reac
 
 ### e2e conventions
 
+- **Never commit new e2e specs** — leave specs you write under `e2e/regression/` untracked; stage only the source files. The already-tracked regression specs stay committed (edits to them may be committed). Commit a new spec only when the user explicitly asks.
 - Run suites with `--workers=1` — parallel workers overload the dev server and fail at fixture setup, which looks like product breakage.
 - Throwaway decks come from `e2e/helpers/deck-fixtures` (`createEmptyDeck` / `createSeededDeck` + `deleteDeck` in a `finally`). `createSeededDeck` returns only once the seed is stored and deletes its deck if seeding fails; `e2e/helpers/global-teardown.ts` sweeps helper-named decks a timed-out test left behind. Specs must not depend on decks that exist in only one DB.
 
