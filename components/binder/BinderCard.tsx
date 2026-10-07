@@ -139,10 +139,17 @@ export default function EnhancedBinderCard({
         >
           <span>Available for purchase here</span>
           <div className="flex items-center gap-1">
+            {/* Theme-swapped wordmark: black for light mode, white (CDN) for dark */}
+            <img
+              src="/tcgplayer-logo-black.png"
+              alt="TCGPlayer"
+              className="h-4 w-auto dark:hidden"
+            />
             <img
               src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-              alt="TCGPlayer"
-              className="h-4 w-auto"
+              alt=""
+              aria-hidden="true"
+              className="h-4 w-auto hidden dark:block"
             />
           </div>
         </TcgAffiliateLink>
