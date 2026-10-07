@@ -24,6 +24,8 @@ interface WhoHasDropdownProps {
   buttonText?: string;
   /** Restrict owners to people who follow the same stores as the viewer. */
   followedStoresOnly?: boolean;
+  /** Extra classes for the portaled menu — e.g. a z-index above a fixed overlay. */
+  contentClassName?: string;
 }
 
 interface Card {
@@ -174,6 +176,7 @@ export default function WhoHasDropdown({
   searchMode = 'printing',
   buttonText,
   followedStoresOnly = false,
+  contentClassName = "",
 }: WhoHasDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -315,7 +318,7 @@ export default function WhoHasDropdown({
   return (
     <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>{triggerElement}</DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80 max-h-[32rem] overflow-hidden p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" align="end" side="bottom">
+      <DropdownMenuContent className={`w-80 max-h-[32rem] overflow-hidden p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 ${contentClassName}`} align="end" side="bottom">
         {renderContent()}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -17,6 +17,7 @@ import { formatLegalityRows, deckLegalityVerdict, type LegalityStatus } from "@/
 import { keywordGlossary } from "@/lib/cards/keyword-glossary";
 import { buildPrintingRows, groupPrintingRows } from "@/lib/cards/lightbox-printings";
 import { renderPurchaseLink } from "@/components/wants/utils";
+import WhoHasDropdown from "@/components/shared/WhoHasDropdown";
 import { getBindersByCard, type BinderCardHit } from "@/lib/client/binders-client";
 import { cn } from "@/lib/utils";
 import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
@@ -542,7 +543,21 @@ export function CardDetailsLightbox({
           </div>
           {/* Same affiliate purchase link as the Wants cards. The panel is always
               dark, so force the helper's dark: variants with a `dark` wrapper. */}
-          <div className="dark shrink-0 px-3.5 pb-3 [&>div]:mt-0 [&>div]:pt-2.5">{renderPurchaseLink(tcgUrl, 'DeckQuickAddLightbox')}</div>
+          <div className="dark shrink-0 px-3.5 pb-3 [&>div]:mt-0 [&>div]:pt-2.5">
+            {/* Owners of any printing of this card (pitch-specific). The menu
+                portals to <body>, so lift it above the z-[9999] overlay. */}
+            {cardUid && (
+              <WhoHasDropdown
+                cardName={card.name}
+                cardUniqueId={cardUid}
+                searchMode="unique"
+                buttonText="Who has this card"
+                contentClassName="z-[10000]"
+                className="mb-2.5 flex w-full items-center justify-center rounded-lg border border-gray-600 bg-gray-800/70 px-3 py-1.5 text-base text-gray-100 transition-colors hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              />
+            )}
+            {renderPurchaseLink(tcgUrl, 'DeckQuickAddLightbox')}
+          </div>
         </div>
       </div>
     </div>
