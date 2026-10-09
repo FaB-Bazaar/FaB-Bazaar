@@ -147,14 +147,15 @@ function CompactBuyLink({ url, feature }: { url: string | null; feature: string 
       tcgplayerUrl={url}
       feature={feature}
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+      className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
       title="Buy on TCGplayer"
     >
       <span>Buy</span>
+      {/* Solid pill so the white CDN wordmark reads in light mode too */}
       <img
         src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
         alt="on TCGplayer"
-        className="hidden sm:inline h-3 w-[74px] max-w-none"
+        className="h-3 w-[74px] max-w-none"
       />
     </TcgAffiliateLink>
   );
