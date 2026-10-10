@@ -2,7 +2,8 @@
  * optQueryToSearchRequest must rebuild EXACTLY the POST body the /opt page
  * sends for a URL — the search cache is keyed by a hash of that body, so a
  * warm-up request that differs by one field warms a key no visitor ever reads.
- * The fixtures are bodies captured from the live /opt page (2026-09-26).
+ * The fixtures are bodies captured from the live /opt page (2026-09-26; re-captured 2026-10-09 when
+ * search went front-faces-only).
  */
 import { describe, it, expect } from 'vitest';
 import { optQueryToSearchRequest, buildSearchRequest } from './opt-search-request';
@@ -10,13 +11,13 @@ import { expandSetSelections } from '@/lib/fab-constants/sets';
 
 const CAPTURED: Record<string, string> = {
   'talents=draconic&sortBy=rarity':
-    '{"filters":{"talents":["draconic"],"classTalentUnion":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"rarity","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
+    '{"filters":{"talents":["draconic"],"classTalentUnion":true,"frontFaceOnly":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"rarity","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
   'classes=generic':
-    '{"filters":{"classes":["generic"],"genericTalentless":true,"classTalentUnion":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"name","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
+    '{"filters":{"classes":["generic"],"genericTalentless":true,"classTalentUnion":true,"frontFaceOnly":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"name","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
   'sets=gem&pack=24720&sortBy=set':
-    '{"filters":{"sets":["gem"],"tcgGroupIds":[24720],"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"set","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
+    '{"filters":{"sets":["gem"],"tcgGroupIds":[24720],"frontFaceOnly":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"set","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
   'classes=ninja&talents=draconic':
-    '{"filters":{"classes":["ninja"],"talents":["draconic"],"classTalentUnion":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"name","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
+    '{"filters":{"classes":["ninja"],"talents":["draconic"],"classTalentUnion":true,"frontFaceOnly":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"name","sortOrder":"asc","searchMode":"strict","groupByCard":true}}',
 };
 
 describe('optQueryToSearchRequest', () => {
@@ -26,7 +27,7 @@ describe('optQueryToSearchRequest', () => {
 
   it('expands a grp: set token the way the page does (encoded or not)', () => {
     const expected = {
-      filters: { sets: expandSetSelections(['grp:armory']), languages: ['en'] },
+      filters: { sets: expandSetSelections(['grp:armory']), frontFaceOnly: true, languages: ['en'] },
       options: { page: 1, limit: 60, sortBy: 'name', sortOrder: 'asc', searchMode: 'strict', groupByCard: true },
     };
     expect(optQueryToSearchRequest('sets=grp%3Aarmory')).toEqual(expected);

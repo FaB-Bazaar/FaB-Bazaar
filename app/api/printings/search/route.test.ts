@@ -72,3 +72,15 @@ describe('GET /api/printings/search — tcgGroup (pack) filter forwarding', () =
     expect(filters.tcgGroupIds).toBeUndefined();
   });
 });
+
+describe('GET /api/printings/search — frontFaceOnly (deck phone search)', () => {
+  it('parses frontFaceOnly=true', async () => {
+    await call('name=bank%20breaker&frontFaceOnly=true');
+    expect(mockSearch.mock.calls[0][0].frontFaceOnly).toBe(true);
+  });
+
+  it('leaves it unset when absent', async () => {
+    await call('name=bank%20breaker');
+    expect(mockSearch.mock.calls[0][0].frontFaceOnly).toBeUndefined();
+  });
+});

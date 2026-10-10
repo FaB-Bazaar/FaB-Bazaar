@@ -99,7 +99,7 @@ describe('runCachedSearch', () => {
     mockSearch.mockClear();
 
     // Body captured from the live /opt page for the same URL.
-    const browserBody = '{"filters":{"talents":["draconic"],"classTalentUnion":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"rarity","sortOrder":"asc","searchMode":"strict","groupByCard":true}}';
+    const browserBody = '{"filters":{"talents":["draconic"],"classTalentUnion":true,"frontFaceOnly":true,"languages":["en"]},"options":{"page":1,"limit":60,"sortBy":"rarity","sortOrder":"asc","searchMode":"strict","groupByCard":true}}';
     const res = await POST(new NextRequest('http://localhost/api/printings/search', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: browserBody,
     }));

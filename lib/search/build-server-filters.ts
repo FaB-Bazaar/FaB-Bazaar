@@ -163,5 +163,10 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   if (s.priceMin)   { f.priceMin = parseFloat(s.priceMin); f.priceField = 'tcg_low'; }
   if (s.priceMax)   { f.priceMax = parseFloat(s.priceMax); f.priceField = 'tcg_low'; }
 
+  // Only front faces are searchable — a double-faced back (Bank Breaker) is
+  // shown with its front's card details. Only alongside a real filter, so an
+  // empty object still means "nothing selected" and the page idles.
+  if (Object.keys(f).length) f.frontFaceOnly = true;
+
   return f;
 }

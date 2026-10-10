@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('text')) filters.text = searchParams.get('text')!;
     if (searchParams.get('searchableText')) filters.searchableText = searchParams.get('searchableText')!;
     if (searchParams.get('exact')) filters.exact = searchParams.get('exact') === 'true';
+    if (searchParams.get('frontFaceOnly') === 'true') filters.frontFaceOnly = true;
     
     // Card attributes
     if (searchParams.get('types')) filters.types = searchParams.get('types')!.split(',');

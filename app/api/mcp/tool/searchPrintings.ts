@@ -81,6 +81,8 @@ type SectionInput = {
   foilingFallback?: boolean;
   /** Language code when the section was recovered via a translated card name. */
   translatedNameMatch?: string;
+  /** Front's name when the queried name is a double-faced card's back face. */
+  backFaceOf?: string;
 };
 
 const MAX_SECTION_GROUPS = 10;
@@ -131,6 +133,9 @@ export function formatSearchSections(output: SectionInput[], projectOpts: Projec
       : '')
       + (r.translatedNameMatch
         ? `\n  ℹ️ matched by ${r.translatedNameMatch.toUpperCase()} card name (translated-name lookup)`
+        : '')
+      + (r.backFaceOf
+        ? `\n  ℹ️ "${r.query}" is the back face of ${r.backFaceOf} — showing the front (the deck card; it carries the back as other_face_*)`
         : '');
 
     const shown = groups.slice(0, MAX_SECTION_GROUPS);
@@ -363,6 +368,13 @@ function resolveCardFilters(card: { query?: string; filters?: any }): {
   const pitch = filters.pitch != null
     ? (Array.isArray(filters.pitch) ? undefined : (filters.pitch as number))
     : (filters.color ? COLOR_TO_PITCH[filters.color] : undefined);
+
+  // Searches skip double-faced backs (Bank Breaker → find Construct Bank
+  // Breaker, which carries the back as other_face_*); id lookups still reach them.
+  // Set after isSimple so it doesn't knock name lookups off the bulk path.
+  if (!filters.printingIds?.length && !filters.cardUniqueId && !filters.cardUniqueIds?.length) {
+    filters.frontFaceOnly = true;
+  }
 
   return {
     filters,
@@ -601,7 +613,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
 
     const [bulkResult, ...complexResults] = await Promise.all([
       bulkInputs.length > 0
-        ? printingsService.bulkResolveByName(bulkInputs)
+        ? printingsService.bulkResolveByName(bulkInputs, { frontFaceOnly: true })
         : Promise.resolve({ success: true as const, data: [] as any[] }),
       ...complexIndices.map(i =>
         printingsService.searchPrintings(resolved[i].filters, {
@@ -676,6 +688,38 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
           (r as any).foilingFallback = true;
         }
       });
+    }
+
+    // ── Back-face fallback ────────────────────────────────────────────────────
+    // Searches skip double-faced backs, so a back's name ("bank breaker")
+    // finds nothing. Re-run without the front-face filter (pitch dropped —
+    // backs have none); if it hits back faces, search their front instead.
+    const backFaceItems = output.filter(
+      r => r.total === 0 && (resolved[r.index].filters.name ?? '').trim(),
+    );
+    if (backFaceItems.length > 0) {
+      await Promise.all(backFaceItems.map(async r => {
+        const { frontFaceOnly: _ff, pitch: _p, color: _c, ...probeFilters } = resolved[r.index].filters as any;
+        const probe = await printingsService.searchPrintings(probeFilters, { limit: 20 });
+        // One back can sit behind several fronts (Viserai, Usurper: adult + young).
+        const frontNames: string[] = probe.success
+          ? [...new Set<string>(probe.data.printings
+              .filter((p: any) => p.is_front_face === false && p.other_face_name)
+              .map((p: any) => p.other_face_name))]
+          : [];
+        if (frontNames.length === 0) return;
+        const { name: _n, exact: _e, ...restFilters } = resolved[r.index].filters as any;
+        const searches = await Promise.all(frontNames.map(name => printingsService.searchPrintings(
+          { ...restFilters, name, exact: true },
+          { limit: options.limit || 12, sortBy: options.sortBy, sortOrder: options.sortOrder, groupByCard },
+        )));
+        const found = searches.flatMap(s => (s.success ? s.data.printings : []));
+        if (found.length > 0) {
+          r.printings = found;
+          r.total = found.length;
+          (r as any).backFaceOf = frontNames.join(' / ');
+        }
+      }));
     }
 
     // ── Translated-name fallback ──────────────────────────────────────────────

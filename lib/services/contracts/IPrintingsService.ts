@@ -255,6 +255,10 @@ export interface PrintingsSearchFilters {
   ownedOnly?: boolean;
   ownedByUserId?: string;
 
+  // Drop double-faced BACK printings (is_front_face = false) — a back face
+  // isn't a deck card (Talishar validates the front). Set by the deck builder.
+  frontFaceOnly?: boolean;
+
   // Single color (shorthand parser convenience)
   color?: string;
 
@@ -704,7 +708,7 @@ export interface IPrintingsService {
    */
   bulkResolveByName(
     cards: Array<{ name: string; pitch?: number }>,
-    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format'>
+    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format' | 'frontFaceOnly'>
   ): AsyncResult<Array<{ name: string; pitch?: number; printings: PrintingDTO[] }>>;
 
   /**

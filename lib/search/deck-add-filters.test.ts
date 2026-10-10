@@ -139,3 +139,19 @@ describe('buildDeckAddFilters — hero specializations', () => {
     expect(f).not.toHaveProperty('specializationHero');
   });
 });
+
+describe('buildDeckAddFilters — double-faced backs', () => {
+  // A back face (Bank Breaker = back of Construct Bank Breaker) can't be put
+  // in a deck — Talishar validates the front.
+  it('searches front faces only', () => {
+    expect(buildDeckAddFilters(state(), 'bank breaker', ctx()).frontFaceOnly).toBe(true);
+  });
+
+  it('the hero picker hides back faces too (Viserai, Usurper)', () => {
+    expect(buildDeckAddFilters(state(), '', ctx({ targetCategory: 'hero' })).frontFaceOnly).toBe(true);
+  });
+
+  it('adds nothing when there is nothing to search (dialog stays idle)', () => {
+    expect(buildDeckAddFilters(state(), '', ctx({ hero: null, deckFormat: undefined }))).toEqual({});
+  });
+});

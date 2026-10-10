@@ -107,6 +107,8 @@ export default function MobileDeckSearchOverlay({
     const searchFilters: Record<string, any> = {
       name: debouncedQuery,
       show: "all",
+      // Double-faced backs (Bank Breaker) aren't deck cards — Talishar validates the front.
+      frontFaceOnly: true,
     };
 
     // Hero-legal filtering: only show cards legal for this hero's class/talent

@@ -403,8 +403,20 @@ describe('buildServerFilters — shorthand detection reaches every parser token'
   });
 
   it('leaves plain names alone, hyphens and all', () => {
-    expect(q('pummel')).toEqual({ name: 'pummel' });
-    expect(q('snatch-a-roo')).toEqual({ name: 'snatch-a-roo' });
+    expect(q('pummel')).toEqual({ name: 'pummel', frontFaceOnly: true });
+    expect(q('snatch-a-roo')).toEqual({ name: 'snatch-a-roo', frontFaceOnly: true });
     expect(q('power of the people').name).toBe('power of the people');
+  });
+});
+
+describe('buildServerFilters — double-faced backs', () => {
+  // Only front faces are searchable (Bank Breaker = the back of Construct
+  // Bank Breaker); the back is shown with its front in the card details.
+  it('searches front faces only', () => {
+    expect(buildServerFilters({ ...baseState, query: 'bank breaker' }).frontFaceOnly).toBe(true);
+  });
+
+  it('adds nothing when nothing is selected (the page stays idle)', () => {
+    expect(buildServerFilters(baseState)).toEqual({});
   });
 });

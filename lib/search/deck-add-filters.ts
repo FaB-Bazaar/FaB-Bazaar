@@ -57,5 +57,10 @@ export function buildDeckAddFilters(
   const formatCode = getApiFormatCode(ctx.deckFormat);
   if (formatCode) f.format = formatCode as PrintingsSearchFilters['format'];
 
+  // A double-faced back (Bank Breaker, Viserai, Usurper) isn't a deck card —
+  // Talishar validates the front. Only alongside a real filter, so an empty
+  // object still means "nothing to search" and the dialog idles.
+  if (Object.keys(f).length) f.frontFaceOnly = true;
+
   return f;
 }

@@ -440,7 +440,7 @@ export class PostgresPrintingsService implements IPrintingsService {
    */
   async bulkResolveByName(
     inputCards: Array<{ name: string; pitch?: number }>,
-    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format'>
+    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format' | 'frontFaceOnly'>
   ): AsyncResult<Array<{ name: string; pitch?: number; printings: PrintingDTO[] }>> {
     try {
       if (inputCards.length === 0) {
@@ -1369,6 +1369,11 @@ export class PostgresPrintingsService implements IPrintingsService {
         SELECT ${inventoryItems.printingId} FROM ${inventoryItems}
         WHERE ${inventoryItems.userId} = ${filters.ownedByUserId} AND ${inventoryItems.quantity} > 0
       )`);
+    }
+
+    // ===== DOUBLE-FACED BACKS =====
+    if (filters.frontFaceOnly) {
+      conditions.push(eq(printings.isFrontFace, true));
     }
 
     // ===== IDENTIFIERS =====
