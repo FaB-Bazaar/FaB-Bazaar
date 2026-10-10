@@ -18,6 +18,7 @@ import { keywordGlossary } from "@/lib/cards/keyword-glossary";
 import { buildPrintingRows, groupPrintingRows } from "@/lib/cards/lightbox-printings";
 import { renderPurchaseLink } from "@/components/wants/utils";
 import WhoHasDropdown from "@/components/shared/WhoHasDropdown";
+import { DecksToBeatButton, DecksToBeatPanel } from "@/components/cards/DecksToBeatPanel";
 import { getBindersByCard, type BinderCardHit } from "@/lib/client/binders-client";
 import { cn } from "@/lib/utils";
 import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
@@ -212,6 +213,10 @@ export function CardDetailsLightbox({
 
   // Sibling printings (all languages) — lazy, cached per card by hero-pool-cache.
   const cardUid = card.printing.card_unique_id;
+  // Decks to Beat panel: fetched on click only, so ←/→ closes it rather than
+  // querying for every card stepped through.
+  const [decksToBeatOpen, setDecksToBeatOpen] = useState(false);
+  useEffect(() => { setDecksToBeatOpen(false); }, [cardUid]);
   const [siblings, setSiblings] = useState<PrintingResult[] | null>(null);
   useEffect(() => {
     let live = true;
@@ -540,6 +545,7 @@ export function CardDetailsLightbox({
                 </>
               )}
             </div>
+            {cardUid && decksToBeatOpen && <DecksToBeatPanel key={cardUid} cardUniqueId={cardUid} />}
           </div>
           {/* Same affiliate purchase link as the Wants cards. The panel is always
               dark, so force the helper's dark: variants with a `dark` wrapper. */}
@@ -555,6 +561,9 @@ export function CardDetailsLightbox({
                 contentClassName="z-[10000]"
                 className="mb-2.5 flex w-full items-center justify-center rounded-lg border border-gray-600 bg-gray-800/70 px-3 py-1.5 text-base text-gray-100 transition-colors hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               />
+            )}
+            {cardUid && (
+              <DecksToBeatButton cardUniqueId={cardUid} open={decksToBeatOpen} onToggle={() => setDecksToBeatOpen(o => !o)} />
             )}
             {renderPurchaseLink(tcgUrl, 'DeckQuickAddLightbox')}
           </div>

@@ -519,6 +519,30 @@ export interface CardDeckUsageEntryDTO {
 }
 
 /**
+ * One Deck to Beat (featured + public) that plays a given card — the
+ * card-details lightbox "Decks to Beat" panel.
+ */
+export interface CardDecksToBeatEntryDTO {
+  publicId: string;
+  name: string;
+  heroName?: string;
+  format?: string;
+  eventName?: string;
+  /** YYYY-MM-DD */
+  eventDate?: string;
+  placing?: number;
+  /** Total copies of the card this deck runs (summed across printings/playable categories) */
+  quantity: number;
+}
+
+export interface CardDecksToBeatDTO {
+  /** Newest event first, then best placing; undated decks last */
+  decks: CardDecksToBeatEntryDTO[];
+  /** Every Deck to Beat per format (whether or not it plays the card) — the meta-share denominator */
+  totalsByFormat: Record<string, number>;
+}
+
+/**
  * Compact per-deck coverage row for batch "which of these decks could I
  * build from my collection?" queries (Decks-to-Beat buildability). One
  * small row per deck — sized for LLM consumption, not full comparisons.
@@ -1131,6 +1155,13 @@ export interface IDeckService {
     userId: string,
     cardUniqueId: string
   ): AsyncResult<CardDeckUsageEntryDTO[]>;
+
+  /**
+   * Decks to Beat (featured + public — what /decks/to-beat lists) containing
+   * any printing of the card in a playable category, plus per-format
+   * Decks-to-Beat totals. Public data; no user scoping.
+   */
+  getCardDecksToBeat(cardUniqueId: string): AsyncResult<CardDecksToBeatDTO>;
 
   /**
    * Calculate deck statistics

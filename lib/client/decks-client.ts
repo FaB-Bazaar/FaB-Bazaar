@@ -23,6 +23,7 @@ import type {
   DeckStatsDTO,
   InventoryComparisonDTO,
   CardDeckUsageEntryDTO,
+  CardDecksToBeatDTO,
   DeckCategory,
   UpgradePrintingSuggestionDTO,
   ApplyPrintingUpgradesResultDTO,
@@ -956,6 +957,39 @@ export async function getCardDeckUsage(
   } catch (error) {
     return handleError(error);
   }
+}
+
+// Session memo for the lightbox "Decks to Beat" panel: in-flight requests are
+// shared (StrictMode mounts the panel twice in dev), failures are dropped so a
+// retry refetches.
+const decksToBeatMemo = new Map<string, Promise<ApiResponse<CardDecksToBeatDTO>>>();
+
+export function clearCardDecksToBeatCache(): void {
+  decksToBeatMemo.clear();
+}
+
+/**
+ * Decks to Beat that play a card + per-format totals — fetched only when the
+ * card-details lightbox "Decks to Beat" button is clicked. Public route.
+ */
+export function getCardDecksToBeat(
+  cardUniqueId: string
+): Promise<ApiResponse<CardDecksToBeatDTO>> {
+  const memo = decksToBeatMemo.get(cardUniqueId);
+  if (memo) return memo;
+  const request = (async (): Promise<ApiResponse<CardDecksToBeatDTO>> => {
+    try {
+      const response = await fetch(`/api/cards/${cardUniqueId}/decks-to-beat`);
+      return await handleResponse<CardDecksToBeatDTO>(response);
+    } catch (error) {
+      return handleError(error);
+    }
+  })();
+  decksToBeatMemo.set(cardUniqueId, request);
+  request.then(result => {
+    if (!result.success && decksToBeatMemo.get(cardUniqueId) === request) decksToBeatMemo.delete(cardUniqueId);
+  });
+  return request;
 }
 
 /**

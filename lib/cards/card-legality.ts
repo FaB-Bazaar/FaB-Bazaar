@@ -27,6 +27,11 @@ const FORMATS: Array<{ key: LegalityKey; format: string; short: string }> = [
   { key: 'commoner', format: 'Commoner', short: 'Commoner' },
 ];
 
+/** "Classic Constructed" → "CC"; unknown format names pass through unchanged. */
+export function shortFormatLabel(format: string): string {
+  return FORMATS.find((f) => f.format === format)?.short ?? format;
+}
+
 type Flags = Record<string, unknown>;
 
 const asBool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);

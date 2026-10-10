@@ -37,6 +37,7 @@ import type {
   InventoryComparisonDTO,
   CardDeckUsageSummaryDTO,
   CardDeckUsageEntryDTO,
+  CardDecksToBeatDTO,
   DeckCoverageSummaryDTO,
   AllocationDTO,
   UpgradePrintingSuggestionDTO,
@@ -2615,6 +2616,69 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get card deck usage',
+      };
+    }
+  }
+
+  async getCardDecksToBeat(cardUniqueId: string): AsyncResult<CardDecksToBeatDTO> {
+    try {
+      // A Deck to Beat is what /decks/to-beat lists: featured AND public.
+      const isDeckToBeat = and(eq(decks.featured, true), eq(decks.visibility, 'public'));
+
+      const rows = await db
+        .select({
+          publicId: decks.publicId,
+          name: decks.name,
+          heroName: decks.heroName,
+          format: decks.format,
+          eventName: decks.eventName,
+          eventDate: decks.eventDate,
+          placing: decks.placing,
+          quantity: sql<number>`SUM(${deckCards.quantity})::int`,
+        })
+        .from(deckCards)
+        .innerJoin(decks, eq(deckCards.deckId, decks.id))
+        .innerJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .where(and(
+          isDeckToBeat,
+          eq(printings.cardUniqueId, cardUniqueId),
+          inArray(deckCards.category, [...PostgresDeckService.USAGE_CATEGORIES]),
+        ))
+        .groupBy(decks.id, decks.publicId, decks.name, decks.heroName, decks.format, decks.eventName, decks.eventDate, decks.placing)
+        .orderBy(sql`${decks.eventDate} DESC NULLS LAST`, sql`${decks.placing} ASC NULLS LAST`, asc(decks.name));
+
+      const totals = await db
+        .select({ format: decks.format, count: sql<number>`count(*)::int` })
+        .from(decks)
+        .where(isDeckToBeat)
+        .groupBy(decks.format);
+
+      const totalsByFormat: Record<string, number> = {};
+      for (const t of totals) {
+        if (t.format) totalsByFormat[t.format] = t.count;
+      }
+
+      return {
+        success: true,
+        data: {
+          decks: rows.map((r) => ({
+            publicId: r.publicId,
+            name: r.name,
+            heroName: r.heroName ?? undefined,
+            format: r.format ?? undefined,
+            eventName: r.eventName ?? undefined,
+            eventDate: r.eventDate ?? undefined,
+            placing: r.placing ?? undefined,
+            quantity: r.quantity,
+          })),
+          totalsByFormat,
+        },
+      };
+    } catch (error) {
+      console.error('[PostgresDeckService.getCardDecksToBeat] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get card Decks to Beat',
       };
     }
   }
