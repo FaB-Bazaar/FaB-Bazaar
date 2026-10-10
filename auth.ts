@@ -14,6 +14,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Discord({
       clientId: process.env.DISCORD_CLIENT_ID,
       clientSecret: process.env.DISCORD_CLIENT_SECRET,
+      // Discord now returns `iss=https://discord.com` on the callback (RFC 9207).
+      // Without an issuer Auth.js compares it to its "https://authjs.dev"
+      // placeholder and every login fails with error=Configuration. Endpoints
+      // stay hard-coded in the provider, so this triggers no discovery.
+      issuer: 'https://discord.com',
       authorization: {
         params: {
           scope: 'identify email guilds',
