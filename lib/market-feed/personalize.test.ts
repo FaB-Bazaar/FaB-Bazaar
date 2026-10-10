@@ -82,7 +82,39 @@ describe('personalizeFeed', () => {
 
   it('counts the "for you" summary', () => {
     const { forYou } = personalizeFeed(groupFeedListings(listings), listings, matches);
-    expect(forYou).toEqual({ cardsWantedYouOwn: 4, cardsSoldYouWant: 1, tradePostsYouCanOffer: 1 });
+    expect(forYou).toMatchObject({ cardsWantedYouOwn: 4, cardsSoldYouWant: 1, tradePostsYouCanOffer: 1 });
+  });
+
+  // "1 card on your wants list is for sale" told the viewer nothing — name it,
+  // with its price, and point at its row (listing id + card group key).
+  it('names the wanted cards for sale, with price and where to find them', () => {
+    const { forYou, groups } = personalizeFeed(groupFeedListings(listings), listings, matches);
+    const cnc = listings.find((x) => x.displayName === 'Command and Conquer')!;
+    expect(forYou?.wantsForSale).toEqual([
+      {
+        listingId: cnc.id,
+        groupKey: groups.find((g) => g.name === 'Command and Conquer')!.key,
+        name: 'Command and Conquer',
+        pitch: null,
+        foiling: null,
+        variant: null,
+        price: 12,
+        currency: 'USD',
+      },
+    ]);
+  });
+
+  it('names the cards people want that the viewer owns, one entry per listing', () => {
+    const { forYou } = personalizeFeed(groupFeedListings(listings), listings, matches);
+    expect(forYou?.wantedYouOwn.map((c) => c.name)).toEqual(['Dead Threads', 'Eye of Ophidia', 'Anka, Drag Under', 'Snatch']);
+    expect(forYou?.wantedYouOwn.find((c) => c.name === 'Snatch')).toMatchObject({ price: 2, currency: 'USD' });
+  });
+
+  it('lists every seller when two posts sell the same wanted card', () => {
+    const two = [...listings, l({ side: 'selling', cardName: 'Command and Conquer', displayName: 'Command and Conquer', cardUniqueId: 'cnc', price: 10 })];
+    const { forYou } = personalizeFeed(groupFeedListings(two), two, matches);
+    expect(forYou?.cardsSoldYouWant).toBe(1); // still one card
+    expect(forYou?.wantsForSale.map((c) => c.price)).toEqual([12, 10]);
   });
 
   it('still lists trade posts (with nothing matched) for a signed-out viewer', () => {

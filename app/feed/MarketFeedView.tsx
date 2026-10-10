@@ -2,10 +2,10 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Tag, HandCoins, ArrowLeftRight } from 'lucide-react';
-import type { ForYouSummary, PersonalizedGroup, TradePost, ViewerGroupMatch } from '@/lib/market-feed/personalize';
+import type { ForYouCard, ForYouSummary, PersonalizedGroup, TradePost, ViewerGroupMatch } from '@/lib/market-feed/personalize';
 import type { FeedPost } from '@/lib/market-feed/group-posts';
 import { AffiliateDisclosure } from '@/components/shared/AffiliateDisclosure';
-import { BuyOnTcgplayer, PITCH_LABEL, PostLink, foilingName, formatMoney } from './feed-ui';
+import { BuyOnTcgplayer, PITCH_LABEL, PostLink, anchorTarget, cardAnchor, foilingName, formatMoney, listingAnchor } from './feed-ui';
 import { PostCard } from './PostCard';
 import { FEED_REGIONS, FEED_REGION_LABELS, type FeedRegion } from '@/lib/market-feed/region';
 import type {
@@ -106,7 +106,7 @@ function CardGroup({ g }: { g: PersonalizedGroup }) {
   const foiling = foilingName(g.foiling);
   const href = g.cardUniqueId ? `/opt?q=${encodeURIComponent(g.name)}` : null;
   return (
-    <li className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex gap-3">
+    <li id={cardAnchor(g.key)} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex gap-3 ${anchorTarget}`}>
       <div className="w-16 shrink-0">
         {g.imageUrl ? (
           <Image
@@ -228,6 +228,35 @@ function TradePosts({ posts, signedIn }: { posts: TradePost[]; signedIn: boolean
   );
 }
 
+const FOR_YOU_SHOWN = 5;
+
+/** The matched listings by name, each linking to its row on the page. */
+function ForYouCards({ cards, view, label }: { cards: ForYouCard[]; view: FeedView; label: string }) {
+  const shown = cards.slice(0, FOR_YOU_SHOWN);
+  return (
+    <ul aria-label={label} className="mt-1 space-y-0.5">
+      {shown.map((c) => {
+        const tags = [c.pitch ? PITCH_LABEL[c.pitch] : null, foilingName(c.foiling), c.variant].filter(Boolean);
+        return (
+          <li key={c.listingId}>
+            <a
+              href={`#${view === 'posts' ? listingAnchor(c.listingId) : cardAnchor(c.groupKey)}`}
+              className="font-medium text-blue-700 dark:text-blue-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+            >
+              {c.name}
+            </a>
+            {tags.length > 0 && <span className="text-gray-600 dark:text-gray-400"> {tags.join(' · ')}</span>}
+            <span className="tabular-nums"> · {c.price != null ? formatMoney(c.price, c.currency) : 'Trade'}</span>
+          </li>
+        );
+      })}
+      {cards.length > shown.length && (
+        <li className="text-gray-600 dark:text-gray-400">+{cards.length - shown.length} more, marked in the list below</li>
+      )}
+    </ul>
+  );
+}
+
 function ForYou({ forYou, signedIn, feedDate, today, view }: {
   forYou: ForYouSummary | null;
   signedIn: boolean;
@@ -261,9 +290,18 @@ function ForYou({ forYou, signedIn, feedDate, today, view }: {
   return (
     <div className={`${box} bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-gray-900 dark:text-gray-100`}>
       <p className="font-semibold mb-1">For you</p>
-      <ul className="list-disc pl-5 space-y-0.5">
+      <ul className="list-disc pl-5 space-y-2">
+        {cardsSoldYouWant > 0 && (
+          <li>
+            {cardsSoldYouWant} card{cardsSoldYouWant === 1 ? '' : 's'} on your wants list {cardsSoldYouWant === 1 ? 'is' : 'are'} for sale:
+            <ForYouCards cards={forYou.wantsForSale} view={view} label="Wanted cards for sale" />
+          </li>
+        )}
         {cardsWantedYouOwn > 0 && (
-          <li>{cardsWantedYouOwn} card{cardsWantedYouOwn === 1 ? '' : 's'} people want {cardsWantedYouOwn === 1 ? 'is' : 'are'} in your collection</li>
+          <li>
+            {cardsWantedYouOwn} card{cardsWantedYouOwn === 1 ? '' : 's'} people want {cardsWantedYouOwn === 1 ? 'is' : 'are'} in your collection:
+            <ForYouCards cards={forYou.wantedYouOwn} view={view} label="Cards people want that you own" />
+          </li>
         )}
         {tradePostsYouCanOffer > 0 && (
           <li>
@@ -271,9 +309,6 @@ function ForYou({ forYou, signedIn, feedDate, today, view }: {
               {tradePostsYouCanOffer} trade post{tradePostsYouCanOffer === 1 ? '' : 's'} you could make an offer on
             </a>
           </li>
-        )}
-        {cardsSoldYouWant > 0 && (
-          <li>{cardsSoldYouWant} card{cardsSoldYouWant === 1 ? '' : 's'} on your wants list {cardsSoldYouWant === 1 ? 'is' : 'are'} for sale</li>
         )}
       </ul>
     </div>
@@ -283,6 +318,7 @@ function ForYou({ forYou, signedIn, feedDate, today, view }: {
 export function MarketFeedView({
   feedDate,
   today,
+  fellBackFrom = null,
   view,
   region,
   signedIn,
@@ -296,6 +332,8 @@ export function MarketFeedView({
 }: {
   feedDate: string;
   today: string;
+  /** Today had no listings, so the page shows feedDate (the newest day that does). */
+  fellBackFrom?: string | null;
   view: FeedView;
   region: FeedRegion;
   signedIn: boolean;
@@ -333,7 +371,7 @@ export function MarketFeedView({
           {FEED_REGIONS.map((r) => (
             <Link
               key={r}
-              href={feedHref(feedDate, today, view, r)}
+              href={feedHref(fellBackFrom ? today : feedDate, today, view, r)}
               aria-current={region === r ? 'page' : undefined}
               className={`rounded-full px-3 py-1.5 text-sm font-medium border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                 region === r
@@ -358,7 +396,7 @@ export function MarketFeedView({
             <Link href={feedHref(newer, today, view)} className={navLink}>
               {shortDate(newer)} <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </Link>
-          ) : feedDate !== today ? (
+          ) : feedDate !== today && !fellBackFrom ? (
             <Link href={feedHref(today, today, view)} className={navLink}>
               Today <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </Link>
@@ -366,6 +404,12 @@ export function MarketFeedView({
             <span />
           )}
         </nav>
+
+        {fellBackFrom && !error && (
+          <p role="status" className="mb-4 text-sm text-gray-700 dark:text-gray-300">
+            Nothing posted for today ({shortDate(fellBackFrom)}) yet. Showing {dateLabel(feedDate)}, the latest day with listings.
+          </p>
+        )}
 
         {error ? (
           <p role="alert" className="text-sm text-rose-700 dark:text-rose-400">

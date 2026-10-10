@@ -3,7 +3,8 @@
 // Market Feed — a curated, anonymous daily feed of buy/sell prices seen in
 // Flesh and Blood Facebook groups (submitted via the superadmin
 // submit_market_feed MCP tool). A price reference next to TCG Low.
-// Server component: one day per page, ?date=YYYY-MM-DD, default today (ET).
+// Server component: one day per page, ?date=YYYY-MM-DD, default today (ET) —
+// or, while today has no listings yet, the newest earlier day that has some.
 // Signed-in viewers also see which wanted cards they own / which sold cards
 // they want (their own collection only, matched server-side).
 // Region (na / eu / apac): ?region choice → remembered cookie → profile
@@ -17,7 +18,7 @@ import { auth } from '@/auth';
 import { marketFeedService, userService } from '@/lib/services';
 import { FEED_REGION_COOKIE, isFeedRegion, resolveFeedRegion } from '@/lib/market-feed/region';
 import { RememberRegion } from './RememberRegion';
-import { marketFeedToday } from '@/lib/market-feed/feed-date';
+import { marketFeedToday, resolveFeedDay } from '@/lib/market-feed/feed-date';
 import { groupFeedListings } from '@/lib/market-feed/group-listings';
 import { personalizeFeed } from '@/lib/market-feed/personalize';
 import { groupFeedPosts } from '@/lib/market-feed/group-posts';
@@ -39,8 +40,6 @@ export default async function MarketFeedPage({
   // By post is the default: a post often sells many cards at once.
   const view = requestedView === 'cards' ? 'cards' : 'posts';
   const today = marketFeedToday();
-  const feedDate = requested && isValidFeedDate(requested) ? requested : today;
-
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
@@ -52,9 +51,16 @@ export default async function MarketFeedPage({
     ipCountry: (await headers()).get('cf-ipcountry'),
   });
 
-  const [day, dates, matches] = await Promise.all([
+  // Dates first: the default page falls back to the newest day with listings.
+  const dates = await marketFeedService.listDates(60, region);
+  const { feedDate, fellBackFrom } = resolveFeedDay({
+    requested: requested && isValidFeedDate(requested) ? requested : undefined,
+    today,
+    datesWithListings: dates.success ? dates.data.map((d) => d.feedDate) : [],
+  });
+
+  const [day, matches] = await Promise.all([
     marketFeedService.getDay(feedDate, region),
-    marketFeedService.listDates(60, region),
     userId ? marketFeedService.getViewerMatches(userId, feedDate, region) : Promise.resolve(null),
   ]);
   const error = !day.success ? day.error : !dates.success ? dates.error : null;
@@ -72,6 +78,7 @@ export default async function MarketFeedPage({
       <MarketFeedView
         feedDate={feedDate}
         today={today}
+        fellBackFrom={fellBackFrom}
         view={view}
         region={region}
         signedIn={!!userId}

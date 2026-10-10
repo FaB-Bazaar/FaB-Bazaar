@@ -33,10 +33,28 @@ export interface TradePost {
   youHave: TradePostWant[];
 }
 
+/** One matched listing, named so the "For you" box can say WHICH card and link to its row. */
+export interface ForYouCard {
+  /** Row anchor in the post view (`listing-<id>`). */
+  listingId: string;
+  /** Row anchor in the card view (`card-<key>`). */
+  groupKey: string;
+  name: string;
+  pitch: number | null;
+  foiling: string | null;
+  variant: string | null;
+  price: number | null;
+  currency: string;
+}
+
 export interface ForYouSummary {
   cardsWantedYouOwn: number;
   cardsSoldYouWant: number;
   tradePostsYouCanOffer: number;
+  /** Selling listings of cards on the viewer's wants list, in feed order (every seller). */
+  wantsForSale: ForYouCard[];
+  /** Buying / trade listings of cards the viewer owns, in feed order. */
+  wantedYouOwn: ForYouCard[];
 }
 
 const nameOf = (l: MarketFeedListing) => l.displayName ?? l.cardName;
@@ -109,11 +127,26 @@ export function personalizeFeed(
     (a, b) => b.youHave.length - a.youHave.length || b.wantsCount - a.wantsCount,
   );
 
+  const groupKeyOf = new Map<string, string>();
+  for (const g of groups) for (const x of [...g.selling, ...g.buying, ...g.trading]) groupKeyOf.set(x.id, g.key);
+  const cardOf = (x: MarketFeedListing): ForYouCard => ({
+    listingId: x.id,
+    groupKey: groupKeyOf.get(x.id) ?? '',
+    name: nameOf(x),
+    pitch: x.pitch,
+    foiling: x.foiling,
+    variant: x.variant,
+    price: x.price,
+    currency: x.currency,
+  });
+
   const forYou = matches
     ? {
         cardsWantedYouOwn: personalized.filter((g) => g.viewer.have).length,
         cardsSoldYouWant: personalized.filter((g) => g.viewer.onWants).length,
         tradePostsYouCanOffer: tradePosts.filter((p) => p.youHave.length > 0).length,
+        wantsForSale: listings.filter((x) => byListing[x.id]?.onWants).map(cardOf),
+        wantedYouOwn: listings.filter((x) => byListing[x.id]?.have).map(cardOf),
       }
     : null;
 

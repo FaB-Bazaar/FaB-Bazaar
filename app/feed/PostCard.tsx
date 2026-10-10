@@ -3,14 +3,14 @@ import Link from 'next/link';
 import type { FeedPost } from '@/lib/market-feed/group-posts';
 import type { ViewerGroupMatch } from '@/lib/market-feed/personalize';
 import type { MarketFeedListing } from '@/lib/services/postgres/market-feed/PostgresMarketFeedService';
-import { BuyOnTcgplayer, PITCH_LABEL, PostLink, foilingName, formatMoney } from './feed-ui';
+import { BuyOnTcgplayer, PITCH_LABEL, PostLink, anchorTarget, foilingName, formatMoney, listingAnchor } from './feed-ui';
 
 function ListingRow({ l, viewer }: { l: MarketFeedListing; viewer?: ViewerGroupMatch }) {
   const name = l.displayName ?? l.cardName;
   const tags = [l.pitch ? PITCH_LABEL[l.pitch] : null, foilingName(l.foiling), l.condition, l.collectorNumber].filter(Boolean);
   const badge = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
   return (
-    <li className="flex gap-3 py-2">
+    <li id={listingAnchor(l.id)} className={`flex gap-3 py-2 rounded ${anchorTarget}`}>
       <div className="w-10 shrink-0">
         {l.imageUrl ? (
           <Image src={l.imageUrl} alt="" width={40} height={56} className="rounded w-10 h-auto" unoptimized />

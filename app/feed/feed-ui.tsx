@@ -43,3 +43,10 @@ export function BuyOnTcgplayer({ url }: { url: string | null }) {
     </TcgAffiliateLink>
   );
 }
+
+// Row anchors the "For you" list links to: one per listing (post view), one
+// per card group (card view; group keys can hold any character).
+export const listingAnchor = (listingId: string) => `listing-${listingId}`;
+export const cardAnchor = (groupKey: string) => `card-${groupKey.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+// Rows a "For you" link jumps to clear the sticky navbar and get a ring.
+export const anchorTarget = 'scroll-mt-24 target:ring-2 target:ring-blue-400';

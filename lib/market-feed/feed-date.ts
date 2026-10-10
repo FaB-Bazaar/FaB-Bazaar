@@ -11,3 +11,25 @@ export function marketFeedToday(now: Date = new Date()): string {
     day: '2-digit',
   }).format(now);
 }
+
+/**
+ * Which day the feed page shows. An explicit ?date is always honoured; the
+ * default (today) falls back to the newest earlier day with listings, so the
+ * page isn't empty before that day's feed is posted. `fellBackFrom` is the
+ * empty day that was skipped (null when no fallback happened).
+ */
+export function resolveFeedDay({
+  requested,
+  today,
+  datesWithListings,
+}: {
+  requested?: string;
+  today: string;
+  /** YYYY-MM-DD days that have listings, any order. */
+  datesWithListings: string[];
+}): { feedDate: string; fellBackFrom: string | null } {
+  if (requested) return { feedDate: requested, fellBackFrom: null };
+  if (datesWithListings.includes(today)) return { feedDate: today, fellBackFrom: null };
+  const latest = datesWithListings.filter((d) => d < today).sort().pop();
+  return latest ? { feedDate: latest, fellBackFrom: today } : { feedDate: today, fellBackFrom: null };
+}
