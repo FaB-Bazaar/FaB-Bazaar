@@ -27,7 +27,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import {
-  Search, BookOpen, Layers, FileText, TrendingUp, Plus, Users, Trophy, Zap, Heart,
+  Search, BookOpen, Layers, FileText, TrendingUp, Plus, Users, Trophy, Zap, Heart, Rss,
 } from "lucide-react"
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose,
@@ -234,6 +234,7 @@ export default function MobileTabBar({
             <SheetLink href="/collection" icon={BookOpen}>Binders</SheetLink>
             <SheetLink href="/wants" icon={FileText}>Wants List</SheetLink>
             <SheetLink href="/daily" icon={TrendingUp}>Daily Movers</SheetLink>
+            <SheetLink href="/feed" icon={Rss}>Feeds</SheetLink>
 
             <div className="border-t border-gray-300 dark:border-gray-800 my-1" />
 

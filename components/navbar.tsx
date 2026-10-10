@@ -42,7 +42,8 @@ import {
   Ban,
   Swords,
   UserCog,
-  Camera
+  Camera,
+  Rss
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { accessibleAdminLinks } from "@/components/nav/admin-links"
@@ -468,6 +469,12 @@ export default function Navbar() {
             <Link href="/daily" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <TrendingUp className="h-4 w-4 mr-2" />
               Daily Movers
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/feed" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <Rss className="h-4 w-4 mr-2" />
+              Feeds
             </Link>
           </DropdownMenuItem>
 
@@ -1091,6 +1098,9 @@ export default function Navbar() {
                       </Link>
                       <Link href="/daily" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Daily Movers</div>
+                      </Link>
+                      <Link href="/feed" onClick={() => setIsMenuOpen(false)}>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Feeds</div>
                       </Link>
                       {bindersLoading ? (
                         <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
