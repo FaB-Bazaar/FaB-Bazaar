@@ -33,11 +33,11 @@ describe('POST /api/scan/session', () => {
     expect((await store.get(body.data.code))?.userId).toBe('u1');
   });
 
-  it('403s a signed-in non-superadmin while the scanner is superadmin-only', async () => {
+  it('lets a signed-in non-superadmin in (the scanner is open to every signed-in user)', async () => {
     const { userService } = await import('@/lib/services');
     vi.mocked(userService.getRoles).mockResolvedValueOnce({ success: true, data: { isSuperAdmin: false } } as any);
     const res = await POST(req());
-    expect(res.status).toBe(403);
+    expect(res.status).toBeLessThan(300);
   });
 
   it('behind the production proxy, the pair URL uses the forwarded public host, not the container bind address', async () => {

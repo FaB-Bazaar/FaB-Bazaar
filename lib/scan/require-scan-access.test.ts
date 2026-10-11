@@ -25,22 +25,11 @@ describe('requireScanAccess', () => {
     expect(r.response.status).toBe(401);
     expect(mockRoles).not.toHaveBeenCalled();
   });
-  it('403s a signed-in non-superadmin while the rollout is superadmin-only', async () => {
+  it('lets any signed-in user through without a roles lookup (rollout: everyone)', async () => {
     mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);
     mockRoles.mockResolvedValue({ success: true, data: roles(false) });
-    const r = await requireScanAccess(req());
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.response.status).toBe(403);
-    expect((await r.response.json()).error).toMatch(/not available/i);
-  });
-  it('403s when the roles lookup fails (deny by default)', async () => {
-    mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);
-    mockRoles.mockResolvedValue({ success: false, error: 'db' });
-    const r = await requireScanAccess(req());
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.response.status).toBe(403);
+    expect(await requireScanAccess(req())).toEqual({ ok: true, userId: 'u1' });
+    expect(mockRoles).not.toHaveBeenCalled();
   });
   it('passes a superadmin through with the userId', async () => {
     mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);

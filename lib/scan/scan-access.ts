@@ -2,12 +2,13 @@
 // Pure and client-safe (navbar + page import it). Server routes go through
 // lib/scan/require-scan-access.ts, which resolves the caller's roles first.
 //
-// ROLLOUT SWITCH: superadmin-only while the feature is being tested on
-// production; flip SCAN_ROLLOUT to 'everyone' (and the pinned expectation in
-// scan-access.test.ts) to open it to every signed-in user. Nothing else changes.
+// ROLLOUT SWITCH: open to every signed-in user since 2026-10-11 (was
+// superadmin-only while tested on production). Signed-out visitors never get in.
+// Set back to 'superadmin' (and the pinned expectations in scan-access.test.ts
+// and the scan route tests) to close it again.
 
 export type ScanRollout = 'superadmin' | 'everyone';
-export const SCAN_ROLLOUT: ScanRollout = 'superadmin';
+export const SCAN_ROLLOUT: ScanRollout = 'everyone';
 
 export interface ScanAccessFlags {
   isSuperAdmin?: boolean;

@@ -44,9 +44,9 @@ describe('POST /api/scan/session/[code]/items', () => {
     expect(await store.listItems(s.code)).toEqual([]);
   });
 
-  it('403s a non-superadmin while the scanner is superadmin-only', async () => {
+  it('lets a signed-in non-superadmin in (the scanner is open to every signed-in user)', async () => {
     const { userService } = await import('@/lib/services');
     vi.mocked(userService.getRoles).mockResolvedValueOnce({ success: true, data: { isSuperAdmin: false } } as any);
-    expect((await post((await store.create('u1')).code, { items: [item] })).status).toBe(403);
+    expect((await post((await store.create('u1')).code, { items: [item] })).status).toBeLessThan(300);
   });
 });

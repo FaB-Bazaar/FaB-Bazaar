@@ -21,9 +21,9 @@ describe('canUseScannerUnder', () => {
 
 describe('canUseScanner (current rollout)', () => {
   // Flip-time: change SCAN_ROLLOUT to 'everyone' and this expectation.
-  it('is superadmin-only right now', () => {
-    expect(SCAN_ROLLOUT).toBe('superadmin');
-    expect(canUseScanner({ isSuperAdmin: false })).toBe(false);
+  it('is open to every signed-in user (signed out never)', () => {
+    expect(SCAN_ROLLOUT).toBe('everyone');
+    expect(canUseScanner({ isSuperAdmin: false })).toBe(true);
     expect(canUseScanner({ isSuperAdmin: true })).toBe(true);
     expect(canUseScanner(null)).toBe(false);
   });

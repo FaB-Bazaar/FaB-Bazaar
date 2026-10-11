@@ -31,10 +31,10 @@ describe('GET /api/scan/session/[code]', () => {
     expect(body).toEqual({ success: true, data: { code: s.code, paired: false, itemCount: 1 } });
   });
 
-  it('403s a signed-in non-superadmin while the scanner is superadmin-only', async () => {
+  it('lets a signed-in non-superadmin in (the scanner is open to every signed-in user)', async () => {
     const { userService } = await import('@/lib/services');
     vi.mocked(userService.getRoles).mockResolvedValueOnce({ success: true, data: { isSuperAdmin: false } } as any);
     const res = await get((await store.create('u1')).code);
-    expect(res.status).toBe(403);
+    expect(res.status).toBeLessThan(300);
   });
 });
