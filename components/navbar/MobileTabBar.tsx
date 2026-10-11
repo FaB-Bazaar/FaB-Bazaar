@@ -15,7 +15,8 @@
  * The hamburger menu is intentionally left intact (it still lists everything) —
  * this bar is an additive quick-access layer for the primary destinations.
  *
- * Hidden entirely on the deck editor (/decks/[deckId]) — that page renders its
+ * Hidden entirely on the deck editor (/decks/[deckId]) and /scan (see
+ * lib/navbar/mobile-tab-bar-visibility.ts) — the deck editor renders its
  * own floating tab pill (Cards/Deck/Matchups/…) and must not fight the FAB.
  *
  * Content clearance: the app shell reserves bottom padding for this bar
@@ -35,6 +36,7 @@ import {
 import { cn } from "@/lib/utils"
 import { canUseVolzar, type VolzarAccessFlags } from "@/lib/ai/volzar-access"
 import { volzarInstantHref } from "@/app/volzar/instant-link"
+import { hidesMobileTabBar } from "@/lib/navbar/mobile-tab-bar-visibility"
 
 type DeckSort = "updated" | "name" | "created"
 
@@ -100,10 +102,9 @@ export default function MobileTabBar({
 
   // The deck editor page renders its own floating tab pill (Cards/Deck/…);
   // hide the site nav there — unlike the old full-width bars, a floating pill
-  // can't simply cover the detached FAB with a higher z-index.
-  // /decks/community and /decks/to-beat are listing pages, not the editor.
-  const deckSeg = /^\/decks\/([^/]+)\/?$/.exec(pathname)?.[1]
-  if (deckSeg && deckSeg !== "community" && deckSeg !== "to-beat") return null
+  // can't simply cover the detached FAB with a higher z-index. Also hidden on
+  // /scan, where it covers the review rows and their buttons.
+  if (hidesMobileTabBar(pathname)) return null
 
   return (
     <>

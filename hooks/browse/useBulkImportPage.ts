@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
 import { buildColorFallbackRetries, mergeColorFallbackResults } from '@/lib/browse/bulk-search-fallback';
 import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance } from '@/lib/browse/group-bulk-results';
+import { binderImportSummary } from '@/lib/browse/binder-import-summary';
 import { addStaged } from '@/lib/scan/banner/review';
 import { getSetName } from "@/lib/fab-formatters";
 import { bindersClient, wantsClient, searchClient } from "@/lib/client";
@@ -161,7 +162,7 @@ export function useBulkImportPage() {
       if (result.success) {
         toast({
           title: "Import Successful!",
-          description: `${result.data.summary.added} cards added, ${result.data.summary.updated} updated, ${result.data.summary.failed} failed.`
+          description: binderImportSummary(result.data)
         });
         setBulkResults(current => current.filter(c => !c.isStaged));
       } else {

@@ -284,7 +284,7 @@ function ScanAndImport() {
         onSetAllForTrade={handlers.setAllStagedForTrade}
         onToggleTrade={handlers.toggleForTrade}
       />}
-      <StagedFAB count={stagedCards.length} onClick={() => setMobileSheetOpen(true)} />
+      <StagedFAB count={totalStagedQuantity} onClick={() => setMobileSheetOpen(true)} />
       <MobileStagedSheet
         open={mobileSheetOpen}
         onOpenChange={setMobileSheetOpen}
