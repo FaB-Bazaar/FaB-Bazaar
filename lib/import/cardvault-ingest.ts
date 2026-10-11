@@ -252,6 +252,8 @@ export function keywordsFromRulesText(raw: string | null | undefined): [string[]
   return [search, display];
 }
 
+const PITCH_COLORS: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
+
 export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds) {
   const displayName = (faceIn.printed_name ?? '').trim();
   const typebox = (faceIn.printed_typebox ?? '').trim();
@@ -294,6 +296,8 @@ export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds
     has_class_only,
     has_talent_only,
     pitch,
+    // The fab-cube feed's color is exactly its pitch (1/2/3); gems (pitch 4) are colorless.
+    color: PITCH_COLORS[pitch ?? 0] ?? null,
     cost: toInt((faceIn as any).printed_cost),
     power: toInt((faceIn as any).printed_power),
     defense: toInt((faceIn as any).printed_defense),

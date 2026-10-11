@@ -31,7 +31,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //        nightly run (cached bodies carry other_face_* / image_url)
 //   v7 — rarity sort uses a rank (Promo → Fabled → Marvel → … → Token),
 //        not the alphabetical rarity code
-const SEARCH_CACHE_VERSION = 'v7';
+//   v8 — migration 0125 gave provisional (CardVault) cards a color outside a
+//        nightly run (color filters now match them)
+const SEARCH_CACHE_VERSION = 'v8';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

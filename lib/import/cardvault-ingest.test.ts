@@ -156,6 +156,17 @@ describe('buildProvisionalCard', () => {
     expect(dr).toMatchObject({ is_defense_reaction: true, is_guardian: true, defense: 4 });
   });
 
+  it('derives color from pitch the way the fab-cube feed does (1/2/3 → red/yellow/blue)', () => {
+    const colorOf = (printed_pitch: string | null) =>
+      buildProvisionalCard(face({ printed_pitch }), { cardUniqueId: 'c', lssCardId: 'u' }).color;
+    expect(colorOf('1')).toBe('red');
+    expect(colorOf('2')).toBe('yellow');
+    expect(colorOf('3')).toBe('blue');
+    // heroes/equipment have no pitch; gems (Soul of Existence) pitch 4 and have no color
+    expect(colorOf(null)).toBeNull();
+    expect(colorOf('4')).toBeNull();
+  });
+
   it('blank printed stats become null, rules text is normalized lowercase', () => {
     const c = buildProvisionalCard(
       face({ printed_name: 'T', printed_rules_text: 'Go **again**{br}Draw a card.' }),
