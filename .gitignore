@@ -135,3 +135,6 @@ scripts/seed-*-facets.ts
 # Generated facet-tag export — attribution lives in the DB, never committed
 # (git history can't honor a later retraction). Regenerate locally if needed.
 card-facets.json
+
+# tesseract.js files copied from node_modules by scripts/copy-tesseract-assets.mjs (predev/prebuild)
+/public/tesseract/

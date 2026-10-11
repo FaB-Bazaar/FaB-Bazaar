@@ -75,7 +75,10 @@ export function useBannerScanner() {
     if (!worker.current) {
       onStatus?.("Loading the text reader (first scan only)…"); await nextFrame();
       const { createWorker } = await import("tesseract.js");
-      const w = await createWorker("eng");
+      // self-hosted (scripts/copy-tesseract-assets.mjs -> public/tesseract), not tesseract.js's default public CDN.
+      // Absolute URLs: the worker runs from a blob URL, where relative paths don't resolve.
+      const base = `${window.location.origin}/tesseract`;
+      const w = await createWorker("eng", 1, { workerPath: `${base}/worker.min.js`, corePath: `${base}/core`, langPath: `${base}/lang` });
       await w.setParameters({ tessedit_pageseg_mode: "7" as never });   // a banner is one line of text
       worker.current = w as unknown as OcrWorker;
     }
