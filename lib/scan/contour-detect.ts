@@ -92,7 +92,7 @@ function edgeMap(sm: Float32Array, w: number, h: number, highPct: number, lowRat
 }
 
 /** 8-connected components of edge pixels; returns each component's pixel list. */
-function components(edges: Uint8Array, w: number, h: number, minPixels: number): Point[][] {
+export function components(edges: Uint8Array, w: number, h: number, minPixels: number): Point[][] {
   const seen = new Uint8Array(w * h); const out: Point[][] = [];
   for (let s = 0; s < edges.length; s++) {
     if (!edges[s] || seen[s]) continue;
@@ -109,7 +109,7 @@ function components(edges: Uint8Array, w: number, h: number, minPixels: number):
   return out;
 }
 
-function convexHull(pts: Point[]): Point[] {
+export function convexHull(pts: Point[]): Point[] {
   const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   if (p.length < 3) return p;
   const cross = (o: Point, a: Point, b: Point) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
@@ -142,7 +142,7 @@ function simplify(poly: Point[], eps: number): Point[] {
  * over hull edge directions). Robust to tilt and to a clipped corner; the
  * line-fit refinement afterwards corrects it for perspective.
  */
-function minAreaRect(hull: Point[]): Quad | null {
+export function minAreaRect(hull: Point[]): Quad | null {
   if (hull.length < 3) return null;
   let best: { area: number; quad: Quad } | null = null;
   for (let i = 0; i < hull.length; i++) {

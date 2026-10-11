@@ -958,6 +958,39 @@ export class PostgresPrintingsService implements IPrintingsService {
   }
 
   /**
+   * Card-name vocabulary for the banner scanner: one entry per display name with all its pitches and its
+   * de/es/fr/it translations (ja stays out until the scanner reads Japanese).
+   */
+  async getScanNameIndex(): AsyncResult<Array<{ name: string; pitches: Array<number | null>; translations: string[] }>> {
+    try {
+      const names = await db.execute(sql`
+        SELECT ${cards.displayName} AS name, array_agg(DISTINCT ${cards.pitch}) AS pitches
+          FROM ${cards}
+         GROUP BY ${cards.displayName}`);
+      const translated = await db.execute(sql`
+        SELECT c.display_name AS name, array_agg(DISTINCT t.display_name) AS translations
+          FROM ${cardTranslations} t
+          JOIN ${cards} c ON c.card_unique_id = t.card_unique_id
+         WHERE t.language IN ('de', 'es', 'fr', 'it')
+           AND lower(t.display_name) <> lower(c.display_name)
+         GROUP BY c.display_name`);
+      const byName = new Map(
+        (translated.rows as Array<{ name: string; translations: string[] }>).map((r) => [r.name, r.translations]),
+      );
+      return {
+        success: true,
+        data: (names.rows as Array<{ name: string; pitches: Array<number | null> }>).map((r) => ({
+          name: r.name,
+          pitches: r.pitches,
+          translations: byName.get(r.name) ?? [],
+        })),
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to build the scan name index' };
+    }
+  }
+
+  /**
    * Get elemental cards by essence type(s)
    */
   async getElementalCards(

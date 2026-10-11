@@ -123,6 +123,7 @@
     "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
+    "tesseract.js": "5.1.1",
     "three": "^0.184.0",
     "tweetnacl": "^1.0.3",
     "url": "latest",

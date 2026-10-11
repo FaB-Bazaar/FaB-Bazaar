@@ -809,6 +809,12 @@ export interface IPrintingsService {
   ): AsyncResult<Array<{ cardUniqueId: string; language: string; displayName: string }>>;
 
   /**
+   * The card-name vocabulary for the banner scanner (lib/scan/banner/name-match.ts): every card display name once,
+   * with every pitch it is printed in (null = pitchless) and its de/es/fr/it translated names.
+   */
+  getScanNameIndex(): AsyncResult<Array<{ name: string; pitches: Array<number | null>; translations: string[] }>>;
+
+  /**
    * Get multiple printings by their printing_id values
    *
    * @param printingIds - Array of printing IDs
