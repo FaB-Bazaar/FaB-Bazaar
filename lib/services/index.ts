@@ -65,7 +65,6 @@ import { PostgresMarketFeedService } from './postgres/market-feed/PostgresMarket
 import { PostgresFoilMaskService } from './postgres/foil-mask/PostgresFoilMaskService';
 import { PostgresIngestService } from './postgres/ingest/PostgresIngestService';
 import { PostgresCardVaultService } from './postgres/cardvault/PostgresCardVaultService';
-import { PostgresScanService } from './postgres/scan/PostgresScanService';
 import { PostgresMcpUsageService } from './postgres/mcp-usage/PostgresMcpUsageService';
 import { PostgresLlmUsageService } from './postgres/llm-usage/PostgresLlmUsageService';
 import { PostgresSetsService } from './postgres/sets/PostgresSetsService';
@@ -603,7 +602,6 @@ export const marketFeedService = new PostgresMarketFeedService();
 export const foilMaskService = new PostgresFoilMaskService();
 export const ingestService = new PostgresIngestService();
 export const cardVaultService = new PostgresCardVaultService();
-export const scanService = new PostgresScanService();
 
 
 /**

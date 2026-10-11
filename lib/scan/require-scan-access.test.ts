@@ -11,7 +11,7 @@ import { userService } from '@/lib/services';
 
 const mockAuth = vi.mocked(authenticateRequest);
 const mockRoles = vi.mocked(userService.getRoles);
-const req = () => new NextRequest('http://localhost/api/scan/identify', { method: 'POST' });
+const req = () => new NextRequest('http://localhost/api/scan/session', { method: 'POST' });
 const roles = (isSuperAdmin: boolean) => ({ isAdmin: false, isSuperAdmin, isContentCreator: false, canManageLocations: false, canImportCardCollections: false, canModerateForums: false });
 
 beforeEach(() => vi.clearAllMocks());

@@ -11,7 +11,7 @@ import { userService } from '@/lib/services';
 
 const mockAuth = vi.mocked(authenticateRequest);
 const mockHasRole = vi.mocked(userService.hasRole);
-const req = () => new NextRequest('http://localhost/api/admin/scan/hashes');
+const req = () => new NextRequest('http://localhost/api/admin/cardvault');
 
 beforeEach(() => vi.clearAllMocks());
 
