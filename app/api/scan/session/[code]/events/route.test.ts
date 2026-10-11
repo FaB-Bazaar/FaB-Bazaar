@@ -11,7 +11,7 @@ vi.mock('@/lib/services', () => ({ userService: { getRoles: vi.fn(async () => ({
 import { GET } from './route';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 const mockAuth = vi.mocked(authenticateRequest);
-const item = (id: string) => ({ id, createdAt: 1, thumb: null, candidates: [], bestDistance: null, pitchHint: null });
+const item = (id: string) => ({ id, createdAt: 1, name: 'Massacre', status: 'ok' as const, pitch: 1, pitchOptions: [1], crop: null });
 
 async function readEvents(res: Response, count: number, signal?: AbortController): Promise<any[]> {
   const reader = res.body!.getReader();

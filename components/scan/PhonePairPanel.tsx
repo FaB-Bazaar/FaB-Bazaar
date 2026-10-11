@@ -1,6 +1,6 @@
 // components/scan/PhonePairPanel.tsx — desktop side of phone pairing: creates
-// a scan session, shows its QR, and streams the phone's results into the
-// page's queue (via onRemoteItem) over server-sent events.
+// a scan session, shows its QR, and streams the cards the phone read into the
+// page's review list (via onRemoteItem) over server-sent events.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -58,7 +58,7 @@ export default function PhonePairPanel({ onRemoteItem }: { onRemoteItem: (item: 
           </button>
         )}
       </div>
-      {phase === "idle" && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Use your phone's camera and confirm the printings here.</p>}
+      {phase === "idle" && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Take the photos on your phone; the cards it reads show up here to check.</p>}
       {phase === "error" && <p className="mt-1 text-sm text-red-700 dark:text-red-300">{error}</p>}
       {phase === "creating" && <p className="mt-2 inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />Creating session…</p>}
       {session && (phase === "waiting" || phase === "connected") && (

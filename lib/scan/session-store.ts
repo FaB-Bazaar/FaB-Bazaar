@@ -1,12 +1,12 @@
 // lib/scan/session-store.ts — phone ↔ desktop scan sessions.
 // The desktop creates a session (8-char code, shown as a QR); the signed-in
-// phone opens /scan?pair=CODE, marks it paired, and every card it identifies
-// is appended here and pushed to the desktop over SSE. Redis-backed in prod
+// phone opens /scan?pair=CODE, marks it paired, reads the cards in its photos ON
+// THE PHONE (lib/scan/banner) and posts the results (name, pitch, a small crop —
+// never the photo) via POST /api/scan/session/[code]/items; each is appended
+// here and pushed to the desktop over SSE. Redis-backed in prod
 // (pub/sub fan-out works across containers); in-memory fallback for dev/tests.
 import Redis from 'ioredis';
-import { randomInt } from 'node:crypto';
-import type { ScanCandidate } from '@/lib/services/postgres/scan/PostgresScanService';
-import type { PitchHint } from '@/lib/scan/image-hash';
+import { randomInt, randomUUID } from 'node:crypto';
 
 export const SCAN_SESSION_TTL_SEC = 30 * 60;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
@@ -19,16 +19,41 @@ export interface ScanSessionRecord {
   pairedAt: number | null;
 }
 
+/** One card a paired phone read. */
 export interface ScanSessionItem {
   id: string;
   createdAt: number;
-  /** Small JPEG data URL of the phone's photo, for the desktop preview. */
-  thumb: string | null;
-  candidates: ScanCandidate[];
-  bestDistance: number | null;
-  pitchHint: PitchHint | null;
-  /** Capture id of the photo (for labelling on the desktop). */
-  captureId?: string;
+  name: string;
+  /** "check" = the phone wasn't sure (shown as "Not sure" on the desktop) */
+  status: 'ok' | 'check';
+  /** settled pitch (the name exists in one pitch), else null */
+  pitch: number | null;
+  pitchOptions: Array<number | null>;
+  /** small JPEG data URL of the card cut from the phone's photo (for "your photo -> our match") */
+  crop: string | null;
+}
+
+const MAX_ITEMS_PER_POST = 40;      // one photo; a playmat spread was ~30
+const MAX_NAME = 120;
+const MAX_CROP = 40_000;            // chars of data URL: a ~160px JPEG is a few KB
+
+const isPitch = (v: unknown) => v === null || v === 1 || v === 2 || v === 3;
+
+/** Validate what a paired phone posts; ids and times are assigned here, never taken from the client. */
+export function parseSessionItems(body: unknown): { items: ScanSessionItem[] } | { error: string } {
+  const raw = (body as { items?: unknown } | null)?.items;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_ITEMS_PER_POST) return { error: `items must be a list of 1-${MAX_ITEMS_PER_POST} cards` };
+  const items: ScanSessionItem[] = [];
+  for (const r of raw as Array<Record<string, unknown>>) {
+    const name = r?.name, status = r?.status, pitch = r?.pitch, opts = r?.pitchOptions, crop = r?.crop;
+    if (typeof name !== 'string' || !name.trim() || name.length > MAX_NAME) return { error: 'each card needs a name' };
+    if (status !== 'ok' && status !== 'check') return { error: 'status must be ok or check' };
+    if (!isPitch(pitch)) return { error: 'pitch must be 1, 2, 3 or null' };
+    if (!Array.isArray(opts) || opts.length > 3 || !opts.every(isPitch)) return { error: 'pitchOptions must be up to 3 pitches' };
+    if (crop !== null && (typeof crop !== 'string' || !crop.startsWith('data:image/jpeg;base64,') || crop.length > MAX_CROP)) return { error: 'crop must be a small inline JPEG' };
+    items.push({ id: randomUUID(), createdAt: Date.now(), name: name.trim(), status, pitch: pitch as number | null, pitchOptions: opts as Array<number | null>, crop: crop as string | null });
+  }
+  return { items };
 }
 
 export interface ScanSessionSubscriber {

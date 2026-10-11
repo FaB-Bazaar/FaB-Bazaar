@@ -30,6 +30,8 @@ export interface ReviewItem {
   pitchOptions: Array<number | null>;
   /** found by a tap on a card the scan missed (name "" = the tap couldn't read it: ask for the name) */
   viaTap?: boolean;
+  /** read by a paired phone (crop from the phone's photo; no box on a desktop photo) */
+  fromPhone?: boolean;
   /** the user confirmed this card (only confirmed cards go to the stage); names the user picked start confirmed */
   confirmed: boolean;
 }
@@ -137,7 +139,7 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
             <span>{line.details.join(" · ")} · {line.price}</span>
           </span>
           <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"><Check className="h-4 w-4" aria-hidden /> Confirmed</span>
-          {item.n === null ? <span className="text-sm text-gray-700 dark:text-gray-300">Added by you</span> : item.viaTap ? <span className="text-sm text-gray-700 dark:text-gray-300">Found by your tap</span> : null}
+          {item.fromPhone ? <span className="text-sm text-gray-700 dark:text-gray-300">From your phone</span> : item.n === null ? <span className="text-sm text-gray-700 dark:text-gray-300">Added by you</span> : item.viaTap ? <span className="text-sm text-gray-700 dark:text-gray-300">Found by your tap</span> : null}
           <button type="button" onClick={() => h.onUnconfirm(item.id)} className={SMALL_BTN}>Undo</button>
           <button type="button" onClick={() => h.onRemove(item.id)} className={SMALL_BTN}>Remove</button>
         </div>
@@ -151,7 +153,7 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
         <span className="mt-1 w-6 shrink-0 text-center text-sm font-bold text-gray-700 dark:text-gray-300" aria-label={item.n === null ? "Added by you" : undefined}>{item.n ?? "+"}</span>
         {item.crop ? (
           // eslint-disable-next-line @next/next/no-img-element -- local data URL cut from the user's photo
-          <img src={item.crop} alt={`Your photo of card ${item.n}`} className="h-28 w-20 shrink-0 rounded object-cover" />
+          <img src={item.crop} alt={`Your photo of ${item.n === null ? item.name : `card ${item.n}`}`} className="h-28 w-20 shrink-0 rounded object-cover" />
         ) : (
           <div className="flex h-28 w-20 shrink-0 items-center justify-center rounded border border-dashed border-gray-300 p-1 text-center text-xs text-gray-700 dark:border-gray-600 dark:text-gray-300">added by hand</div>
         )}
@@ -183,7 +185,7 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
               : item.status === "check" ? <span className="inline-flex items-center gap-1"><CircleHelp className="h-4 w-4" aria-hidden /> Not sure. Is this {item.name}?</span>
               : <>
                   {item.confirmed && <span className="inline-flex items-center gap-1 font-semibold"><Check className="h-4 w-4" aria-hidden /> Confirmed</span>}
-                  {item.n === null ? <span>Added by you</span> : item.viaTap ? <span>Found by your tap</span> : null}
+                  {item.fromPhone ? <span>From your phone</span> : item.n === null ? <span>Added by you</span> : item.viaTap ? <span>Found by your tap</span> : null}
                 </>}
           </p>
           {pitchUnsettled && (

@@ -7,7 +7,8 @@
 // reviews on its own.
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +31,9 @@ import MobileStagedSheet from "@/components/browse/MobileStagedSheet";
 import StagedFAB from "@/components/browse/StagedFAB";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import PhonePairPanel from "@/components/scan/PhonePairPanel";
+import PhoneScanner from "@/components/scan/PhoneScanner";
+import type { ScanSessionItem } from "@/lib/scan/session-store";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 const NEAR_MISS_SCORE = -0.05;   // unconfirmed reads at or below this are worth a "Check" row; type lines / rules text score >= 0
@@ -40,6 +44,12 @@ const PITCH_WORD = { 1: "red", 2: "yellow", 3: "blue" } as Record<number, string
 const bannerBox = (r: { cx: number; cy: number; w: number; h: number; angle: number }) => ({ cx: r.cx, cy: r.cy, w: r.w * 1.06, h: r.h * 1.7, angle: r.angle });
 
 export default function ScanPage() {
+  // useSearchParams (?pair=) needs a Suspense boundary
+  return <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-700 dark:text-gray-300" aria-label="Loading" /></div>}><ScanPageInner /></Suspense>;
+}
+
+function ScanPageInner() {
+  const pairCode = useSearchParams().get("pair");
   const { status: sessionStatus } = useSession();
   const { user } = useAuth();
   const signedIn = sessionStatus === "authenticated";
@@ -55,7 +65,7 @@ export default function ScanPage() {
         <Camera className="mx-auto h-10 w-10 text-gray-700 dark:text-gray-300" aria-hidden />
         <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Scan cards into your collection</h1>
         <p className="mt-2 text-base text-gray-700 dark:text-gray-300">Sign in to photograph cards and add them to a binder.</p>
-        <Link href={`/auth/login?callbackUrl=${encodeURIComponent("/scan")}`} className={`mt-6 inline-block rounded-md bg-blue-600 px-5 py-2.5 text-base font-medium text-white hover:bg-blue-700 ${FOCUS_RING}`}>Sign in</Link>
+        <Link href={`/auth/login?callbackUrl=${encodeURIComponent(pairCode ? `/scan?pair=${pairCode}` : "/scan")}`} className={`mt-6 inline-block rounded-md bg-blue-600 px-5 py-2.5 text-base font-medium text-white hover:bg-blue-700 ${FOCUS_RING}`}>Sign in</Link>
       </div>
     );
   }
@@ -67,6 +77,15 @@ export default function ScanPage() {
         <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Card scanning isn&apos;t available on your account yet</h1>
         <p className="mt-2 text-base text-gray-700 dark:text-gray-300">It&apos;s being tested with a small group first. In the meantime you can add cards from your collection page.</p>
         <Link href="/collection" className={`mt-6 inline-block rounded-md border border-gray-300 px-5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700 ${FOCUS_RING}`}>Go to your collection</Link>
+      </div>
+    );
+  }
+  if (pairCode) {
+    // the phone side of pairing: read cards here, review them on the computer
+    return (
+      <div className="mx-auto max-w-lg px-4 py-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Scan cards</h1>
+        <div className="mt-3"><PhoneScanner code={pairCode.toUpperCase()} /></div>
       </div>
     );
   }
@@ -206,6 +225,18 @@ function ScanAndImport() {
     if (hit) void resolve([{ id, name: hit.card.card, pitch: hit.card.pitch }]);
   };
 
+  /** Cards a paired phone read: review rows like any other ("From your phone"). A reconnecting event stream can replay
+   *  items, so they're taken once by id. */
+  const seenRemote = useRef(new Set<string>());
+  const addRemote = (it: ScanSessionItem) => {
+    if (seenRemote.current.has(it.id)) return;
+    seenRemote.current.add(it.id);
+    setHasScanned(true);
+    setItems(prev => [...prev, { id: it.id, photoId: "", n: null, crop: it.crop, name: it.name, status: it.status, printing: null, allPrintings: [],
+      resolving: true, pitchOptions: it.pitchOptions, confirmed: false, fromPhone: true }]);
+    void resolve([{ id: it.id, name: it.name, pitch: it.pitch }]);
+  };
+
   /** A card the scan missed entirely: typed name (close is fine) -> best card name -> a hand-added review row. */
   const addMissing = (typed: string, printing?: any | null, printings?: any[]) => {
     const m = scanner.index ? matchName(scanner.index, typed) : null;
@@ -310,6 +341,8 @@ function ScanAndImport() {
                 {busy && <Loader2 className="mr-1 inline h-4 w-4 animate-spin" aria-hidden />}{shown}
               </p>
             </div>
+
+            <PhonePairPanel onRemoteItem={addRemote} />
 
             {scanError && (
               <Alert variant="destructive" className="mt-4">

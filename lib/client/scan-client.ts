@@ -51,15 +51,16 @@ export async function pairSession(code: string): Promise<ApiResponse<{ code: str
   }
 }
 
-/** Phone: identify AND push the result into the paired desktop's session. */
-export async function identifyCardForSession(image: Blob, session: string, limit = 5): Promise<ApiResponse<IdentifyResponse & { sessionItemId?: string }>> {
+/** What a paired phone sends per card it read (on the phone): see parseSessionItems in lib/scan/session-store. */
+export interface SessionCardResult { name: string; status: 'ok' | 'check'; pitch: number | null; pitchOptions: Array<number | null>; crop: string | null }
+
+/** Phone: send the cards it read to the paired desktop's session. */
+export async function sendSessionItems(code: string, items: SessionCardResult[]): Promise<ApiResponse<{ added: number }>> {
   try {
-    const fd = new FormData();
-    fd.append('image', image, 'card.jpg');
-    fd.append('limit', String(limit));
-    fd.append('session', session);
-    const response = await fetch('/api/scan/identify', { method: 'POST', body: fd });
-    return await handleResponse<IdentifyResponse & { sessionItemId?: string }>(response);
+    const response = await fetch(`/api/scan/session/${encodeURIComponent(code)}/items`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }),
+    });
+    return await handleResponse<{ added: number }>(response);
   } catch (error) {
     return handleError(error);
   }

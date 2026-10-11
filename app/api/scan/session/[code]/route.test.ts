@@ -26,7 +26,7 @@ describe('GET /api/scan/session/[code]', () => {
   });
   it('reports paired state and item count to the owner', async () => {
     const s = await store.create('u1');
-    await store.appendItem(s.code, { id: 'i1', createdAt: 1, thumb: null, candidates: [], bestDistance: null, pitchHint: null });
+    await store.appendItem(s.code, { id: 'i1', createdAt: 1, name: 'Massacre', status: 'ok', pitch: 1, pitchOptions: [1], crop: null });
     const body = await (await get(s.code)).json();
     expect(body).toEqual({ success: true, data: { code: s.code, paired: false, itemCount: 1 } });
   });
