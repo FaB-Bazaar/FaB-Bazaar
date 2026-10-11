@@ -27,4 +27,6 @@ coverage
 # Docs / scripts not needed at runtime
 *.md
 scripts/
+# ...except the prebuild step that copies the scanner's text reader into public/tesseract/
+!scripts/copy-tesseract-assets.mjs
 apps/
