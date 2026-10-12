@@ -1,10 +1,9 @@
-// app/scan/page.tsx — scan cards + bulk-import results in one page. The in-browser banner scanner
-// (components/scan/useBannerScanner → lib/scan/banner) reads each card's NAME on this device; recognised cards go into
-// a REVIEW list (components/scan/ScanReview): a numbered box per card on the photo (no box = missed) and one row per
-// card, the user's photo next to our match. Checked cards go to Pending Import — the /browse staging + add-to-binder
-// flow (useBulkImportPage + components/browse/*). Rollout-gated
-// (lib/scan/scan-access.ts). Phone pairing (PhonePairPanel / PhoneScanner) is off this page for now: the phone scans and
-// reviews on its own.
+// app/scan/page.tsx — scan cards straight into a binder. The in-browser banner scanner (components/scan/useBannerScanner
+// → lib/scan/banner) reads each card's NAME on this device; recognised cards go into a REVIEW list
+// (components/scan/ScanReview): a numbered box per card on the photo (no box = missed) and one row per card, the user's
+// photo next to our match. No stage: each row has "Add to <binder>" (the default binder at the top — BinderBar —
+// remembered between visits), "Add all", and Undo, which takes back exactly that row's copies (removeCopies).
+// Rollout-gated (lib/scan/scan-access.ts). Phone pairing: PhonePairPanel here, PhoneScanner on /scan?pair=CODE.
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -14,22 +13,19 @@ import { useSession } from "next-auth/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { canUseScanner } from "@/lib/scan/scan-access";
 import { AlertCircle, Camera, ImagePlus, Loader2 } from "lucide-react";
-import { useBulkImportPage } from "@/hooks/browse/useBulkImportPage";
 import { useBannerScanner, toCanvas, photoPreview } from "@/components/scan/useBannerScanner";
 import ScanReview, { type ReviewItem, type ReviewPhoto, type ReviewStatus } from "@/components/scan/ScanReview";
 import { cutRegion } from "@/lib/scan/banner/find-banners";
 import { matchName } from "@/lib/scan/banner/name-match";
-import { cardRegionFromBanner, rowsToStagedInstances } from "@/lib/scan/banner/review";
+import { cardRegionFromBanner } from "@/lib/scan/banner/review";
+import { addableRowIds, addedFromResult, pickDefaultBinder, type BinderOption } from "@/lib/scan/banner/add-to-binder";
 import { estimateCardWidth } from "@/lib/scan/banner/read-at-point";
 import type { RgbImage } from "@/lib/scan/banner/find-banners";
 import { defaultScanPrinting } from "@/lib/scan/banner/printing-options";
-import { searchClient } from "@/lib/client";
+import { bindersClient, searchClient } from "@/lib/client";
+import { generateUniqueBinderSlug } from "@/lib/utils";
 import { isHeicPhoto } from "@/lib/scan/banner/photo-errors";
-import ImportActions from "@/components/browse/ImportActions";
-import PendingImportSidebar from "@/components/browse/PendingImportSidebar";
-import MobileStagedSheet from "@/components/browse/MobileStagedSheet";
-import StagedFAB from "@/components/browse/StagedFAB";
-import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
+import BinderBar from "@/components/scan/BinderBar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import PhonePairPanel from "@/components/scan/PhonePairPanel";
 import PhoneScanner from "@/components/scan/PhoneScanner";
@@ -39,6 +35,10 @@ const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visibl
 const NEAR_MISS_SCORE = -0.05;   // unconfirmed reads at or below this are worth a "Check" row; type lines / rules text score >= 0
 
 const PITCH_WORD = { 1: "red", 2: "yellow", 3: "blue" } as Record<number, string>;
+// per-viewer conveniences only (CLAUDE.md: wrap browser storage, the page works without it)
+const BINDER_KEY = "scan.binderId", TRADE_KEY = "scan.forTrade";
+const readPref = (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } };
+const writePref = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode: not remembered */ } };
 /** Photo box = the name banner we read, padded a little: exact, and never overlaps the next card (a guessed card
  *  outline did on crowded table photos). */
 const bannerBox = (r: { cx: number; cy: number; w: number; h: number; angle: number }) => ({ cx: r.cx, cy: r.cy, w: r.w * 1.06, h: r.h * 1.7, angle: r.angle });
@@ -93,7 +93,6 @@ function ScanPageInner() {
 }
 
 function ScanAndImport() {
-  const { state, handlers } = useBulkImportPage();
   const scanner = useBannerScanner();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -102,9 +101,9 @@ function ScanAndImport() {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [dialog, setDialog] = useState<{ kind: "pending"; id: string } | null>(null);   // Pending Import's printing dialog
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const [stageOpen, setStageOpen] = useState(false);   // desktop: the stage panel starts collapsed (room for the review)
+  const [binders, setBinders] = useState<BinderOption[] | null>(null);
+  const [binderId, setBinderId] = useState<string | null>(null);
+  const [forTrade, setForTrade] = useState(false);
   const cameraInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const busyRef = useRef(false);
@@ -116,6 +115,28 @@ function ScanAndImport() {
     for (const [id, d] of photoData.current) if (!live.has(id)) { URL.revokeObjectURL(d.zoomUrl); photoData.current.delete(id); }
   }, [photos]);
   useEffect(() => () => { for (const d of photoData.current.values()) URL.revokeObjectURL(d.zoomUrl); }, []);
+
+  // the user's binders; the default is the one used last time (else the first)
+  useEffect(() => {
+    setForTrade(readPref(TRADE_KEY) === "1");
+    void bindersClient.getUserBinders().then(res => {
+      const list: BinderOption[] = res.success ? (res.data as any).binders ?? [] : [];
+      setBinders(list);
+      setBinderId(pickDefaultBinder(list, readPref(BINDER_KEY))?._id ?? null);
+    });
+  }, []);
+  const binder = binders?.find(b => b._id === binderId) ?? null;
+  const pickBinder = (id: string) => { setBinderId(id); writePref(BINDER_KEY, id); };
+  const pickForTrade = (v: boolean) => { setForTrade(v); writePref(TRADE_KEY, v ? "1" : "0"); };
+  const createBinder = async (name: string): Promise<string | null> => {
+    const slug = generateUniqueBinderSlug(name, (binders ?? []).map(b => b.slug ?? ""));
+    const res = await bindersClient.createBinder({ name, slug });
+    if (!res.success) return res.error || "Couldn't make the binder";
+    const made = res.data as any as BinderOption;
+    setBinders(prev => [...(prev ?? []), made]);
+    pickBinder(made._id);
+    return null;
+  };
 
   /** Look up each card's printings (same bulk name search as /browse) and pick the default one. */
   const resolve = useCallback(async (entries: Array<{ id: string; name: string; pitch: number | null }>) => {
@@ -155,7 +176,7 @@ function ScanAndImport() {
           return {
             region, banner: bannerBox(c.rect), pitch: c.pitch,
             item: { id: crypto.randomUUID(), photoId, n: k + 1, crop: toCanvas(cutRegion(image, region, 160)).toDataURL("image/jpeg", 0.8),
-              name: c.card, status: (c.accepted ? "ok" : "check") as ReviewStatus, printing: null, allPrintings: [], resolving: true, pitchOptions: c.pitchOptions, confirmed: false },
+              name: c.card, status: (c.accepted ? "ok" : "check") as ReviewStatus, printing: null, allPrintings: [], resolving: true, pitchOptions: c.pitchOptions },
           };
         });
         setPhotos(prev => [...prev, { id: photoId, preview: photoPreview(image), zoomSrc: zoomUrl, width: image.width, height: image.height,
@@ -179,16 +200,14 @@ function ScanAndImport() {
   }, [scanFiles]);
 
   const review = {
-    onConfirm: (id: string) => { setItems(prev => prev.map(i => (i.id === id ? { ...i, status: "ok", confirmed: true } : i))); setBoxStatus(id, "ok"); },
-    onUnconfirm: (id: string) => setItems(prev => prev.map(i => (i.id === id ? { ...i, confirmed: false } : i))),
-    onConfirmAll: () => setItems(prev => prev.map(i => (i.status === "ok" && i.printing && i.name ? { ...i, confirmed: true } : i))),
+    onConfirm: (id: string) => { setItems(prev => prev.map(i => (i.id === id ? { ...i, status: "ok" } : i))); setBoxStatus(id, "ok"); },
     onRemove: (id: string) => { setItems(prev => prev.filter(i => i.id !== id)); setBoxStatus(id, null); },
     onRename: (id: string, typed: string, printing?: any | null, printings?: any[]) => {
       const m = scanner.index ? matchName(scanner.index, typed) : null;
       const name = m?.card || typed;
       const settled = m && m.pitches.length === 1 ? m.pitches[0] : null;
       const chosen = printing ?? (printings?.length ? defaultScanPrinting(printings) : null);
-      setItems(prev => prev.map(i => (i.id === id ? { ...i, name, status: "ok", confirmed: true, printing: chosen, allPrintings: printings ?? [], resolving: !chosen, pitchOptions: m?.pitches ?? [] } : i)));
+      setItems(prev => prev.map(i => (i.id === id ? { ...i, name, status: "ok", printing: chosen, allPrintings: printings ?? [], resolving: !chosen, pitchOptions: m?.pitches ?? [] } : i)));
       setBoxStatus(id, "ok");
       if (!chosen) void resolve([{ id, name, pitch: settled }]);
     },
@@ -218,7 +237,7 @@ function ScanAndImport() {
     // next number on this photo (state updaters below must stay pure: React runs them twice in development)
     const n = Math.max(0, ...(photos.find(ph => ph.id === photoId)?.boxes.map(b => b.n) ?? [])) + 1;
     setItems(prev => [...prev, { id, photoId, n, crop, name: hit?.card.card ?? "", status: hit ? "ok" : "check", printing: null, allPrintings: [],
-      resolving: !!hit, pitchOptions: hit?.card.pitchOptions ?? [], viaTap: true, confirmed: false }]);
+      resolving: !!hit, pitchOptions: hit?.card.pitchOptions ?? [], viaTap: true }]);
     setPhotos(prev => prev.map(ph => (ph.id !== photoId ? ph
       : { ...ph, boxes: [...ph.boxes.filter(b => b.id !== readingId), { id, n, ...(hit ? bannerBox(hit.card.rect) : guess), status: hit ? "ok" : "check" }] })));
     setStatus(hit ? `Found ${hit.card.card}. Check it below.` : "Couldn't read that one. Type its name below.");
@@ -233,7 +252,7 @@ function ScanAndImport() {
     seenRemote.current.add(it.id);
     setHasScanned(true);
     setItems(prev => [...prev, { id: it.id, photoId: "", n: null, crop: it.crop, name: it.name, status: it.status, printing: null, allPrintings: [],
-      resolving: true, pitchOptions: it.pitchOptions, confirmed: false, fromPhone: true }]);
+      resolving: true, pitchOptions: it.pitchOptions, fromPhone: true }]);
     void resolve([{ id: it.id, name: it.name, pitch: it.pitch }]);
   };
 
@@ -243,7 +262,7 @@ function ScanAndImport() {
     const name = m?.card || typed;
     const id = crypto.randomUUID();
     const chosen = printing ?? (printings?.length ? defaultScanPrinting(printings) : null);
-    setItems(prev => [...prev, { id, photoId: "", n: null, crop: null, name, status: "ok", confirmed: true, printing: chosen, allPrintings: printings ?? [], resolving: !chosen, pitchOptions: m?.pitches ?? [] }]);
+    setItems(prev => [...prev, { id, photoId: "", n: null, crop: null, name, status: "ok", printing: chosen, allPrintings: printings ?? [], resolving: !chosen, pitchOptions: m?.pitches ?? [] }]);
     if (!chosen) void resolve([{ id, name, pitch: m && m.pitches.length === 1 ? m.pitches[0] : null }]);
   };
 
@@ -253,70 +272,46 @@ function ScanAndImport() {
     return res.success ? res.data.results[0]?.printings ?? [] : [];
   };
 
-  const stageChecked = () => {
-    const ready = items.filter(i => i.confirmed && i.printing);
-    if (ready.length === 0) return;
-    handlers.addStagedInstances(rowsToStagedInstances(ready.map(i => ({ id: i.id, printing: i.printing, allPrintings: i.allPrintings }))));
-    const gone = new Set(ready.map(i => i.id));
-    setItems(prev => prev.filter(i => !gone.has(i.id)));
-    setPhotos(prev => prev.map(ph => ({ ...ph, boxes: ph.boxes.filter(b => !gone.has(b.id)) })).filter(ph => ph.boxes.length > 0));
-    setStatus(`Added ${ready.length} card${ready.length === 1 ? "" : "s"} to the stage. Pick a binder and add them, or scan more.`);
-    // show the stage so it's clear the cards landed (the user can hide it again): side panel on desktop, sheet on phones
-    if (window.matchMedia("(min-width: 1024px)").matches) setStageOpen(true); else setMobileSheetOpen(true);
+  const patchItem = (id: string, patch: Partial<ReviewItem>) => setItems(prev => prev.map(i => (i.id === id ? { ...i, ...patch } : i)));
+
+  /** One card straight into a binder (one copy); the row records where it went so Undo can take exactly it back. */
+  const addRow = async (id: string, toBinderId: string) => {
+    const it = items.find(i => i.id === id), target = binders?.find(b => b._id === toBinderId);
+    if (!it?.printing || !target || it.added || it.adding) return;
+    patchItem(id, { adding: true, addError: undefined });
+    const res = await bindersClient.addCardsToBinder(target._id, [{ printingId: it.printing.printing_id, quantity: 1, forTrade, condition: "NM" } as any]);
+    const out = res.success ? addedFromResult(res.data, target) : { ok: false as const, error: res.error || "Couldn't add the card" };
+    patchItem(id, out.ok ? { adding: false, added: out.added } : { adding: false, addError: `Couldn't add it: ${out.error}` });
+  };
+  const addAll = async () => {
+    if (!binder) return;
+    const ids = addableRowIds(items);
+    for (const id of ids) await addRow(id, binder._id);   // one at a time: each row shows its own result
+    setStatus(`Added ${ids.length} card${ids.length === 1 ? "" : "s"} to ${binder.name}.`);
+  };
+  const undoRow = async (id: string) => {
+    const it = items.find(i => i.id === id); if (!it?.added || it.adding) return;
+    patchItem(id, { adding: true, addError: undefined });
+    const res = await bindersClient.removeCopies(it.added.binderId, it.added.inventoryItemId, it.added.quantity);
+    patchItem(id, res.success ? { adding: false, added: undefined } : { adding: false, addError: `Couldn't undo: ${res.error}` });
   };
 
-  const pendingTarget = dialog ? state.bulkResults.find((c: any) => c.instanceId === dialog.id) : undefined;
-  const dialogPrinting = pendingTarget?.selectedPrinting;
-  const stagedCards = state.bulkResults.filter((c: any) => c.isStaged);
-  const totalStagedQuantity = stagedCards.reduce((n: number, c: any) => n + (c.quantity || 0), 0);
   const shown = status ?? (scanner.loadError ? `Couldn't load card names: ${scanner.loadError}`
     : scanner.ready ? "Ready to scan. Photograph a binder page or cards laid out on a table." : "Loading card names…");
-  const openPendingPrinting = (instanceId: string) => setDialog({ kind: "pending", id: instanceId });
 
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen">
-      {stageOpen && <PendingImportSidebar
-        allCards={state.bulkResults}
-        onUpdateQuantity={handlers.updateCardQuantity}
-        onUnstage={handlers.toggleStagedStatus}
-        onClear={handlers.clearStaged}
-        onPrintingView={openPendingPrinting}
-        onSetAllForTrade={handlers.setAllStagedForTrade}
-        onToggleTrade={handlers.toggleForTrade}
-      />}
-      <StagedFAB count={totalStagedQuantity} onClick={() => setMobileSheetOpen(true)} />
-      <MobileStagedSheet
-        open={mobileSheetOpen}
-        onOpenChange={setMobileSheetOpen}
-        allCards={state.bulkResults}
-        onUpdateQuantity={handlers.updateCardQuantity}
-        onUnstage={handlers.toggleStagedStatus}
-        onClear={handlers.clearStaged}
-        onPrintingView={openPendingPrinting}
-        binders={state.binders}
-        selectedBinderSlug={state.selectedBinderSlug}
-        onSelectBinder={handlers.setSelectedBinderSlug}
-        onAddToBinder={() => { handlers.handleAddToBinder(); setMobileSheetOpen(false); }}
-        onAddToWants={() => { handlers.handleAddToWants(); setMobileSheetOpen(false); }}
-        isImporting={state.isImporting}
-        onSetAllForTrade={handlers.setAllStagedForTrade}
-        onToggleTrade={handlers.toggleForTrade}
-      />
-
-      <div className={stageOpen ? "lg:ml-96" : ""}>
+      <div>
         <div className="container mx-auto px-4 py-6 sm:py-8">
           <div className="mx-auto max-w-6xl">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 sm:text-3xl">Scan cards</h1>
-              {/* desktop only: phones use the floating stage button + sheet */}
-              <button type="button" onClick={() => setStageOpen(o => !o)} aria-expanded={stageOpen}
-                className={`hidden items-center whitespace-nowrap rounded-md border border-gray-300 px-3 py-2 text-base text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700 lg:inline-flex ${FOCUS_RING}`}>
-                {stageOpen ? "Hide" : "Show"} stage ({totalStagedQuantity})
-              </button>
             </div>
             <p className="mt-1 text-base text-gray-700 dark:text-gray-300">
               Snap a binder page or some cards on a table. We read the card names right here on your device, then you check what we found and add them to a binder.
             </p>
+
+            <BinderBar binders={binders} binderId={binderId} onPick={pickBinder} forTrade={forTrade} onForTrade={pickForTrade} onCreate={createBinder} />
 
             <div
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -352,36 +347,16 @@ function ScanAndImport() {
               </Alert>
             )}
 
-            <ScanReview photos={photos} items={items} hasScanned={hasScanned} onAddMissing={addMissing} onStageChecked={stageChecked} {...review}
+            <ScanReview photos={photos} items={items} hasScanned={hasScanned} onAddMissing={addMissing} {...review}
+              binders={binders} binder={binder} onAdd={(id, to) => void addRow(id, to)} onAddAll={() => void addAll()} onUndo={id => void undoRow(id)}
               onTapPhoto={(photoId, fx, fy) => void tapPhoto(photoId, fx, fy)}
               nameIndex={scanner.index}
               loadPrintings={loadPrintings} />
 
-            {totalStagedQuantity > 0 && (
-              <div className="mt-6">
-                <ImportActions
-                  isImporting={state.isImporting}
-                  resultsCount={totalStagedQuantity}
-                  binders={state.binders}
-                  selectedBinderSlug={state.selectedBinderSlug}
-                  onSelectBinder={handlers.setSelectedBinderSlug}
-                  onCreateBinder={handlers.handleCreateBinder}
-                  onAddToBinder={handlers.handleAddToBinder}
-                  onAddToWants={handlers.handleAddToWants}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      <ViewPrintingsDialog
-        open={!!dialog}
-        onOpenChange={(isOpen) => !isOpen && setDialog(null)}
-        cardName={dialogPrinting?.display_name || ""}
-        cardUniqueId={dialogPrinting?.card_unique_id || ""}
-        onSelectPrinting={(printing) => { if (dialog) handlers.updateCardPrinting(dialog.id, printing); }}
-      />
     </div>
   );
 }

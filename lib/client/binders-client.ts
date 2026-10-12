@@ -297,6 +297,27 @@ export async function addCardsToBinder(
 }
 
 /**
+ * Take back `count` copies of one inventory item (deleted when none remain) — /scan's "Undo" after adding a card.
+ * Uses the inventory item id from addCardsToBinder's results (`inventoryItemId`).
+ */
+export async function removeCopies(
+  binderId: string,
+  cardId: string,
+  count: number
+): Promise<ApiResponse<{ remaining: number }>> {
+  try {
+    const response = await fetch(`/api/binders/${binderId}/cards/${cardId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'removeCopies', count }),
+    });
+    return await handleResponse<{ remaining: number }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Swap an inventory item to a different printing of the same card, via the
  * card route's `action: 'swapPrinting'` (same call the binder page's
  * PrintingSwapDialog makes). NOTE: `/cards/[cardId]/swap-printing` — the

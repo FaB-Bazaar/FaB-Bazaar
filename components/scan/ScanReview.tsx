@@ -1,9 +1,10 @@
-// components/scan/ScanReview.tsx — review what the scanner found before it goes into Pending Import: each photo with a
+// components/scan/ScanReview.tsx — review what the scanner found and add it straight to a binder: each photo with a
 // numbered box on every card it read (a card WITHOUT a box was missed), and one row per physical card with a crop of
-// the user's photo next to our match. Presentational: /scan owns the state.
+// the user's photo next to our match, an "Add to <binder>" button (▾ for another binder) and Undo once added.
+// Presentational: /scan owns the state and the binder calls.
 "use client";
 
-import { ArrowRight, Check, CircleHelp, Loader2 } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, CircleHelp, Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { getCardImageUrl } from "@/lib/utils";
 import type { NameIndex } from "@/lib/scan/banner/name-match";
@@ -11,6 +12,7 @@ import NameAutocomplete from "@/components/scan/NameAutocomplete";
 import PrintingChoice from "@/components/scan/PrintingChoice";
 import { printingLine } from "@/lib/scan/banner/printing-options";
 import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
+import { addableRowIds, type AddedTo, type BinderOption } from "@/lib/scan/banner/add-to-binder";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 const PITCH = { 1: "red", 2: "yellow", 3: "blue" } as Record<number, string>;
@@ -33,8 +35,12 @@ export interface ReviewItem {
   viaTap?: boolean;
   /** read by a paired phone (crop from the phone's photo; no box on a desktop photo) */
   fromPhone?: boolean;
-  /** the user confirmed this card (only confirmed cards go to the stage); names the user picked start confirmed */
-  confirmed: boolean;
+  /** added to a binder (the row folds to "Added to … · Undo") */
+  added?: AddedTo;
+  /** the add (or undo) call is in flight */
+  adding?: boolean;
+  /** why the last add or undo failed */
+  addError?: string;
 }
 export interface PhotoBox { id: string; n: number; cx: number; cy: number; w: number; h: number; angle: number; status: BoxStatus }
 export interface ReviewPhoto {
@@ -46,7 +52,7 @@ export interface ReviewPhoto {
 interface Props {
   photos: ReviewPhoto[];
   items: ReviewItem[];
-  /** a scan has run: keep "Add a card we missed" around even when nothing was found or everything is staged */
+  /** a scan has run: keep "Add a card we missed" around even when nothing was found or everything is added */
   hasScanned: boolean;
   onAddMissing: (name: string, printing?: any | null, printings?: any[]) => void;
   /** printings of a card name (all languages), for the name box's printing step */
@@ -57,15 +63,20 @@ interface Props {
   onTapPhoto: (photoId: string, fx: number, fy: number) => void;
   /** the card-name list (for name suggestions while typing) */
   nameIndex: NameIndex | null;
+  /** "Yes, that's it" on a row we weren't sure about */
   onConfirm: (id: string) => void;
-  onUnconfirm: (id: string) => void;
-  onConfirmAll: () => void;
   onRemove: (id: string) => void;
   onRename: (id: string, name: string, printing?: any | null, printings?: any[]) => void;
   onPickPitch: (id: string, pitch: number) => void;
   /** the user picked another printing for a row ("Swap printing") */
   onChoosePrinting: (id: string, printing: any) => void;
-  onStageChecked: () => void;
+  /** the user's binders (null = loading) and the one cards go to by default */
+  binders: BinderOption[] | null;
+  binder: BinderOption | null;
+  /** add one row to a binder (the default one unless the row's ▾ picked another) */
+  onAdd: (id: string, binderId: string) => void;
+  onAddAll: () => void;
+  onUndo: (id: string) => void;
 }
 
 const LENS = 176, ZOOM = 3;   // lens diameter (px) and magnification
@@ -111,7 +122,35 @@ function PhotoOverview({ photo, onTap }: { photo: ReviewPhoto; onTap: (photoId: 
   );
 }
 
-function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "items" | "onStageChecked" | "hasScanned" | "onAddMissing" | "extraActions" | "onTapPhoto" | "onConfirmAll">) {
+function AddButton({ item, binders, binder, onAdd }: { item: ReviewItem; binders: BinderOption[] | null; binder: BinderOption | null; onAdd: Props["onAdd"] }) {
+  const [others, setOthers] = useState(false);
+  if (item.adding) return <span className="inline-flex items-center gap-1 px-1 text-sm text-gray-700 dark:text-gray-300"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />Adding…</span>;
+  if (!binder) return <span className="px-1 text-sm text-gray-700 dark:text-gray-300">{binders === null ? "Loading binders…" : "Make a binder above to add cards"}</span>;
+  const rest = (binders ?? []).filter(b => b._id !== binder._id);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span className="inline-flex">
+        <button type="button" onClick={() => onAdd(item.id, binder._id)}
+          className={`inline-flex items-center gap-1 rounded-l-md border-2 border-green-600 px-2.5 py-0.5 text-sm font-medium text-green-800 hover:bg-green-50 dark:border-green-500 dark:text-green-300 dark:hover:bg-gray-700 ${rest.length ? "" : "rounded-r-md"} ${FOCUS_RING}`}>
+          <Check className="h-4 w-4" aria-hidden />Add to {binder.name}
+        </button>
+        {rest.length > 0 && (
+          <button type="button" onClick={() => setOthers(o => !o)} aria-expanded={others} aria-label="Choose another binder"
+            className={`rounded-r-md border-2 border-l-0 border-green-600 px-1 text-green-800 hover:bg-green-50 dark:border-green-500 dark:text-green-300 dark:hover:bg-gray-700 ${FOCUS_RING}`}>
+            <ChevronDown className="h-4 w-4" aria-hidden />
+          </button>
+        )}
+      </span>
+      {others && (
+        <span className="flex w-full flex-wrap gap-1.5" role="group" aria-label="Other binders">
+          {rest.map(b => <button key={b._id} type="button" onClick={() => { setOthers(false); onAdd(item.id, b._id); }} className={SMALL_BTN}>Add to {b.name}</button>)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "items" | "hasScanned" | "onAddMissing" | "extraActions" | "onTapPhoto" | "onAddAll">) {
   const unread = item.name === "";                 // a tap we couldn't read: ask for the name straight away
   const [renaming, setRenaming] = useState(unread);
   // "Swap printing": the row's printings as quick text lines, same pitch as the card now (the colour buttons change pitch)
@@ -123,11 +162,11 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
     void h.loadPrintings(item.name).then(ps => setSwapList(samePitch(ps)));
   };
   const p = item.printing;
-  // confirmed and not being edited: fold to one line (long scans keep only what still needs attention big)
-  if (item.confirmed && p && !renaming && swapList === undefined) {
+  // added to a binder: fold to one line (long scans keep only what still needs attention big)
+  if (item.added && p) {
     const line = printingLine(p);
     return (
-      <li data-testid="scan-review-row" className="rounded-lg border-2 border-green-600 px-2 py-1.5 dark:border-green-500">
+      <li data-testid="scan-review-row" className="rounded-lg border-2 border-green-600 px-2 py-1.5 dark:border-green-500" aria-busy={item.adding || undefined}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="w-6 shrink-0 text-center text-sm font-bold text-gray-700 dark:text-gray-300">{item.n ?? "+"}</span>
           {/* eslint-disable-next-line @next/next/no-img-element -- card images are CDN URLs (image_url) */}
@@ -140,17 +179,18 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
             <span className="rounded border border-gray-300 px-1 text-xs font-semibold text-gray-800 dark:border-gray-600 dark:text-gray-200">{line.language}</span>
             <span>{line.detailsBesideChips.join(" · ")} · {line.price}</span>
           </div>
-          <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"><Check className="h-4 w-4" aria-hidden /> Confirmed</span>
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"><Check className="h-4 w-4" aria-hidden /> Added to {item.added.binderName}</span>
           {item.fromPhone ? <span className="text-sm text-gray-700 dark:text-gray-300">From your phone</span> : item.n === null ? <span className="text-sm text-gray-700 dark:text-gray-300">Added by you</span> : item.viaTap ? <span className="text-sm text-gray-700 dark:text-gray-300">Found by your tap</span> : null}
-          <button type="button" onClick={() => h.onUnconfirm(item.id)} className={SMALL_BTN}>Undo</button>
-          <button type="button" onClick={() => h.onRemove(item.id)} className={SMALL_BTN}>Remove</button>
+          {item.adding ? <Loader2 className="h-4 w-4 animate-spin text-gray-700 dark:text-gray-300" aria-label="Undoing" />
+            : <button type="button" onClick={() => h.onUndo(item.id)} className={SMALL_BTN}>Undo</button>}
+          {item.addError && <span className="w-full pl-8 text-sm text-red-700 dark:text-red-300" role="alert">{item.addError}</span>}
         </div>
       </li>
     );
   }
   const pitchUnsettled = item.pitchOptions.length > 1 && item.pitchOptions.every(o => o !== null);
   return (
-    <li data-testid="scan-review-row" className={`rounded-lg border p-2 ${item.confirmed ? "border-2 border-green-600 dark:border-green-500" : item.status === "check" ? "border-amber-400 dark:border-amber-600" : "border-gray-200 dark:border-gray-700"}`}>
+    <li data-testid="scan-review-row" className={`rounded-lg border p-2 ${item.status === "check" ? "border-amber-400 dark:border-amber-600" : "border-gray-200 dark:border-gray-700"}`}>
       <div className="flex items-start gap-2 sm:gap-3">
         <span className="mt-1 w-6 shrink-0 text-center text-sm font-bold text-gray-700 dark:text-gray-300" aria-label={item.n === null ? "Added by you" : undefined}>{item.n ?? "+"}</span>
         {item.crop ? (
@@ -183,13 +223,10 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
               </div>
             );
           })()}
-          <p className={`mt-1 inline-flex flex-wrap items-center gap-x-2 text-sm ${item.confirmed ? "text-green-700 dark:text-green-400" : item.status === "ok" ? "text-gray-700 dark:text-gray-300" : "text-amber-800 dark:text-amber-300"}`}>
+          <p className={`mt-1 inline-flex flex-wrap items-center gap-x-2 text-sm ${item.status === "ok" ? "text-gray-700 dark:text-gray-300" : "text-amber-800 dark:text-amber-300"}`}>
             {unread ? <span className="inline-flex items-center gap-1"><CircleHelp className="h-4 w-4" aria-hidden /> What&apos;s it called?</span>
               : item.status === "check" ? <span className="inline-flex items-center gap-1"><CircleHelp className="h-4 w-4" aria-hidden /> Not sure. Is this {item.name}?</span>
-              : <>
-                  {item.confirmed && <span className="inline-flex items-center gap-1 font-semibold"><Check className="h-4 w-4" aria-hidden /> Confirmed</span>}
-                  {item.fromPhone ? <span>From your phone</span> : item.n === null ? <span>Added by you</span> : item.viaTap ? <span>Found by your tap</span> : null}
-                </>}
+              : item.fromPhone ? <span>From your phone</span> : item.n === null ? <span>Added by you</span> : item.viaTap ? <span>Found by your tap</span> : null}
           </p>
           {pitchUnsettled && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
@@ -206,16 +243,12 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5 pl-8">
             {item.status === "check" && !unread && <button type="button" onClick={() => h.onConfirm(item.id)} className={`rounded-md bg-blue-600 px-2.5 py-1 text-sm font-medium text-white hover:bg-blue-700 ${FOCUS_RING}`}>Yes, that&apos;s it</button>}
-            {item.status === "ok" && !unread && p && (item.confirmed
-              ? <button type="button" onClick={() => h.onUnconfirm(item.id)} className={SMALL_BTN}>Undo</button>
-              : <button type="button" onClick={() => h.onConfirm(item.id)}
-                  className={`inline-flex items-center gap-1 rounded-md border-2 border-green-600 px-2.5 py-0.5 text-sm font-medium text-green-800 hover:bg-green-50 dark:border-green-500 dark:text-green-300 dark:hover:bg-gray-700 ${FOCUS_RING}`}>
-                  <Check className="h-4 w-4" aria-hidden />Confirm
-                </button>)}
+            {item.status === "ok" && !unread && p && <AddButton item={item} binders={h.binders} binder={h.binder} onAdd={h.onAdd} />}
             {p && <button type="button" onClick={() => (swapList === undefined ? openSwap() : setSwapList(undefined))} aria-expanded={swapList !== undefined} className={SMALL_BTN}>Swap printing</button>}
             {!unread && <button type="button" onClick={() => setRenaming(r => !r)} className={SMALL_BTN} aria-expanded={renaming}>Not this card?</button>}
             <button type="button" onClick={() => h.onRemove(item.id)} className={SMALL_BTN}>Remove</button>
           </div>
+          {item.addError && <p className="mt-1 pl-8 text-sm text-red-700 dark:text-red-300" role="alert">{item.addError}</p>}
           {swapList !== undefined && (
             <div className="mt-2 pl-8">
               <PrintingChoice name={item.name} printings={swapList} currentId={p?.printing_id} cancelLabel="Keep this one"
@@ -243,9 +276,8 @@ function AddMissing({ onAdd, nameIndex, loadPrintings }: { onAdd: Props["onAddMi
   );
 }
 
-export default function ScanReview({ photos, items, hasScanned, onAddMissing, onStageChecked, extraActions, onTapPhoto, onConfirmAll, ...handlers }: Props) {
-  const ready = items.filter(i => i.confirmed && i.printing).length;
-  const confirmable = items.filter(i => !i.confirmed && i.status === "ok" && i.printing && i.name).length;
+export default function ScanReview({ photos, items, hasScanned, onAddMissing, extraActions, onTapPhoto, onAddAll, ...handlers }: Props) {
+  const addable = addableRowIds(items).length;
   const unsure = items.filter(i => i.status === "check").length;
   if (!hasScanned && items.length === 0 && photos.length === 0) return null;
   // Desktop: two columns — left = action buttons + the photo(s), sticky under the site header, so checking row 9
@@ -256,16 +288,10 @@ export default function ScanReview({ photos, items, hasScanned, onAddMissing, on
       <div className="contents lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
         <div className="sticky top-16 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-900 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:dark:bg-transparent">
           <AddMissing onAdd={onAddMissing} nameIndex={handlers.nameIndex} loadPrintings={handlers.loadPrintings} />
-          {confirmable > 0 && (
-            <button type="button" onClick={onConfirmAll}
-              className={`inline-flex items-center gap-1 rounded-md border-2 border-green-600 px-3 py-1.5 text-base font-medium text-green-800 hover:bg-green-50 dark:border-green-500 dark:text-green-300 dark:hover:bg-gray-700 ${FOCUS_RING}`}>
-              <Check className="h-4 w-4" aria-hidden />Confirm all ({confirmable})
-            </button>
-          )}
-          {items.length > 0 && (
-            <button type="button" onClick={onStageChecked} disabled={ready === 0}
-              className={`rounded-md bg-blue-600 px-4 py-2 text-base font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600 ${FOCUS_RING}`}>
-              Add {ready} confirmed card{ready === 1 ? "" : "s"} to stage
+          {addable > 0 && handlers.binder && (
+            <button type="button" onClick={onAddAll}
+              className={`rounded-md bg-blue-600 px-4 py-2 text-base font-medium text-white hover:bg-blue-700 ${FOCUS_RING}`}>
+              Add all {addable} to {handlers.binder.name}
             </button>
           )}
           {extraActions}
@@ -275,7 +301,7 @@ export default function ScanReview({ photos, items, hasScanned, onAddMissing, on
       <div className="mt-5 lg:mt-0">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{items.length > 0 ? "What we found" : "Anything we missed?"}</h2>
         {items.length === 0 && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Add any card by name with &ldquo;Add a card we missed&rdquo;.</p>}
-        {items.length > 0 && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Confirm the ones that are right, then add them to the stage.{unsure > 0 ? ` The ${unsure} marked “Not sure” need a closer look.` : ""}</p>}
+        {items.length > 0 && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Check each card and add it to your binder. Undo takes it back out.{unsure > 0 ? ` The ${unsure} marked “Not sure” need a closer look first.` : ""}</p>}
         {items.length > 0 && <ul className="mt-3 space-y-2">{items.map(i => <Row key={i.id} item={i} {...handlers} />)}</ul>}
       </div>
     </section>

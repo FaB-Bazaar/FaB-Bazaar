@@ -66,6 +66,19 @@ export async function PUT(
       return NextResponse.json(result.data);
     }
 
+    // Take back N copies in one atomic step (/scan's "Undo" after adding a card)
+    if (body.action === "removeCopies") {
+      if (!Number.isInteger(body.count) || body.count < 1) {
+        return NextResponse.json({ success: false, error: 'count must be a whole number of at least 1' }, { status: 400 });
+      }
+      const result = await binderService.removeCopies(binderId, cardId, userId, body.count);
+      if (!result.success) {
+        const notFound = /not found|access denied/i.test(result.error);
+        return NextResponse.json({ success: false, error: result.error }, { status: notFound ? 404 : 500 });
+      }
+      return NextResponse.json({ success: true, data: result.data });
+    }
+
     // Regular card update logic
     const updates: UpdateCardDTO = {};
     if (body.quantity !== undefined) updates.quantity = body.quantity;

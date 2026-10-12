@@ -178,6 +178,8 @@ export interface AddCardsResultDTO {
     error?: string;
     filtered?: boolean;
     quantityAdded?: number;
+    /** the inventory item the copies landed in (a new row, or the existing one they topped up) */
+    inventoryItemId?: string;
   }>;
   filteredItems?: Array<{
     printingId: string;
@@ -892,6 +894,17 @@ export interface IBinderService {
     cardId: string,
     userId: string
   ): AsyncResult<boolean>;
+
+  /**
+   * Take back `count` copies of one inventory item in a single atomic step (never below zero); the row is deleted
+   * when none remain. Used by /scan's "Undo" after adding a card, so it never removes copies added since.
+   */
+  removeCopies(
+    binderId: string,
+    cardId: string,
+    userId: string,
+    count: number
+  ): AsyncResult<{ remaining: number }>;
 
   bulkRemoveItems(
     binderId: string,

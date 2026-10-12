@@ -353,11 +353,13 @@ export class PostgresBinderService implements IBinderService {
               success: true,
               action: 'updated',
               quantityAdded: card.quantity || 1,
+              inventoryItemId: existing.id,
             });
           } else {
             // Add new card
+            const inventoryItemId = uuidv4();
             await db.insert(inventoryItems).values({
-              id: uuidv4(),
+              id: inventoryItemId,
               userId,
               binderId,
               printingId: card.printingId,
@@ -380,6 +382,7 @@ export class PostgresBinderService implements IBinderService {
               success: true,
               action: 'added',
               quantityAdded: card.quantity || 1,
+              inventoryItemId,
             });
           }
         } catch (error) {
@@ -753,6 +756,34 @@ export class PostgresBinderService implements IBinderService {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete binder card',
       };
+    }
+  }
+
+  async removeCopies(binderId: string, cardId: string, userId: string, count: number): AsyncResult<{ remaining: number }> {
+    try {
+      if (!Number.isInteger(count) || count < 1) return { success: false, error: 'count must be a whole number of at least 1' };
+      const binder = await db.query.binders.findFirst({
+        where: and(eq(binders.id, binderId), eq(binders.userId, userId)),
+      });
+      if (!binder) return { success: false, error: 'Binder not found or access denied' };
+
+      // one atomic decrement (no read-modify-write), then drop the row if nothing is left
+      const remaining = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(inventoryItems)
+          .set({ quantity: sql`GREATEST(${inventoryItems.quantity} - ${count}, 0)`, updatedAt: new Date() })
+          .where(and(eq(inventoryItems.id, cardId), eq(inventoryItems.binderId, binderId)))
+          .returning({ quantity: inventoryItems.quantity });
+        if (!row) return null;
+        if (row.quantity <= 0) await tx.delete(inventoryItems).where(eq(inventoryItems.id, cardId));
+        return row.quantity;
+      });
+      if (remaining === null) return { success: false, error: 'Card not found in this binder' };
+
+      await db.update(binders).set({ statsNeedUpdate: true, lastActivityAt: new Date() }).where(eq(binders.id, binderId));
+      return { success: true, data: { remaining } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to remove copies' };
     }
   }
 

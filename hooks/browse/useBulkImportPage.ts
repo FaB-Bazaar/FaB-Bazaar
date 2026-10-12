@@ -7,7 +7,6 @@ import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
 import { buildColorFallbackRetries, mergeColorFallbackResults } from '@/lib/browse/bulk-search-fallback';
 import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance } from '@/lib/browse/group-bulk-results';
 import { binderImportSummary } from '@/lib/browse/binder-import-summary';
-import { addStaged } from '@/lib/scan/banner/review';
 import { getSetName } from "@/lib/fab-formatters";
 import { bindersClient, wantsClient, searchClient } from "@/lib/client";
 import type { BulkSearchCard } from "@/lib/client/search-client";
@@ -211,12 +210,6 @@ export function useBulkImportPage() {
     setBulkResults(current => stageBulkInstance(current, instanceId));
   };
   
-  // /scan: rows whose printing the user already checked go straight into Pending Import (a search would re-pick the
-  // printing). Same-printing rows fold together, as staging does. Not used by /browse.
-  const addStagedInstances = (instances: any[]) => {
-    setBulkResults(current => addStaged(current, instances));
-  };
-
   const clearStaged = () => {
     setBulkResults(current => current.map(card => ({ ...card, isStaged: false })));
     toast({ title: "Import List Cleared" });
@@ -290,7 +283,6 @@ export function useBulkImportPage() {
       toggleStagedStatus,
       clearStaged,
       setAllStagedForTrade,
-      addStagedInstances,
     }
   };
 }

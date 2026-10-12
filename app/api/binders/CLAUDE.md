@@ -9,7 +9,7 @@ Card collection management. All routes use `binderService` from `@/lib/services`
 | `/api/binders` | GET, POST | `listUserBinders()`, `createBinder()` |
 | `/api/binders/[binderId]` | GET, PUT, DELETE | `getBinder()`, `updateBinder()`, `deleteBinder()` |
 | `/api/binders/[binderId]/cards` | GET, POST | `getBinder()`, `addCardToBinder()` |
-| `/api/binders/[binderId]/cards/[cardId]` | GET, PUT, DELETE | `getBinderCard()`, `updateBinderCard()`, `deleteBinderCard()` |
+| `/api/binders/[binderId]/cards/[cardId]` | GET, PUT, DELETE | `getBinderCard()`, `updateBinderCard()`, `deleteBinderCard()`; PUT `{action:'removeCopies',count}` → `removeCopies()` (atomic decrement, row deleted at 0 — /scan Undo) |
 | `/api/binders/[binderId]/bulk-update` | PATCH | `bulkUpdateCards()` |
 | `/api/binders/[binderId]/copy` | POST | `getBinder()`, `copyBinder()` |
 | `/api/binders/[binderId]/export` | GET | `getBinder()`, `getBinderCardsForExport()` |
