@@ -73,7 +73,7 @@ import { getArticleTool } from '../tool/articles/getArticle';
 import { listArticlesTool } from '../tool/articles/listArticles';
 import { addArticleSectionTool } from '../tool/articles/addArticleSection';
 import { updateArticleSectionTool } from '../tool/articles/updateArticleSection';
-// import { scanPrintingTool } from '../tool/scanPrinting'; // removed — image scanning unreliable
+import { identifyCardsTool } from '../tool/identifyCards';
 
 // Import the prompts
 import { mcpPrompts, getPromptByName } from '../prompt';
@@ -622,6 +622,11 @@ FACET TAGS — three different things share the word "tag":
                 inputSchema: searchPrintingsTool.parameters
               },
               {
+                name: identifyCardsTool.name,
+                description: identifyCardsTool.description,
+                inputSchema: identifyCardsTool.parameters
+              },
+              {
                 name: updateBinderTool.name,
                 description: updateBinderTool.description,
                 inputSchema: updateBinderTool.parameters
@@ -1104,6 +1109,27 @@ The new tool provides the same functionality with better guidance for proper wor
             return NextResponse.json({
               jsonrpc: '2.0', id,
               result: { content: [{ type: 'text', text: `💥 Error building the deckbuilding guide: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'identify_cards') {
+          if (DEBUG_MCP) console.log('📸 Executing identify_cards');
+          try {
+            const result = await identifyCardsTool.handler(toolInput);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.success ? result.message : result.error }],
+                isError: !result.success,
+                ...(result.success ? { structuredContent: result.data } : {})
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in identify_cards:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error identifying cards: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
             }, { headers: corsHeaders() });
           }
         }
@@ -2012,6 +2038,7 @@ The new tool provides the same functionality with better guidance for proper wor
       Available tools:
       • read_mandatory_constants_first (🚨 Read fab://constants once per session)
       - search_printings (🔍 find cards, look up printings — returns printing_id + card_unique_id)
+      - identify_cards (📸 match the cards you read in a photo to printings — read-only)
       - add_to_binder / remove_from_binder / list_binders / get_binder
       - add_to_wants / remove_from_wants / get_wants
       - who_has (find card owners — use card_unique_id for any version, printing_id for a specific version)
@@ -2343,7 +2370,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     error: "MCP server expects POST requests with JSON-RPC format",
     version: "4.0.0",
-    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "list_articles", "add_article_section", "update_article_section", "get_decks_to_beat", "get_deckbuilding_guide", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
+    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "identify_cards", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "list_articles", "add_article_section", "update_article_section", "get_decks_to_beat", "get_deckbuilding_guide", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
     hint: "Use POST with JSON-RPC. Read fab://constants once per session, then use search_printings for all card lookups.",
     authMethods: ["Bearer <oauth_token>"],
     workflow: "read_mandatory_constants_first({uri:'fab://constants'}) → search_printings → add_to_binder / add_to_wants / add_cards_to_deck",
