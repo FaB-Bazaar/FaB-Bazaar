@@ -10,6 +10,7 @@ import type { NameIndex } from "@/lib/scan/banner/name-match";
 import NameAutocomplete from "@/components/scan/NameAutocomplete";
 import PrintingChoice from "@/components/scan/PrintingChoice";
 import { printingLine } from "@/lib/scan/banner/printing-options";
+import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 const PITCH = { 1: "red", 2: "yellow", 3: "blue" } as Record<number, string>;
@@ -132,12 +133,13 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
           {/* eslint-disable-next-line @next/next/no-img-element -- card images are CDN URLs (image_url) */}
           <img src={getCardImageUrl(p)} alt={`Our match: ${item.name}`} className="h-12 w-9 shrink-0 rounded object-cover" />
           <span className="font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
-          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-sm text-gray-700 dark:text-gray-300">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-sm text-gray-700 dark:text-gray-300">
             {p.pitch ? <span className={`inline-block h-2.5 w-2.5 rounded-full ${PITCH_DOT[p.pitch]}`} aria-label={PITCH[p.pitch]} /> : null}
+            <PrintingMetaChips set={p.set} foiling={p.foiling} rarity={p.rarity} setSize="md" className="shrink-0" />
             <span className="font-medium text-gray-900 dark:text-gray-100">{line.code}</span>
             <span className="rounded border border-gray-300 px-1 text-xs font-semibold text-gray-800 dark:border-gray-600 dark:text-gray-200">{line.language}</span>
-            <span>{line.details.join(" · ")} · {line.price}</span>
-          </span>
+            <span>{line.detailsBesideChips.join(" · ")} · {line.price}</span>
+          </div>
           <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"><Check className="h-4 w-4" aria-hidden /> Confirmed</span>
           {item.fromPhone ? <span className="text-sm text-gray-700 dark:text-gray-300">From your phone</span> : item.n === null ? <span className="text-sm text-gray-700 dark:text-gray-300">Added by you</span> : item.viaTap ? <span className="text-sm text-gray-700 dark:text-gray-300">Found by your tap</span> : null}
           <button type="button" onClick={() => h.onUnconfirm(item.id)} className={SMALL_BTN}>Undo</button>
@@ -169,15 +171,16 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
         <div className="min-w-0 flex-1">
           <p className="text-base font-medium text-gray-900 dark:text-gray-100">{unread ? "We couldn't read this one" : `${item.name}${item.status === "check" ? "?" : ""}`}</p>
           {p && (() => {
-            // what this printing IS, same words as the printing list: number, language, set · foiling · edition, price
+            // what this printing IS, same as the printing list: set logo, foiling chip, rarity, number, language, set · edition, price
             const line = printingLine(p);
             return (
-              <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-gray-700 dark:text-gray-300">
+              <div className="flex flex-wrap items-center gap-x-1.5 text-sm text-gray-700 dark:text-gray-300">
                 {p.pitch ? <span><span className={`mr-1 inline-block h-2.5 w-2.5 rounded-full ${PITCH_DOT[p.pitch]}`} aria-hidden />{PITCH[p.pitch]} ·</span> : null}
+                <PrintingMetaChips set={p.set} foiling={p.foiling} rarity={p.rarity} setSize="md" className="shrink-0" />
                 <span className="font-medium text-gray-900 dark:text-gray-100">{line.code}</span>
                 <span className="rounded border border-gray-300 px-1 text-xs font-semibold text-gray-800 dark:border-gray-600 dark:text-gray-200">{line.language}</span>
-                <span>{line.details.join(" · ")} · <span className="font-medium text-gray-900 dark:text-gray-100">{line.price}</span></span>
-              </p>
+                <span>{line.detailsBesideChips.join(" · ")} · <span className="font-medium text-gray-900 dark:text-gray-100">{line.price}</span></span>
+              </div>
             );
           })()}
           <p className={`mt-1 inline-flex flex-wrap items-center gap-x-2 text-sm ${item.confirmed ? "text-green-700 dark:text-green-400" : item.status === "ok" ? "text-gray-700 dark:text-gray-300" : "text-amber-800 dark:text-amber-300"}`}>

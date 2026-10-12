@@ -11,6 +11,10 @@ describe('printingLine', () => {
     expect(line.language).toBe('JA');       // its own field: shown as a tag that never gets truncated
     expect(line.price).toBe('$3.50');
   });
+  it('beside the foiling chip, the words drop the foiling but keep Extended Art (the chip only shows the foil)', () => {
+    expect(printingLine(p({ set: 'cru', foiling: 'r', edition: 'f' })).detailsBesideChips).toEqual(['Crucible of War', 'First Edition']);
+    expect(printingLine(p({ set: 'cru', foiling: 'c', edition: 'f', is_extended_art: true })).detailsBesideChips).toEqual(['Crucible of War', 'Extended Art', 'First Edition']);
+  });
   it('shows a dash when there is no TCGplayer low price', () => {
     expect(printingLine(p({ tcg_low: null })).price).toBe('—');
   });

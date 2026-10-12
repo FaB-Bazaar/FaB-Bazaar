@@ -1,10 +1,11 @@
-// components/scan/PrintingChoice.tsx — pick a printing from short text lines (collector number, language, set,
-// foiling, edition, TCG Low price): quick to scan and phone-friendly, no image grid. Used by the /scan name box (after
+// components/scan/PrintingChoice.tsx — pick a printing from short lines (set logo, foiling chip, rarity, collector
+// number, language, set, edition, TCG Low price): quick to scan and phone-friendly, no image grid. Used by the /scan name box (after
 // a name is picked) and by "Swap printing" on review rows.
 "use client";
 
 import { Loader2 } from "lucide-react";
 import { orderPrintings, printingLine } from "@/lib/scan/banner/printing-options";
+import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 const PITCH = { 1: "red", 2: "yellow", 3: "blue" } as Record<number, string>;
@@ -52,9 +53,10 @@ export default function PrintingChoice({ name, printings, onChoose, primary, can
                   className={`flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border px-2 py-1.5 text-left sm:flex-nowrap text-sm text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700 ${current ? "border-2 border-blue-600 dark:border-blue-400" : "border-gray-200 dark:border-gray-700"} ${FOCUS_RING}`}>
                   {pr.pitch ? <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${PITCH_DOT[pr.pitch]}`} aria-hidden /> : <span className="inline-block h-2.5 w-2.5 shrink-0" aria-hidden />}
                   {pr.pitch ? <span className="sr-only">{PITCH[pr.pitch]}</span> : null}
+                  <PrintingMetaChips set={pr.set} foiling={pr.foiling} rarity={pr.rarity} setSize="md" className="shrink-0" />
                   <span className="font-medium">{line.code}</span>
                   <span className="shrink-0 rounded border border-gray-300 px-1 text-xs font-semibold text-gray-800 dark:border-gray-600 dark:text-gray-200">{line.language}</span>
-                  <span className="order-last w-full pl-[18px] text-gray-700 dark:text-gray-300 sm:order-none sm:w-auto sm:min-w-0 sm:flex-1 sm:truncate sm:pl-0">{line.details.join(" · ")}</span>
+                  <span className="order-last w-full pl-[18px] text-gray-700 dark:text-gray-300 sm:order-none sm:w-auto sm:min-w-0 sm:flex-1 sm:truncate sm:pl-0">{line.detailsBesideChips.join(" · ")}</span>
                   {current && <span className="shrink-0 text-xs font-semibold text-blue-700 dark:text-blue-300">✓ current</span>}
                   <span className="ml-auto shrink-0 font-medium sm:ml-0">{line.price}</span>
                 </button>

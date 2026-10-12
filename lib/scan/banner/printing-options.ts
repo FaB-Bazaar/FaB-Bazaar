@@ -3,16 +3,22 @@
 // (CLAUDE.md: tcg_low is THE price). English first, then cheapest — the usual binder copy floats to the top.
 import { getSetName, getFoilingName, getEditionName } from '@/lib/fab-formatters';
 
-export interface PrintingLine { code: string; language: string; details: string[]; price: string }
+export interface PrintingLine {
+  code: string; language: string; details: string[]; price: string;
+  /** the words shown next to the foiling chip (components/shared/PrintingMetaChips): no foiling, Extended Art kept */
+  detailsBesideChips: string[];
+}
 
 const priceOf = (p: any): number | null => { const n = Number(p?.tcg_low); return p?.tcg_low != null && Number.isFinite(n) ? n : null; };
 
 export function printingLine(p: any): PrintingLine {
   const price = priceOf(p);
+  const setName = getSetName(p.set) || String(p.set ?? '').toUpperCase();
   return {
     code: p.collector_number ?? '',
     language: String(p.language ?? 'en').toUpperCase(),
-    details: [getSetName(p.set) || String(p.set ?? '').toUpperCase(), getFoilingName(p.foiling, p.is_extended_art), getEditionName(p.edition)].filter(Boolean),
+    details: [setName, getFoilingName(p.foiling, p.is_extended_art), getEditionName(p.edition)].filter(Boolean),
+    detailsBesideChips: [setName, p.is_extended_art ? 'Extended Art' : '', getEditionName(p.edition)].filter(Boolean),
     price: price === null ? '—' : `$${price.toFixed(2)}`,
   };
 }
