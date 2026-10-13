@@ -93,6 +93,11 @@ describe('parseSessionItems', () => {
     expect(typeof r.items[0].createdAt).toBe('number');
   });
 
+  it('accepts a name in three colours plus a pitchless token (Hyper Driver)', () => {
+    const r = parseSessionItems({ items: [{ ...good, name: 'Hyper Driver', pitch: null, pitchOptions: [1, 2, 3, null] }] });
+    expect('items' in r && r.items[0].pitchOptions).toEqual([1, 2, 3, null]);
+  });
+
   it('rejects anything that is not a short list of plain card results', () => {
     for (const bad of [
       null, {}, { items: 'x' }, { items: [] },

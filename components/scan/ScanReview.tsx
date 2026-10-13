@@ -10,7 +10,7 @@ import { getCardImageUrl } from "@/lib/utils";
 import type { NameIndex } from "@/lib/scan/banner/name-match";
 import NameAutocomplete from "@/components/scan/NameAutocomplete";
 import PrintingChoice from "@/components/scan/PrintingChoice";
-import { printingLine } from "@/lib/scan/banner/printing-options";
+import { printingLine, pitchChoices } from "@/lib/scan/banner/printing-options";
 import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
 import { addableRowIds, type AddedTo, type BinderOption } from "@/lib/scan/banner/add-to-binder";
 
@@ -188,7 +188,7 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
       </li>
     );
   }
-  const pitchUnsettled = item.pitchOptions.length > 1 && item.pitchOptions.every(o => o !== null);
+  const colours = pitchChoices(item.pitchOptions);
   return (
     <li data-testid="scan-review-row" className={`rounded-lg border p-2 ${item.status === "check" ? "border-amber-400 dark:border-amber-600" : "border-gray-200 dark:border-gray-700"}`}>
       <div className="flex items-start gap-2 sm:gap-3">
@@ -228,10 +228,10 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
               : item.status === "check" ? <span className="inline-flex items-center gap-1"><CircleHelp className="h-4 w-4" aria-hidden /> Not sure. Is this {item.name}?</span>
               : item.fromPhone ? <span>From your phone</span> : item.n === null ? <span>Added by you</span> : item.viaTap ? <span>Found by your tap</span> : null}
           </p>
-          {pitchUnsettled && (
+          {colours.length > 0 && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
               Which colour?
-              {item.pitchOptions.map(o => o !== null && (
+              {colours.map(o => (
                 <button key={o} type="button" onClick={() => h.onPickPitch(item.id, o)} aria-pressed={p?.pitch === o}
                   className={`${SMALL_BTN} ${p?.pitch === o ? "border-2 border-blue-600 dark:border-blue-400" : ""}`}>
                   <span className={`mr-1 inline-block h-2.5 w-2.5 rounded-full ${PITCH_DOT[o]}`} aria-hidden />{PITCH[o]}{p?.pitch === o ? " ✓" : ""}

@@ -49,7 +49,7 @@ export function parseSessionItems(body: unknown): { items: ScanSessionItem[] } |
     if (typeof name !== 'string' || !name.trim() || name.length > MAX_NAME) return { error: 'each card needs a name' };
     if (status !== 'ok' && status !== 'check') return { error: 'status must be ok or check' };
     if (!isPitch(pitch)) return { error: 'pitch must be 1, 2, 3 or null' };
-    if (!Array.isArray(opts) || opts.length > 3 || !opts.every(isPitch)) return { error: 'pitchOptions must be up to 3 pitches' };
+    if (!Array.isArray(opts) || opts.length > 4 || !opts.every(isPitch)) return { error: 'pitchOptions must be pitches 1, 2, 3 or null' };
     if (crop !== null && (typeof crop !== 'string' || !crop.startsWith('data:image/jpeg;base64,') || crop.length > MAX_CROP)) return { error: 'crop must be a small inline JPEG' };
     items.push({ id: randomUUID(), createdAt: Date.now(), name: name.trim(), status, pitch: pitch as number | null, pitchOptions: opts as Array<number | null>, crop: crop as string | null });
   }

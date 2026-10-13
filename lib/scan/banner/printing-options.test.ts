@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { orderPrintings, printingLine, defaultScanPrinting } from './printing-options';
+import { orderPrintings, printingLine, defaultScanPrinting, pitchChoices } from './printing-options';
 
 const p = (o: Record<string, unknown>) => ({ printing_id: Math.random().toString(36), set: 'wtr', collector_number: 'WTR001', foiling: 's', edition: 'u', language: 'en', tcg_low: '1.00', pitch: 1, ...o });
 
@@ -38,5 +38,19 @@ describe('defaultScanPrinting', () => {
   });
   it('returns null when there are no printings', () => {
     expect(defaultScanPrinting([])).toBeNull();
+  });
+});
+
+describe('pitchChoices', () => {
+  it('offers every colour a name comes in', () => {
+    expect(pitchChoices([1, 2, 3])).toEqual([1, 2, 3]);
+  });
+  it('still offers the colours when the name also has a pitchless token (Hyper Driver)', () => {
+    expect(pitchChoices([1, 2, 3, null])).toEqual([1, 2, 3]);
+  });
+  it('nothing to pick for a name in one colour, or with no colour at all', () => {
+    expect(pitchChoices([2])).toEqual([]);
+    expect(pitchChoices([2, null])).toEqual([]);
+    expect(pitchChoices([null])).toEqual([]);
   });
 });

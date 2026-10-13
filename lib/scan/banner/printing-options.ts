@@ -38,3 +38,10 @@ export function orderPrintings<T>(printings: T[]): T[] {
 export function defaultScanPrinting<T>(printings: T[]): T | null {
   return printings.length ? orderPrintings(printings)[0] : null;
 }
+
+/** The colours to offer under "Which colour?": the name's pitches, minus a pitchless token sharing the name (Hyper
+ *  Driver has one) — empty when there's at most one colour, so nothing to pick. */
+export function pitchChoices(pitches: Array<number | null>): number[] {
+  const colours = pitches.filter((p): p is number => p !== null);
+  return colours.length > 1 ? colours : [];
+}
