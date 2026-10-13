@@ -5,13 +5,14 @@
 "use client";
 
 import { ArrowRight, Check, ChevronDown, CircleHelp, Loader2 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { getCardImageUrl } from "@/lib/utils";
 import type { NameIndex } from "@/lib/scan/banner/name-match";
 import NameAutocomplete from "@/components/scan/NameAutocomplete";
 import PrintingChoice from "@/components/scan/PrintingChoice";
 import { printingLine, pitchChoices } from "@/lib/scan/banner/printing-options";
 import { PrintingMetaChips } from "@/components/shared/PrintingMetaChips";
+import { CardDetailsLightbox } from "@/components/cards/CardDetailsLightbox";
 import { addableRowIds, type AddedTo, type BinderOption } from "@/lib/scan/banner/add-to-binder";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
@@ -150,7 +151,20 @@ function AddButton({ item, binders, binder, onAdd }: { item: ReviewItem; binders
   );
 }
 
-function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "items" | "hasScanned" | "onAddMissing" | "extraActions" | "onTapPhoto" | "onAddAll">) {
+type RowProps = { item: ReviewItem; onZoom: (id: string) => void } & Omit<Props, "photos" | "items" | "hasScanned" | "onAddMissing" | "extraActions" | "onTapPhoto" | "onAddAll">;
+
+/** Our match's image as a button: opens the big card preview (lightbox) without leaving the page. */
+function ZoomableMatch({ item, onZoom, className }: { item: ReviewItem; onZoom: (id: string) => void; className: string }) {
+  return (
+    <button type="button" onClick={() => onZoom(item.id)} aria-label={`Zoom in on our match: ${item.name}`} title="Look closer"
+      className={`shrink-0 cursor-zoom-in rounded ${FOCUS_RING}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- card images are CDN URLs (image_url) */}
+      <img src={getCardImageUrl(item.printing)} alt={`Our match: ${item.name}`} className={`${className} rounded object-cover`} />
+    </button>
+  );
+}
+
+function Row({ item, onZoom, ...h }: RowProps) {
   const unread = item.name === "";                 // a tap we couldn't read: ask for the name straight away
   const [renaming, setRenaming] = useState(unread);
   // "Swap printing": the row's printings as quick text lines, same pitch as the card now (the colour buttons change pitch)
@@ -169,8 +183,7 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
       <li data-testid="scan-review-row" className="rounded-lg border-2 border-green-600 px-2 py-1.5 dark:border-green-500" aria-busy={item.adding || undefined}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="w-6 shrink-0 text-center text-sm font-bold text-gray-700 dark:text-gray-300">{item.n ?? "+"}</span>
-          {/* eslint-disable-next-line @next/next/no-img-element -- card images are CDN URLs (image_url) */}
-          <img src={getCardImageUrl(p)} alt={`Our match: ${item.name}`} className="h-12 w-9 shrink-0 rounded object-cover" />
+          <ZoomableMatch item={item} onZoom={onZoom} className="h-12 w-9" />
           <span className="font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-sm text-gray-700 dark:text-gray-300">
             {p.pitch ? <span className={`inline-block h-2.5 w-2.5 rounded-full ${PITCH_DOT[p.pitch]}`} aria-label={PITCH[p.pitch]} /> : null}
@@ -201,8 +214,7 @@ function Row({ item, ...h }: { item: ReviewItem } & Omit<Props, "photos" | "item
         )}
         <ArrowRight className="mt-12 h-4 w-4 shrink-0 text-gray-600 dark:text-gray-300" aria-hidden />
         {p ? (
-          // eslint-disable-next-line @next/next/no-img-element -- card images are CDN URLs (image_url)
-          <img src={getCardImageUrl(p)} alt={`Our match: ${item.name}`} className="h-28 w-20 shrink-0 rounded object-cover" />
+          <ZoomableMatch item={item} onZoom={onZoom} className="h-28 w-20" />
         ) : (
           <div className="flex h-28 w-20 shrink-0 items-center justify-center rounded border border-dashed border-gray-300 dark:border-gray-600">
             {item.resolving ? <Loader2 className="h-4 w-4 animate-spin text-gray-600 dark:text-gray-300" aria-label="Finding the card" /> : <span className="text-xs text-gray-700 dark:text-gray-300">no match</span>}
@@ -279,6 +291,19 @@ function AddMissing({ onAdd, nameIndex, loadPrintings }: { onAdd: Props["onAddMi
 export default function ScanReview({ photos, items, hasScanned, onAddMissing, extraActions, onTapPhoto, onAddAll, ...handlers }: Props) {
   const addable = addableRowIds(items).length;
   const unsure = items.filter(i => i.status === "check").length;
+  // Big card preview: ←/→ step through the rows that have a match. Picking another printing inside it only PREVIEWS
+  // that printing; what gets added changes through "Swap printing" on the row, never silently from here.
+  const [zoom, setZoom] = useState<{ id: string; printing: any | null } | null>(null);
+  const zoomable = items.filter(i => i.printing);
+  const zoomAt = zoom ? zoomable.findIndex(i => i.id === zoom.id) : -1;
+  const zoomItem = zoomAt >= 0 ? zoomable[zoomAt] : null;
+  const openZoom = (id: string) => setZoom({ id, printing: null });
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setZoom(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
   if (!hasScanned && items.length === 0 && photos.length === 0) return null;
   // Desktop: two columns — left = action buttons + the photo(s), sticky under the site header, so checking row 9
   // against box 9 never means scrolling back up. Phone: the left column dissolves (display: contents) so the button bar
@@ -302,8 +327,17 @@ export default function ScanReview({ photos, items, hasScanned, onAddMissing, ex
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{items.length > 0 ? "What we found" : "Anything we missed?"}</h2>
         {items.length === 0 && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Add any card by name with &ldquo;Add a card we missed&rdquo;.</p>}
         {items.length > 0 && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Check each card and add it to your binder. Undo takes it back out.{unsure > 0 ? ` The ${unsure} marked “Not sure” need a closer look first.` : ""}</p>}
-        {items.length > 0 && <ul className="mt-3 space-y-2">{items.map(i => <Row key={i.id} item={i} {...handlers} />)}</ul>}
+        {items.length > 0 && <ul className="mt-3 space-y-2">{items.map(i => <Row key={i.id} item={i} onZoom={openZoom} {...handlers} />)}</ul>}
       </div>
+      {zoomItem && (
+        <CardDetailsLightbox
+          card={{ printing: zoom?.printing ?? zoomItem.printing, name: zoomItem.name }}
+          onClose={() => setZoom(null)}
+          onPrev={zoomAt > 0 ? () => openZoom(zoomable[zoomAt - 1].id) : undefined}
+          onNext={zoomAt < zoomable.length - 1 ? () => openZoom(zoomable[zoomAt + 1].id) : undefined}
+          onSelectPrinting={pr => setZoom({ id: zoomItem.id, printing: pr })}
+        />
+      )}
     </section>
   );
 }
