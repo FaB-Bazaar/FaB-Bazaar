@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
 // Site-wide dark theme lift (2026-09): the dark surfaces move up one notch —
-// page #030712 → #111827, gray-900 → #182132, gray-800 → #263145 — so the site
+// page #030712 → #111827, gray-900 → #1b2537, gray-800 → #263145 — so the site
 // is no longer "a little too dark". Light mode must be untouched.
 test.use({ storageState: 'e2e/auth.json', viewport: { width: 1280, height: 800 } })
 
@@ -19,7 +19,7 @@ const bg = (page: Page, sel: string) => page.locator(sel).first().evaluate(el =>
 test('dark mode: page and gray-900 surfaces are lifted', async ({ page }) => {
   await openDaily(page, true)
   expect(await bg(page, 'body')).toBe('rgb(17, 24, 39)')                               // #111827
-  expect(await bg(page, 'div.min-h-screen.dark\\:bg-gray-900')).toBe('rgb(24, 33, 50)') // #182132
+  expect(await bg(page, 'div.min-h-screen.dark\\:bg-gray-900')).toBe('rgb(27, 37, 55)') // #1b2537
 })
 
 test('light mode is unchanged', async ({ page }) => {
@@ -41,7 +41,7 @@ test('dark mode: hover colours still apply on lifted surfaces', async ({ page })
   const cards = page.getByRole('group', { name: 'Deck view' }).getByRole('button', { name: 'Cards' })
   await expect(cards).toBeVisible({ timeout: 60000 })
   await page.mouse.move(5, 5)
-  expect(await cards.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(24, 33, 50)') // lifted gray-900
+  expect(await cards.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(27, 37, 55)') // lifted gray-900
   await cards.hover()
   await expect.poll(() => cards.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(31, 41, 55)') // gray-800 hover
 })
@@ -59,7 +59,7 @@ test('dark mode: opacity variants are lifted with the same alpha', async ({ page
   await page.goto('/decks/TofxuKKxD0ESwVR93b5AC/deprecated')
   const chip = page.locator('span.dark\\:bg-gray-900\\/60').first()
   await expect(chip).toBeAttached({ timeout: 60000 })
-  expect(await chip.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(24, 33, 50, 0.6)')
+  expect(await chip.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(27, 37, 55, 0.6)')
   await page.goto('/decks/TofxuKKxD0ESwVR93b5AC')
   await page.getByRole('group', { name: 'Deck view' }).getByRole('button', { name: 'Table', exact: true }).click()
   const groupRow = page.locator('tr.dark\\:bg-gray-800\\/60').first()
