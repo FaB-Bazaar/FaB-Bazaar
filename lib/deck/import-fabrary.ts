@@ -10,6 +10,7 @@
 
 import { parseFabraryDeck } from '@/lib/browse/parsers/fabrary-deck-parser';
 import { sortPrintings } from '@/lib/fab-constants/sets';
+import { isCcLegalRow } from '@/lib/cards/card-legality';
 import type { ParsedCard } from '@/lib/browse/parsers/bulk-input-parser';
 
 type AsyncResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -110,7 +111,7 @@ export async function importFabraryDeck(
 
   const field = legalityField(parsed.format);
   const eligibleHeroes = (heroSearch.data as any[]).filter(
-    p => p[field] && !(p.card_unique_id && bannedHeroIds.has(p.card_unique_id)),
+    p => (field === 'cc_legal' ? isCcLegalRow(p) : p[field]) && !(p.card_unique_id && bannedHeroIds.has(p.card_unique_id)),
   );
   if (eligibleHeroes.length === 0) {
     return { success: false, error: `Hero "${parsed.heroName}" has no legal printing in ${parsed.format}.` };

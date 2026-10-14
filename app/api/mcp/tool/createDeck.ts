@@ -18,6 +18,7 @@ function toRegistryFormat(format: string): BannedFormat | null {
 }
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
+import { isCcLegalRow } from '@/lib/cards/card-legality';
 
 // Map create_deck's display-name format to the snake_case key used by
 // validateHeroFormatLegality (e.g. "Silver Age" → "silver_age").
@@ -213,7 +214,7 @@ export const createDeckTool = {
           }
 
           const eligible = (result.data as any[]).filter((p: any) => {
-            if (!p[legalityField]) return false;
+            if (!(legalityField === 'cc_legal' ? isCcLegalRow(p) : p[legalityField])) return false;
             if (p.card_unique_id && bannedHeroIds.has(p.card_unique_id)) return false;
             return true;
           });

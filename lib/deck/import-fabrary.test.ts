@@ -161,6 +161,17 @@ describe('importFabraryDeck', () => {
     expect(dto.heroPrintingId).toBe('hero_cc');
   });
 
+  it('accepts a spoiler-season adult hero for CC (future_release, not yet cc_legal)', async () => {
+    const deps = makeDeps({
+      searchPrintings: vi.fn().mockResolvedValue({
+        success: true,
+        data: [printing({ printing_id: 'hero_spoiler', types: ['hero', 'adult'], cc_legal: false, future_release: true })],
+      }),
+    });
+    await importFabraryDeck({ userId: 'u1', text: LIST }, deps);
+    expect((deps.createDeck as any).mock.calls[0][1].heroPrintingId).toBe('hero_spoiler');
+  });
+
   it('fails when the hero has no format-legal printing', async () => {
     const deps = makeDeps({
       searchPrintings: vi.fn().mockResolvedValue({

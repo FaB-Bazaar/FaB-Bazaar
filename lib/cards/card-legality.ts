@@ -36,12 +36,25 @@ type Flags = Record<string, unknown>;
 
 const asBool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
 
+/**
+ * CC legality of a search row as the whole site treats it: `cc_legal`, or a
+ * spoiler-season card (`future_release`) that isn't a young hero. Talishar
+ * validates at play time.
+ */
+export function isCcLegalRow(card: Flags): boolean {
+  if (card.cc_legal === true) return true;
+  const types = Array.isArray(card.types) ? card.types : [];
+  return card.future_release === true && !types.includes('young');
+}
+
 /** Returns [] when the row carries no legality flags at all (nothing to show). */
 export function formatLegalityRows(card: Flags): LegalityRow[] {
   const rows: LegalityRow[] = [];
   let any = false;
   for (const { key, format, short } of FORMATS) {
-    const legal = asBool(card[`${key}_legal`]);
+    // Spoiler-season cards (printed in an unreleased set, `future_release` from
+    // the search API) are CC-legal site-wide; Talishar validates at play time.
+    const legal = key === 'cc' && isCcLegalRow(card) ? true : asBool(card[`${key}_legal`]);
     const banned = asBool(card[`${key}_banned`]);
     const suspended = asBool(card[`${key}_suspended`]);
     const restricted = key === 'll' ? asBool(card.ll_restricted) : undefined;

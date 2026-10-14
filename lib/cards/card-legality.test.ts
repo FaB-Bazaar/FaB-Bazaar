@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { formatLegalityRows, deckLegalityVerdict } from './card-legality';
+import { formatLegalityRows, deckLegalityVerdict, isCcLegalRow } from './card-legality';
 
 describe('formatLegalityRows', () => {
+  it('shows a spoiler-season card (future_release) as CC-legal; restrictions still win', () => {
+    const cc = (flags: Record<string, unknown>) => formatLegalityRows(flags).find((r) => r.key === 'cc')?.status;
+    expect(cc({ cc_legal: false, blitz_legal: false, future_release: true })).toBe('legal');
+    expect(cc({ cc_legal: false, cc_banned: true, future_release: true })).toBe('banned');
+    expect(cc({ cc_legal: false, future_release: false })).toBe('not-legal');
+    expect(formatLegalityRows({ cc_legal: false, blitz_legal: false, future_release: true }).find((r) => r.key === 'blitz')?.status).toBe('not-legal');
+  });
+
   it('lists the five constructed formats in display order with legal / not-legal from the flags', () => {
     // Ancestral Harmony (HVY247): CC/Blitz/LL legal, Silver Age + Commoner not.
     const rows = formatLegalityRows({
@@ -78,5 +86,14 @@ describe('deckLegalityVerdict — CC decks take spoiler-season cards (Future CC 
 
   it('does not add a sixth row to the per-card legality strip', () => {
     expect(formatLegalityRows({ cc_legal: true, future_release: true })).toHaveLength(5);
+  });
+});
+
+describe('isCcLegalRow', () => {
+  it('cc_legal, or a spoiler-season card that is not a young hero', () => {
+    expect(isCcLegalRow({ cc_legal: true })).toBe(true);
+    expect(isCcLegalRow({ cc_legal: false, future_release: true, types: ['hero', 'adult'] })).toBe(true);
+    expect(isCcLegalRow({ cc_legal: false, future_release: true, types: ['hero', 'young'] })).toBe(false);
+    expect(isCcLegalRow({ cc_legal: false, future_release: false })).toBe(false);
   });
 });

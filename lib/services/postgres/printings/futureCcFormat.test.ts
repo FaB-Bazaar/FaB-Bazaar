@@ -158,10 +158,32 @@ describe('listHeroCards legalIn=future_cc', () => {
     expect(result.data.some(h => h.cardUniqueId === futureYoungHeroId)).toBe(false);
   });
 
-  it('does not list that hero under plain cc', async () => {
+  it('lists that hero under plain cc too — spoilers are CC-legal site-wide (owner call 2026-10)', async () => {
     const result = await service.listHeroCards({ legalIn: 'cc' });
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data.some(h => h.cardUniqueId === futureHeroId)).toBe(false);
+    expect(result.data.some(h => h.cardUniqueId === futureHeroId)).toBe(true);
+    expect(result.data.some(h => h.cardUniqueId === futureYoungHeroId)).toBe(false);
+  });
+});
+
+describe('searchPrintings format=cc (the /opt, /search, MCP and Volzar CC filter)', () => {
+  const ccIds = (extra: Record<string, unknown> = {}) => futureCcIds({ format: 'cc', ...extra });
+
+  it('includes spoiler-season cards from a future-dated set — Talishar validates at play time', async () => {
+    const ids = await ccIds();
+    expect(ids.has(futureActionId)).toBe(true);
+    expect(ids.has(futureHeroId)).toBe(true);
+  });
+
+  it('leaves out young heroes from a future set (never CC)', async () => {
+    expect((await ccIds()).has(futureYoungHeroId)).toBe(false);
+  });
+
+  it('still excludes released-but-not-legal cards, excluded-category sets and the CC banlist', async () => {
+    const ids = await ccIds();
+    expect(ids.has(pastActionId)).toBe(false);
+    expect(ids.has(excludedActionId)).toBe(false);
+    expect(ids.has(bannedFutureId)).toBe(false);
   });
 });

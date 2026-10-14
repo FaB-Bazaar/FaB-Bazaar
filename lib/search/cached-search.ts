@@ -33,7 +33,8 @@ function sortedKeys<T extends object>(obj: T): T {
 //        not the alphabetical rarity code
 //   v8 — migration 0125 gave provisional (CardVault) cards a color outside a
 //        nightly run (color filters now match them)
-const SEARCH_CACHE_VERSION = 'v8';
+//   v9 — the cc filter includes spoiler-season sets (future-release cards)
+const SEARCH_CACHE_VERSION = 'v9';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

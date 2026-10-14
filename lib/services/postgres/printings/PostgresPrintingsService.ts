@@ -1958,11 +1958,15 @@ export class PostgresPrintingsService implements IPrintingsService {
         silver_age: cards.silverAgeLegal,
       }[filters.format];
 
-      if (filters.format === 'future_cc') {
-        // Future CC: today's CC pool plus every card from a not-yet-released
-        // set (the feed only flips cc_legal on release). Bans/suspensions
-        // below are CC's.
-        conditions.push(or(eq(cards.ccLegal, true), isFutureReleaseCard(cards.cardUniqueId))!);
+      if (filters.format === 'cc' || filters.format === 'future_cc') {
+        // CC = today's CC pool plus every card from a not-yet-released set (the
+        // feed only flips cc_legal on release) — spoilers are CC-legal site-wide
+        // and Talishar validates at play time. A young hero is never CC.
+        // Bans/suspensions below are CC's.
+        conditions.push(or(
+          eq(cards.ccLegal, true),
+          and(isFutureReleaseCard(cards.cardUniqueId), sql`NOT ('young' = ANY(${cards.types}))`),
+        )!);
       } else if (legalField) {
         conditions.push(eq(legalField, true));
       }
@@ -2471,7 +2475,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         SELECT 1 FROM ${printings} p
          WHERE p.card_unique_id = ${cards.cardUniqueId} AND p.is_front_face = true
       ))`);
-      if (opts?.legalIn === 'future_cc') {
+      if (opts?.legalIn === 'cc' || opts?.legalIn === 'future_cc') {
         // Superset of CC (whatever the feed flags cc_legal stays), plus ADULT
         // heroes from unreleased sets — a young hero from a future set belongs
         // to a (future) Silver Age, not here.

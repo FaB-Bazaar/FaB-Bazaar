@@ -115,12 +115,12 @@ describe('PostgresPrintingsService — hero legality admin', () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it('with legalIn=cc returns only heroes where ccLegal is true', async () => {
+    it('with legalIn=cc returns only CC-legal heroes (incl. spoiler-season adults)', async () => {
       const result = await service.listHeroCards({ legalIn: 'cc' });
       expect(result.success).toBe(true);
       if (!result.success) return;
       expect(result.data.length).toBeGreaterThan(0);
-      expect(result.data.every(h => h.ccLegal === true)).toBe(true);
+      expect(result.data.every(h => h.ccLegal === true || h.futureCcLegal === true)).toBe(true);
     });
 
     it('with legalIn=silver_age returns only heroes where silverAgeLegal is true', async () => {
