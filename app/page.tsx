@@ -2,9 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
-import { articleService, userService } from '@/lib/services';
+import { articleService, setsService, userService } from '@/lib/services';
 import { resolveLandingPath } from '@/lib/landing-page';
 import { resolveArticleImageUrl, resolveArticleImageUrls } from '@/lib/images/article-image';
+import { pickSpoilerSet } from '@/lib/home/spoiler-set';
+import { setLogoUrl } from '@/lib/set-images';
 import HomePageClient from '@/components/home/HomePageClient';
 
 export default async function HomePage() {
@@ -24,10 +26,26 @@ export default async function HomePage() {
     redirect(resolveLandingPath(landingPage));
   }
 
-  const result = await articleService.listArticles(
-    { status: 'published', isUserArticle: false },
-    { limit: 3, skip: 0 }
-  );
+  const [result, setsResult] = await Promise.all([
+    articleService.listArticles(
+      { status: 'published', isUserArticle: false },
+      { limit: 3, skip: 0 }
+    ),
+    setsService.listSets(),
+  ]);
+
+  // Spoiler-season banner: the next main set still ahead of its release date.
+  const spoiler = setsResult.success
+    ? pickSpoilerSet(setsResult.data, new Date().toISOString().slice(0, 10))
+    : null;
+  const spoilerSet = spoiler && {
+    code: spoiler.code,
+    name: spoiler.name,
+    logoUrl: spoiler.imageId ? setLogoUrl(spoiler.imageId) : undefined,
+    releaseLabel: new Date(`${spoiler.releaseDate}T00:00:00Z`).toLocaleDateString('en-US', {
+      timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric',
+    }),
+  };
 
   // `image` is a bare id (upload UUID or printing_id) — resolve to a renderable
   // url server-side; printing_id-keyed CDN urls must never be constructed
@@ -42,5 +60,5 @@ export default async function HomePage() {
     contentType: a.contentType,
   }));
 
-  return <HomePageClient articles={articles} />;
+  return <HomePageClient articles={articles} spoilerSet={spoilerSet} />;
 }

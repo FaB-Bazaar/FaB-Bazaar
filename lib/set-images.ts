@@ -2,6 +2,9 @@
 
 const CLOUDFLARE_IMAGE_BASE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
 
+/** Public URL for a set logo stored by id (sets.image_id). */
+export const setLogoUrl = (imageId: string): string => `${CLOUDFLARE_IMAGE_BASE}/${imageId}/public`;
+
 // Map set codes to their Cloudflare image IDs
 export const SET_IMAGES: Record<string, string> = {
   'wtr': '662cd0af-99ab-4841-bf69-95340c122700', // Welcome to Rathe
