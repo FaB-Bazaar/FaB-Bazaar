@@ -241,7 +241,12 @@ export function keywordsFromRulesText(raw: string | null | undefined): [string[]
     let param: string | undefined = m[2];
     const inner = base.match(/^(.*?)\s+(\d+|[xX])$/);
     if (inner) { base = inner[1]; param = param ?? inner[2]; }
-    const key = base.toLowerCase();
+    let key = base.toLowerCase();
+    // Verb keywords conjugate in rules text ("each hero **cures** a disease").
+    if (!KEYWORD_SET.has(key) && key.endsWith('s') && KEYWORD_SET.has(key.slice(0, -1))) {
+      key = key.slice(0, -1);
+      base = base.slice(0, -1);
+    }
     if (!KEYWORD_SET.has(key)) continue;
     if (key === 'go again' && GO_AGAIN_GRANT_TAIL.test(text.slice(Math.max(0, m.index - 40), m.index))) continue;
     const kw = `${key}${param ? ` ${param.toLowerCase()}` : ''}`;

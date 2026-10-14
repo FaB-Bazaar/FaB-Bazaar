@@ -279,6 +279,12 @@ describe('buildProvisionalCard — keywords from CardVault bold markup', () => {
     expect(row.keywords).toEqual(['arcane barrier 1', 'ward 2', 'battleworn', 'opt 2']);
   });
 
+  it('OBK keywords: cure (also as "cures") and veil', () => {
+    const row = buildProvisionalCard(face({ printed_rules_text: 'As an additional cost to play this, each hero **cures** a disease they control if able.{br} * This gets **veil**.{br}You may **cure** a disease you control.' }), ids);
+    expect(row.keywords).toEqual(['cure', 'veil']);
+    expect(row.keywords_display).toEqual(['cure', 'veil']);
+  });
+
   it('a granted go again is not the card\'s keyword', () => {
     const row = buildProvisionalCard(face({ printed_rules_text: 'At the start of your turn, destroy this, then your next attack this turn gets **go again**.' }), ids);
     expect(row.keywords).toEqual([]);
