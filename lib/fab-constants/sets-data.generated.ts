@@ -134,6 +134,7 @@ export const SET_MAP = {
   "ama": "Armory Deck: Malice",
   "amo": "Armory Deck: Dr. Mortimer",
   "mpa": "Mastery Pack Assassin",
+  "obk": "Outbreak",
 } as const;
 
 export const SET_METADATA: Record<string, SetMetadata> = {
@@ -260,4 +261,5 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   "ama": { code: "AMA", name: "Armory Deck: Malice", releaseDate: "2026-09-25", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1129, unlimitedBeforeFirst: false },
   "amo": { code: "AMO", name: "Armory Deck: Dr. Mortimer", releaseDate: "2026-11-13", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1130, unlimitedBeforeFirst: false },
   "mpa": { code: "MPA", name: "Mastery Pack Assassin", releaseDate: "2026-11-13", hasFirstEdition: false, category: "standard", tier: 2, displayOrder: 401, unlimitedBeforeFirst: false },
+  "obk": { code: "OBK", name: "Outbreak", releaseDate: "2027-02-12", hasFirstEdition: false, category: "standard", tier: 1, displayOrder: 196, unlimitedBeforeFirst: false },
 };
