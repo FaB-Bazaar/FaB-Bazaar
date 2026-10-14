@@ -128,6 +128,7 @@ export const BINDER_SORT_OPTIONS = [
   'collector-absolute',
   'recently-added',
   'recently-updated',
+  'rarity',
 ] as const;
 
 /**
@@ -228,6 +229,7 @@ export interface BinderCardSearchOptions {
     | 'collector-absolute'
     | 'recently-added'
     | 'recently-updated'
+    | 'rarity'
     | 'default';
 }
 

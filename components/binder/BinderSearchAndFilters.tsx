@@ -144,6 +144,7 @@ export const BinderSearchAndFilters: React.FC<BinderSearchAndFiltersProps> = ({
           <option value="collector-absolute">Sort: Collector # (A–Z)</option>
           <option value="recently-added">Sort: Recently Added</option>
           <option value="recently-updated">Sort: Recently Updated</option>
+          <option value="rarity">Sort: Rarity (then TCG Low)</option>
         </select>
       </div>
 

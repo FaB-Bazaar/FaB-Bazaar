@@ -43,6 +43,7 @@ const DEFAULT_SORT_OPTIONS = [
   { value: 'collector-absolute', label: 'Collector # (A–Z)' },
   { value: 'recently-added', label: 'Recently Added' },
   { value: 'recently-updated', label: 'Recently Updated' },
+  { value: 'rarity', label: 'Rarity (then TCG Low)' },
 ]
 
 interface BinderSettingsProps {

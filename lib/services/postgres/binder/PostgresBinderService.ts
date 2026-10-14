@@ -49,6 +49,7 @@ import type {
   VisibilityDTO,
 } from '@/lib/services/contracts/IBinderService';
 import { BINDER_SORT_OPTIONS } from '@/lib/services/contracts/IBinderService';
+import { rarityRank } from '../rarity-rank';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeCondition } from '@/lib/utils/card-condition';
@@ -1961,6 +1962,11 @@ export class PostgresBinderService implements IBinderService {
         return [desc(inventoryItems.addedAt), asc(cards.displayName)];
       case 'recently-updated':
         return [desc(inventoryItems.updatedAt), asc(cards.displayName)];
+      // 'rarity' = rarity rank, then tcg_low high → low — unpriced copies (often
+      // foreign printings TCGplayer doesn't list) stay with their rarity
+      // instead of sinking to the bottom like they do under a price sort.
+      case 'rarity':
+        return [asc(rarityRank(printings.rarity)), sql`${printings.tcgLow} DESC NULLS LAST`, asc(cards.displayName)];
       case 'name':
       default:
         return [asc(cards.name)];
