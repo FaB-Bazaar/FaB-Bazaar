@@ -20,6 +20,7 @@ export const HERO_NICKNAMES = {
   'slippy': 'Arakni, 5L!p3d 7hRu 7h3 cR4X',
   'huntsman': 'Arakni, Huntsman',
   'mario': 'Arakni, Marionette',
+  'alpha-01': 'α-01, First Cogwarden', // young-only; also keeps title-casing from capitalising α
   'aurora': 'Aurora, Shooting Star',
   'azalea': 'Azalea, Ace in the Hole',
   'betsy': 'Betsy, Skin in the Game',
@@ -38,6 +39,7 @@ export const HERO_NICKNAMES = {
   'florian': 'Florian, Rotwood Harbinger',
   'gravy': 'Gravy Bones, Shipwrecked Looter',
   'hala': 'Hala, Bladesaint of the Vow',
+  'huxley': 'Huxley, Racketeer',
   'ira': 'Ira, Scarlet Revenger',
   'iyslander': 'Iyslander, Stormbind',
   'jarl': 'Jarl Vetreiði',
@@ -51,6 +53,8 @@ export const HERO_NICKNAMES = {
   'malice': 'Malice, Domina of the Dead',
   'marlynn': 'Marlynn, Treasure Hunter',
   'maxx': 'Maxx \'The Hype\' Nitro',
+  'min': 'Min, Genius',
+  'mortimer': 'Dr. Mortimer, Blight of the Pits',
   'nuu': 'Nuu, Alluring Desire',
   'oldhim': 'Oldhim, Grandfather of Eternity',
   'olympia': 'Olympia, Prized Fighter',
@@ -70,6 +74,7 @@ export const HERO_NICKNAMES = {
   'verdance': 'Verdance, Thorn of the Rose',
   'victor': 'Victor Goldmane, High and Mighty',
   'viserai': 'Viserai, Rune Blood',
+  'vyle': 'Vyle, Catalyst of Collapse',
   'vynnset': 'Vynnset, Iron Maiden',
   'zen': 'Zen, Tamer of Purpose'
 } as const;

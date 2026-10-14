@@ -660,3 +660,63 @@ describe('IAR heroes — Baalghor, Omen of the End', () => {
     expect(getHeroInfo('baalghor')?.cardUniqueId).toBe('FmWWpM8FLJCCzQLKBwwKk');
   });
 });
+
+// Outbreak (OBK, spoilers 2026-10) + Mastery Pack Assassin (MPA) heroes.
+// card_unique_ids verified against PROD (/api/printings/search sets:[obk,mpa]
+// types:[hero]); Talishar slugs from LegalHeroesHelper.php. Transform backs
+// (Min, Mad / Min, Half-Mad) are not starting heroes, so not in the rosters.
+describe('OBK + MPA heroes', () => {
+  const ADULT = [
+    { key: 'azalea, ace of spades', id: 'ajIaY-voPFM1coEtLaYkR', classes: ['assassin', 'ranger'], talents: [], slug: 'azalea_ace_of_spades', cn: 'OBK080' },
+    { key: 'huxley, racketeer', id: 'sPx9P2IeAz10Z8-mjAWy-', classes: ['assassin', 'mechanologist'], talents: [], slug: 'huxley_racketeer', cn: 'OBK071' },
+    { key: 'min, genius', id: 'qMjpSIWpxH-YcuJC_hKVB', classes: ['mechanologist'], talents: ['chaos'], slug: 'min_genius', cn: 'OBK006' },
+    { key: 'vyle, catalyst of collapse', id: 'ieGJJif0fHd1P1wbH5Qw1', classes: ['ranger'], talents: ['chaos'], slug: 'vyle_catalyst_of_collapse', cn: 'OBK012' },
+    { key: 'dr. mortimer, blight of the pits', id: '4n3hvvfPw3xlRSVx79qBu', classes: ['assassin'], talents: [], slug: 'dr_mortimer_blight_of_the_pits', cn: 'MPA002' },
+  ];
+  const YOUNG = [
+    { key: 'azalea, lone vigilante', id: 'FTh0O7kOL38wfEMZmb7Eo', classes: ['assassin', 'ranger'], talents: [], slug: 'azalea_lone_vigilante', cn: 'OBK081' },
+    { key: 'huxley', id: 'ynpGP30LezkBOwrMcTfns', classes: ['assassin', 'mechanologist'], talents: [], slug: 'huxley', cn: 'OBK072' },
+    { key: 'min, half-genius', id: '2Alh9TLvPamJ6KvGaJsVk', classes: ['mechanologist'], talents: ['chaos'], slug: 'min_half_genius', cn: 'OBK007' },
+    { key: 'vyle', id: 'lpH_vU_cnOvmcqWtS-vAA', classes: ['ranger'], talents: ['chaos'], slug: 'vyle', cn: 'OBK013' },
+    { key: 'dr. mortimer', id: 'TZ-TzLWYg_W0pmQnL1wz1', classes: ['assassin'], talents: [], slug: 'dr_mortimer', cn: 'MPA003' },
+    { key: 'mortimer, living virus', id: '7KEzp9kenB86cmEQxy-G5', classes: ['assassin'], talents: ['chaos'], slug: 'mortimer_living_virus', cn: 'OBK001' },
+    { key: 'α-01, first cogwarden', id: '7F3pF9h2wliPbhUVa2q6S', classes: ['mechanologist', 'ranger'], talents: [], slug: 'alpha_01_first_cogwarden', cn: 'OBK089' },
+  ];
+
+  it.each(ADULT)('adult $key: roster, Talishar ids, CC-legal', (h) => {
+    expect(HERO_INFO[h.key]).toMatchObject({ cardUniqueId: h.id, classes: h.classes, talents: h.talents });
+    expect(YOUNG_HERO_INFO[h.key]).toBeUndefined();
+    expect(TALISHAR_HERO_SLUGS[h.key]).toBe(h.slug);
+    expect(TALISHAR_HERO_IDS[h.key]).toBe(h.cn);
+    expect(validateHeroFormatLegality(h.key, 'cc')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality(h.key, 'silver_age').ok).toBe(false);
+  });
+
+  it.each(YOUNG)('young $key: roster, Talishar ids, Silver Age / Blitz', (h) => {
+    expect(YOUNG_HERO_INFO[h.key]).toMatchObject({ cardUniqueId: h.id, classes: h.classes, talents: h.talents });
+    expect(HERO_INFO[h.key]).toBeUndefined();
+    expect(TALISHAR_HERO_SLUGS[h.key]).toBe(h.slug);
+    expect(TALISHAR_HERO_IDS[h.key]).toBe(h.cn);
+    expect(validateHeroFormatLegality(h.key, 'silver_age')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality(h.key, 'blitz')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality(h.key, 'cc').ok).toBe(false);
+  });
+
+  it('nicknames resolve to the adult heroes; "azalea" still means Ace in the Hole', () => {
+    const nick = (n: string) => HERO_NICKNAMES[n as keyof typeof HERO_NICKNAMES];
+    expect(nick('huxley')).toBe('Huxley, Racketeer');
+    expect(nick('vyle')).toBe('Vyle, Catalyst of Collapse');
+    expect(nick('min')).toBe('Min, Genius');
+    expect(nick('mortimer')).toBe('Dr. Mortimer, Blight of the Pits');
+    expect(nick('azalea')).toBe('Azalea, Ace in the Hole');
+  });
+
+  it('young heroes render under their own names, not the adult nickname', () => {
+    for (const h of YOUNG) {
+      const info = YOUNG_HERO_INFO[h.key];
+      expect(toHeroDisplayName(h.key, info?.shortName).toLowerCase()).toBe(h.key);
+    }
+    expect(toHeroDisplayName('α-01, first cogwarden', YOUNG_HERO_INFO['α-01, first cogwarden']?.shortName)).toBe('α-01, First Cogwarden');
+    expect(toHeroDisplayName('dr. mortimer, blight of the pits', HERO_INFO['dr. mortimer, blight of the pits']?.shortName)).toBe('Dr. Mortimer, Blight of the Pits');
+  });
+});

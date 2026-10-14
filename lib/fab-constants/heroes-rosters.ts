@@ -405,6 +405,38 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     talents: ['elemental'],
     essences: ['earth'],
     shortName: 'verdance'
+  },
+  // Outbreak (OBK) + Mastery Pack Assassin (MPA) — ids verified against prod.
+  // Min, Mad is Min, Genius's transform back (not a starting hero).
+  'azalea, ace of spades': {
+    cardUniqueId: 'ajIaY-voPFM1coEtLaYkR',
+    classes: ['assassin', 'ranger'],
+    talents: [],
+    shortName: 'azalea-as'
+  },
+  'huxley, racketeer': {
+    cardUniqueId: 'sPx9P2IeAz10Z8-mjAWy-',
+    classes: ['assassin', 'mechanologist'],
+    talents: [],
+    shortName: 'huxley'
+  },
+  'min, genius': {
+    cardUniqueId: 'qMjpSIWpxH-YcuJC_hKVB',
+    classes: ['mechanologist'],
+    talents: ['chaos'],
+    shortName: 'min'
+  },
+  'vyle, catalyst of collapse': {
+    cardUniqueId: 'ieGJJif0fHd1P1wbH5Qw1',
+    classes: ['ranger'],
+    talents: ['chaos'],
+    shortName: 'vyle'
+  },
+  'dr. mortimer, blight of the pits': {
+    cardUniqueId: '4n3hvvfPw3xlRSVx79qBu',
+    classes: ['assassin'],
+    talents: [],
+    shortName: 'mortimer'
   }
 };
 
@@ -620,6 +652,24 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
     cardUniqueId: 'wNRqrHCn6rrKLhrDkqPwp', classes: ['brute'], talents: [], shortName: 'rhinar' },
   'tuffnut': {
     cardUniqueId: 'wKnhnNTHKHqFfjgdn9LLP', classes: ['brute'], talents: ['revered'], shortName: 'tuffnut' },
+
+  // Outbreak (OBK) + Mastery Pack Assassin (MPA) — ids verified against prod.
+  // Young shortNames carry -y so toHeroDisplayName doesn't render the adult
+  // nickname; Min, Half-Mad is Min, Half-Genius's transform back.
+  'azalea, lone vigilante': {
+    cardUniqueId: 'FTh0O7kOL38wfEMZmb7Eo', classes: ['assassin', 'ranger'], talents: [], shortName: 'azalea-lv' },
+  'huxley': {
+    cardUniqueId: 'ynpGP30LezkBOwrMcTfns', classes: ['assassin', 'mechanologist'], talents: [], shortName: 'huxley-y' },
+  'min, half-genius': {
+    cardUniqueId: '2Alh9TLvPamJ6KvGaJsVk', classes: ['mechanologist'], talents: ['chaos'], shortName: 'min-y' },
+  'vyle': {
+    cardUniqueId: 'lpH_vU_cnOvmcqWtS-vAA', classes: ['ranger'], talents: ['chaos'], shortName: 'vyle-y' },
+  'dr. mortimer': {
+    cardUniqueId: 'TZ-TzLWYg_W0pmQnL1wz1', classes: ['assassin'], talents: [], shortName: 'mortimer-y' },
+  'mortimer, living virus': {
+    cardUniqueId: '7KEzp9kenB86cmEQxy-G5', classes: ['assassin'], talents: ['chaos'], shortName: 'mortimer-lv' },
+  'α-01, first cogwarden': {
+    cardUniqueId: '7F3pF9h2wliPbhUVa2q6S', classes: ['mechanologist', 'ranger'], talents: [], shortName: 'alpha-01' },
 };
 
 export function getHeroesGroupedByClass(): Record<string, string[]> {
