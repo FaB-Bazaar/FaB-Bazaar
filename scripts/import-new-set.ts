@@ -164,7 +164,7 @@ async function politeFetch(url: string): Promise<any> {
     set: SET, setHasFirstEdition, familySlugs, payloads,
     existingPrintings: existing.rows, cardRows: cardRows.rows, skipCollectors: SKIP_COLLECTORS,
   });
-  const { newCards, enrichCards, newPrintings, retroLinks } = plan;
+  const { newCards, enrichCards, translations, newPrintings, retroLinks } = plan;
   for (const w of plan.warnings) console.warn(`   ⚠ ${w}`);
   for (const line of plan.log) console.log(`  ${line}`);
   console.log(`\nplan: ${summarizePlan(plan)}`);
@@ -192,6 +192,20 @@ async function politeFetch(url: string): Promise<any> {
         `UPDATE cards SET ${cols.map((k, i) => `"${k}" = $${i + 2}`).join(', ')}
           WHERE card_unique_id = $1 AND fab_cube_card_id IS NULL`,
         [c.card_unique_id, ...cols.map((k) => (c as any)[k])]);
+    }
+    // Printed-casing 'en' rows (provisional cards only) — same SQL as
+    // PostgresCardVaultService.commitPlan.
+    for (const t of translations) {
+      await client.query(
+        `INSERT INTO card_translations
+           (card_unique_id, language, name, display_name, text, type_text, source, source_card_id, updated_at)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8, now()
+          WHERE EXISTS (SELECT 1 FROM cards WHERE card_unique_id = $1 AND fab_cube_card_id IS NULL)
+         ON CONFLICT (card_unique_id, language) DO UPDATE SET
+           name = EXCLUDED.name, display_name = EXCLUDED.display_name, text = EXCLUDED.text,
+           type_text = EXCLUDED.type_text, source = EXCLUDED.source,
+           source_card_id = EXCLUDED.source_card_id, updated_at = now()`,
+        [t.card_unique_id, t.language, t.name, t.display_name, t.text, t.type_text, t.source, t.source_card_id]);
     }
     for (const l of retroLinks) {
       await client.query(

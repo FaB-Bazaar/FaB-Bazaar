@@ -291,6 +291,7 @@ export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds
     text: rules || null,
     searchable_text: rules || null,
     type_text: typebox.toLowerCase() || null,
+    type_text_display: typebox || null,
     types: typeTokens,
     classes,
     talents,
@@ -309,6 +310,27 @@ export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds
     intelligence: toInt((faceIn as any).printed_intellect),
     health: toInt((faceIn as any).printed_life),
     ...flags,
+  };
+}
+
+/**
+ * The card's 'en' card_translations row: the PRINTED casing of its name, type
+ * line and rules text. cards.text is the lowercased search copy; the search
+ * API serves this row's text over it. Same shape as the fab-cube feed's rows
+ * ({br} → newline, **bold** kept for the rules-text renderer).
+ */
+export function buildEnglishTranslation(faceIn: LssApiFace, ids: ProvisionalCardIds) {
+  const displayName = (faceIn.printed_name ?? '').trim();
+  const text = (faceIn.printed_rules_text ?? '').replace(/\{br\}/g, '\n').trim();
+  return {
+    card_unique_id: ids.cardUniqueId,
+    language: 'en',
+    name: displayName.toLowerCase(),
+    display_name: displayName,
+    text: text || null,
+    type_text: (faceIn.printed_typebox ?? '').trim() || null,
+    source: 'cardvault',
+    source_card_id: ids.lssCardId,
   };
 }
 

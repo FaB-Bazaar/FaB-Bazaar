@@ -143,6 +143,20 @@ export class PostgresCardVaultService {
             .returning({ id: cards.cardUniqueId });
           result.cardsEnriched += updated.length;
         }
+        // The printed-casing 'en' row search serves over the lowercase cards.text.
+        // Same provisional-only rule: fab-cube owns an anchored card's row.
+        for (const t of plan.translations) {
+          await tx.execute(sql`
+            INSERT INTO card_translations
+              (card_unique_id, language, name, display_name, text, type_text, source, source_card_id, updated_at)
+            SELECT ${t.card_unique_id}, ${t.language}, ${t.name}, ${t.display_name}, ${t.text},
+                   ${t.type_text}, ${t.source}, ${t.source_card_id}, now()
+             WHERE EXISTS (SELECT 1 FROM cards WHERE card_unique_id = ${t.card_unique_id} AND fab_cube_card_id IS NULL)
+            ON CONFLICT (card_unique_id, language) DO UPDATE SET
+              name = EXCLUDED.name, display_name = EXCLUDED.display_name, text = EXCLUDED.text,
+              type_text = EXCLUDED.type_text, source = EXCLUDED.source,
+              source_card_id = EXCLUDED.source_card_id, updated_at = now()`);
+        }
         if (plan.newPrintings.length) {
           // Insert unlinked, then link: a pair's rows reference each other.
           const rows = plan.newPrintings.map((p) => ({

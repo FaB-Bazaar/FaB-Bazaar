@@ -5,6 +5,7 @@ import {
   pickSetPrints,
   buildProvisionalPrinting,
   buildProvisionalCard,
+  buildEnglishTranslation,
   splitFaces,
   buildFaceRows,
   naturalKeyOf,
@@ -175,6 +176,49 @@ describe('buildProvisionalCard', () => {
     expect(c.cost).toBeNull();
     expect(c.power).toBeNull();
     expect(c.text).toBe('go again draw a card.');
+  });
+
+  it('keeps the printed type line as type_text_display (the lightbox shows it, not the lowercase copy)', () => {
+    const c = buildProvisionalCard(
+      face({ printed_name: 'Huxley, Racketeer', printed_typebox: 'Assassin Mechanologist Hero' }),
+      { cardUniqueId: 'c6', lssCardId: 'uuid6' },
+    );
+    expect(c.type_text_display).toBe('Assassin Mechanologist Hero');
+    expect(c.type_text).toBe('assassin mechanologist hero');
+  });
+});
+
+describe('buildEnglishTranslation', () => {
+  const face = (over: Record<string, unknown>) => ({
+    face_language: 'en', printed_name: 'X', printed_typebox: '', printed_rules_text: '', ...over,
+  });
+
+  it("builds the card's 'en' card_translations row with the printed casing", () => {
+    // The search API serves card_translations.text over the lowercase cards.text,
+    // the same row shape the fab-cube feed rows have ({br} → newline, **bold** kept).
+    const t = buildEnglishTranslation(
+      face({
+        printed_name: 'Huxley, Racketeer',
+        printed_typebox: 'Assassin Mechanologist Hero',
+        printed_rules_text: 'Whenever you banish an action card with **stealth** from boosting, you may {t} this.{br}If you do, play it.',
+      }),
+      { cardUniqueId: 'c7', lssCardId: 'uuid7' },
+    );
+    expect(t).toEqual({
+      card_unique_id: 'c7',
+      language: 'en',
+      name: 'huxley, racketeer',
+      display_name: 'Huxley, Racketeer',
+      text: 'Whenever you banish an action card with **stealth** from boosting, you may {t} this.\nIf you do, play it.',
+      type_text: 'Assassin Mechanologist Hero',
+      source: 'cardvault',
+      source_card_id: 'uuid7',
+    });
+  });
+
+  it('stores null text for a card with no rules text', () => {
+    const t = buildEnglishTranslation(face({ printed_name: 'Plain' }), { cardUniqueId: 'c8', lssCardId: 'uuid8' });
+    expect(t.text).toBeNull();
   });
 });
 

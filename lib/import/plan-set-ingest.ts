@@ -12,6 +12,7 @@ import { nanoid } from 'nanoid';
 import {
   pickSetPrints,
   buildProvisionalCard,
+  buildEnglishTranslation,
   splitFaces,
   buildFaceRows,
   naturalKeyOf,
@@ -41,12 +42,15 @@ export interface ExistingCardRow {
 }
 
 export type PlannedCard = ReturnType<typeof buildProvisionalCard> & { talishar_card_id: string };
+export type PlannedTranslation = ReturnType<typeof buildEnglishTranslation>;
 export type PlannedPrinting = ProvisionalPrintingRow & { is_front_face?: boolean; other_face_printing_id?: string | null };
 
 export interface SetIngestPlan {
   newCards: PlannedCard[];
   /** Existing PROVISIONAL cards whose derived fields are refreshed. */
   enrichCards: PlannedCard[];
+  /** 'en' card_translations rows (printed casing) for every new + enriched card. */
+  translations: PlannedTranslation[];
   newPrintings: PlannedPrinting[];
   /** Backs discovered for fronts ingested before face support: link in place. */
   retroLinks: Array<{ frontId: string; backId: string }>;
@@ -124,11 +128,16 @@ export function planSetIngest(input: PlanSetIngestInput): SetIngestPlan {
   const provisionalCardIds = new Set(input.cardRows.filter((r) => !r.fab_cube_card_id).map((r) => r.card_unique_id));
 
   const plan: SetIngestPlan = {
-    newCards: [], enrichCards: [], newPrintings: [], retroLinks: [],
+    newCards: [], enrichCards: [], translations: [], newPrintings: [], retroLinks: [],
     counts: { skippedLss: 0, skippedNaturalKey: 0, skippedFlag: 0, backFaces: 0 },
     log: [], warnings: [],
   };
   const { counts } = plan;
+
+  const planCard = (list: PlannedCard[], face: LssApiFace, cardUniqueId: string, lssCardId: string, tal: string) => {
+    list.push({ ...buildProvisionalCard(face, { cardUniqueId, lssCardId }), talishar_card_id: tal });
+    plan.translations.push(buildEnglishTranslation(face, { cardUniqueId, lssCardId }));
+  };
 
   // Resolve (or create/enrich) one card row; shared by front and named-back faces.
   const resolveCard = (face: LssApiFace, lssCardId: string): { id: string; via: string } => {
@@ -138,10 +147,10 @@ export function planSetIngest(input: PlanSetIngestInput): SetIngestPlan {
     if (!id) {
       id = mintId();
       cardByTal.set(tal, id);
-      plan.newCards.push({ ...buildProvisionalCard(face, { cardUniqueId: id, lssCardId }), talishar_card_id: tal });
+      planCard(plan.newCards, face, id, lssCardId, tal);
       via = 'NEW';
     } else if (provisionalCardIds.has(id)) {
-      plan.enrichCards.push({ ...buildProvisionalCard(face, { cardUniqueId: id, lssCardId }), talishar_card_id: tal });
+      planCard(plan.enrichCards, face, id, lssCardId, tal);
       via = `${via}+enrich`;
     }
     return { id, via };
@@ -166,7 +175,7 @@ export function planSetIngest(input: PlanSetIngestInput): SetIngestPlan {
     let frontCardId = lssMatch?.card_unique_id;
     let frontVia = frontCardId ? 'lss' : '';
     if (frontCardId && provisionalCardIds.has(frontCardId)) {
-      plan.enrichCards.push({ ...buildProvisionalCard(frontFace, { cardUniqueId: frontCardId, lssCardId: card.id }), talishar_card_id: frontTal });
+      planCard(plan.enrichCards, frontFace, frontCardId, card.id, frontTal);
       frontVia = 'lss+enrich';
     }
     if (!frontCardId) {

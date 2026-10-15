@@ -13,7 +13,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db } from '@/lib/postgres/db';
-import { cards, printings, cardvaultPayloadCache } from '@/lib/postgres/schema';
+import { cards, printings, cardvaultPayloadCache, cardTranslations } from '@/lib/postgres/schema';
+import { and } from 'drizzle-orm';
 import { eq, inArray, like } from 'drizzle-orm';
 import { planSetIngest, type SetIngestPlan } from '@/lib/import/plan-set-ingest';
 import { PostgresCardVaultService } from './PostgresCardVaultService';
@@ -118,6 +119,30 @@ describe('PostgresCardVaultService.commitPlan', () => {
       .where(inArray(cards.cardUniqueId, [anchored.card_unique_id, provisional.card_unique_id]));
     expect(rows.find((r) => r.id === anchored.card_unique_id)!.name).not.toBe('zz changed');
     expect(rows.find((r) => r.id === provisional.card_unique_id)!.name).toBe('zz changed');
+  });
+
+  it("upserts each planned card's 'en' translation — never over a fab-cube-anchored card's row", async () => {
+    const tag = newTag();
+    const plan = isolatedPlan(tag);
+    ok(await service.commitPlan(plan));
+    const [anchored, provisional] = plan.newCards;
+    const enRow = async (id: string) => (await db.select().from(cardTranslations)
+      .where(and(eq(cardTranslations.cardUniqueId, id), eq(cardTranslations.language, 'en'))))[0];
+
+    // Display casing lands on insert.
+    expect(await enRow(provisional.card_unique_id)).toMatchObject({
+      displayName: provisional.display_name, source: 'cardvault',
+    });
+
+    // A re-run (enrich) refreshes a provisional card's row; an anchored card's is fab-cube's.
+    await db.update(cards).set({ fabCubeCardId: `zzcv-anchor-${rand()}` }).where(eq(cards.cardUniqueId, anchored.card_unique_id));
+    const rewrite = (id: string) => ({ ...plan.translations.find((t) => t.card_unique_id === id)!, text: 'Zz Rewritten.' });
+    ok(await service.commitPlan({
+      ...plan, newCards: [], enrichCards: [], newPrintings: [], retroLinks: [],
+      translations: [rewrite(anchored.card_unique_id), rewrite(provisional.card_unique_id)],
+    }));
+    expect((await enRow(provisional.card_unique_id)).text).toBe('Zz Rewritten.');
+    expect((await enRow(anchored.card_unique_id)).text).not.toBe('Zz Rewritten.');
   });
 
   it('retro-links a back onto its front only when the front is unlinked', async () => {

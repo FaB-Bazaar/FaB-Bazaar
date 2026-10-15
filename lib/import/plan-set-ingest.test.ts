@@ -98,6 +98,18 @@ describe('planSetIngest', () => {
     expect(p.counts.skippedNaturalKey).toBe(1);
     expect(p.newPrintings.length).toBe(fresh.newPrintings.length - 2); // the front and its back
   });
+  it("plans an 'en' translation for every new and enriched card", () => {
+    const fresh = plan();
+    expect(fresh.translations.map((t) => t.card_unique_id).sort())
+      .toEqual(fresh.newCards.map((c) => c.card_unique_id).sort());
+    const usurper = fresh.newCards.find((c) => c.talishar_card_id === 'viserai_usurper')!;
+    expect(fresh.translations.find((t) => t.card_unique_id === usurper.card_unique_id))
+      .toMatchObject({ language: 'en', display_name: 'Viserai, Usurper' });
+
+    const again = plan(committed(fresh));
+    expect(again.translations.map((t) => t.card_unique_id).sort())
+      .toEqual(again.enrichCards.map((c) => c.card_unique_id).sort());
+  });
 });
 
 describe('cardLookupKeys', () => {
