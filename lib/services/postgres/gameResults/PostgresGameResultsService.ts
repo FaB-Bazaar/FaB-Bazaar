@@ -2,7 +2,7 @@ import { db, pool } from '@/lib/postgres/db';
 import { gameResults, gameResultPayloads, decks } from '@/lib/postgres/schema';
 import { eq, and, desc, sql, gte, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { normalizeTalisharId } from '@/lib/talishar/cardId';
+import { talisharLookupCandidates } from '@/lib/talishar/cardId';
 import { resolveStartingHero, type TalisharCharacterEntry } from '@/lib/talishar/startingHero';
 import { canonicalHeroId } from '@/lib/talishar/canonicalHero';
 import type { AsyncResult } from '../../contracts/common';
@@ -595,21 +595,22 @@ export class PostgresGameResultsService {
       const cardResultIds = extractCardEntries(row.card_results).map(c => c.cardId);
       const oppCardResultIds = extractCardEntries(row.opponent_card_results).map(c => c.cardId);
 
-      // Map original cardId → normalized lookup key.
-      const lookupKeyByOriginal = new Map<string, string>();
+      // Map original cardId → lookup keys, tried in order (the first that
+      // resolves wins — see talisharLookupCandidates).
+      const lookupKeysByOriginal = new Map<string, string[]>();
       for (const id of [...cardResultIds, ...oppCardResultIds]) {
-        if (!lookupKeyByOriginal.has(id)) lookupKeyByOriginal.set(id, id);
+        if (!lookupKeysByOriginal.has(id)) lookupKeysByOriginal.set(id, [id]);
       }
       for (const id of [...turnLogIds, ...oppTurnLogIds]) {
-        if (!lookupKeyByOriginal.has(id)) lookupKeyByOriginal.set(id, normalizeTalisharId(id));
+        if (!lookupKeysByOriginal.has(id)) lookupKeysByOriginal.set(id, talisharLookupCandidates(id));
       }
 
-      const uniqueLookupKeys = Array.from(new Set(lookupKeyByOriginal.values()));
+      const uniqueLookupKeys = Array.from(new Set(Array.from(lookupKeysByOriginal.values()).flat()));
       const resolved = await this.resolveImageUrls(uniqueLookupKeys);
 
       const imageUrls: Record<string, string> = {};
-      for (const [original, key] of lookupKeyByOriginal) {
-        const url = resolved.get(key);
+      for (const [original, keys] of lookupKeysByOriginal) {
+        const url = keys.map(k => resolved.get(k)).find(Boolean);
         if (url) imageUrls[original] = url;
       }
 

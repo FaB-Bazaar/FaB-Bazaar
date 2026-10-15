@@ -82,3 +82,18 @@ export function normalizeTalisharId(id: string): string {
   if (s.endsWith("_r")) s = s.slice(0, -2);
   return s;
 }
+
+// Keys to try, in order, when looking a logged cardId up by talishar_card_id.
+// The normalized id comes first; the fallbacks cover log shapes that carry
+// more than the card: a transformed-state letter (Construct Nitro Mechanoid's
+// back is logged as "nitro_mechanoidc", Teklovossen's transformed hero as
+// "teklovossen_the_mechropotentb"), a ",N" parameter, and a "_purple" pitch
+// word our cards don't carry. Callers must use the FIRST candidate that
+// resolves, so a fallback never overrides an exact match.
+export function talisharLookupCandidates(id: string): string[] {
+  const base = normalizeTalisharId(id.replace(/,.*$/, ""));
+  const candidates = [normalizeTalisharId(id), base];
+  if (base.endsWith("_purple")) candidates.push(base.slice(0, -"_purple".length));
+  if (/[a-z]{2}$/.test(base)) candidates.push(base.slice(0, -1));
+  return Array.from(new Set(candidates));
+}

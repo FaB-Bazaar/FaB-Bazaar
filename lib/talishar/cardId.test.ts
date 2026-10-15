@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { toTalisharCardId, normalizeTalisharId } from "./cardId";
+import { toTalisharCardId, normalizeTalisharId, talisharLookupCandidates } from "./cardId";
 
 describe("toTalisharCardId", () => {
   it("handles plain ASCII names with each pitch suffix", () => {
@@ -93,5 +93,27 @@ describe("normalizeTalisharId", () => {
 
   it("strips prefix then suffix when both are present", () => {
     expect(normalizeTalisharId("MST053_inner_chi_blue")).toBe("inner_chi_blue");
+  });
+});
+
+describe("talisharLookupCandidates", () => {
+  it("tries the normalized id first", () => {
+    expect(talisharLookupCandidates("crown_of_providence_equip")[0]).toBe("crown_of_providence");
+  });
+
+  it("falls back to the id without Talishar's transformed-state letter", () => {
+    // Transformed DFC states are logged with a trailing letter: Nitro Mechanoid
+    // (Construct Nitro Mechanoid's back) as nitro_mechanoidc, Teklovossen's
+    // transformed hero as teklovossen_the_mechropotentb.
+    expect(talisharLookupCandidates("nitro_mechanoidc")).toContain("nitro_mechanoid");
+    expect(talisharLookupCandidates("teklovossen_the_mechropotentb")).toContain("teklovossen_the_mechropotent");
+  });
+
+  it("falls back to the id without a ,N parameter", () => {
+    expect(talisharLookupCandidates("talk_a_big_game_blue,10")).toContain("talk_a_big_game_blue");
+  });
+
+  it("falls back to the id without the _purple pitch word", () => {
+    expect(talisharLookupCandidates("soul_of_existence_purple")).toContain("soul_of_existence");
   });
 });

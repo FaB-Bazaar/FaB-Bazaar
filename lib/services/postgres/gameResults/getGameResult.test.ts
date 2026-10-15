@@ -150,6 +150,26 @@ describe('PostgresGameResultsService.getGameResult', () => {
     expect(res.data.imageUrls[suffixedId]).toBe(equipSample.imageUrl);
   });
 
+  it("resolves Talishar's transformed-state letter (nitro_mechanoidc → nitro_mechanoid)", async () => {
+    // Talishar logs a transformed DFC back with a trailing letter; without a
+    // fallback the card gets no image and renders as a card back.
+    const resultId = crypto.randomUUID();
+    const loggedId = `${equipSample.talisharCardId}c`;
+    await db.insert(gameResults).values({
+      id: resultId,
+      deckId,
+      result: 'win',
+      conceded: false,
+      cardResults: [],
+      turnLog: [[1, loggedId, 'M']],
+    });
+
+    const res = await service.getGameResult(resultId, deckId);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data.imageUrls[loggedId]).toBe(equipSample.imageUrl);
+  });
+
   it('prefers the English printing image even when a non-English printing sorts first', async () => {
     // Synthetic card with two printings: a Japanese one that wins the
     // (set, edition) sort and an English one that must win anyway — the chat
