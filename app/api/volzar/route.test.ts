@@ -226,7 +226,7 @@ describe('POST /api/volzar', () => {
     const requested = mockFetchToolsByName.mock.calls[0][1];
     expect(requested).toEqual(new Set([
       'create_deck', 'add_cards_to_deck', 'remove_cards_from_deck', 'update_deck',
-      'list_results', 'get_results',
+      'list_results', 'get_results', 'add_game_result',
       // Kit pools ground deck-building recommendations (anti-hallucination)
       'list_curated_lists', 'get_curated_list',
       // Meta reads + SQL-backed aggregates (buildability / performance)

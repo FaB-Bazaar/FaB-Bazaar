@@ -1,11 +1,12 @@
 import { db, pool } from '@/lib/postgres/db';
 import { gameResults, gameResultPayloads, decks } from '@/lib/postgres/schema';
-import { eq, and, desc, sql, gte } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { normalizeTalisharId } from '@/lib/talishar/cardId';
 import { resolveStartingHero, type TalisharCharacterEntry } from '@/lib/talishar/startingHero';
 import { canonicalHeroId } from '@/lib/talishar/canonicalHero';
 import type { AsyncResult } from '../../contracts/common';
+import type { ManualGame } from '@/lib/game-results/manual-game';
 
 export interface GameResultDTO {
   id: string;
@@ -240,6 +241,53 @@ export class PostgresGameResultsService {
       const message = error instanceof Error ? error.message : String(error);
       const cause = (error as any)?.cause;
       console.error('[GameResults] Insert failed:', message, cause ? `\ncause: ${cause}` : '');
+      return { success: false, error: message };
+    }
+  }
+
+  /**
+   * A game logged by hand (played outside Talishar, or migrated from Fabrary):
+   * same columns as a synced game, no Talishar ids and no turn-by-turn data.
+   * Manual games have no game id to dedupe on, so (deck, opponent, played-at)
+   * among manual rows stands in — re-running an import returns the existing
+   * row with `created: false` instead of double-counting the game.
+   */
+  async createManualGameResult(
+    deckId: string,
+    playerHero: string | null,
+    game: ManualGame,
+  ): Promise<AsyncResult<{ created: boolean; result: GameResultDTO }>> {
+    try {
+      const [existing] = await db
+        .select()
+        .from(gameResults)
+        .where(and(
+          eq(gameResults.deckId, deckId),
+          isNull(gameResults.talisharGameGuid),
+          eq(gameResults.opponentHero, game.opponentHero),
+          eq(gameResults.playedAt, game.playedAt),
+        ))
+        .limit(1);
+      if (existing) return { success: true, data: { created: false, result: toDTO(existing) } };
+
+      const [row] = await db
+        .insert(gameResults)
+        .values({
+          id: nanoid(),
+          deckId,
+          format: game.format,
+          playerHero,
+          opponentHero: game.opponentHero,
+          result: game.result,
+          firstPlayer: game.firstPlayer,
+          totalTurns: game.totalTurns,
+          playedAt: game.playedAt,
+        })
+        .returning();
+      return { success: true, data: { created: true, result: toDTO(row) } };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GameResults] Manual insert failed:', message);
       return { success: false, error: message };
     }
   }

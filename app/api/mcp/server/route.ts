@@ -61,6 +61,7 @@ import { getDeckbuildingGuideTool } from '../tool/getDeckbuildingGuide';
 import { listDecksTool } from '../tool/listDecks';
 import { listResultsTool } from '../tool/listResults';
 import { getResultsTool } from '../tool/getResults';
+import { addGameResultTool } from '../tool/addGameResult';
 import { getDeckPerformanceTool } from '../tool/getDeckPerformance';
 import { compareCollectionToDecksToBeatTool } from '../tool/compareCollectionToDecksToBeat';
 import { getDeckTool, shapeDeckForMcp } from '../tool/getDeck';
@@ -712,6 +713,11 @@ Step 5: get_binder (verify additions)
                 inputSchema: getResultsTool.parameters
               },
               {
+                name: addGameResultTool.name,
+                description: addGameResultTool.description,
+                inputSchema: addGameResultTool.parameters
+              },
+              {
                 name: getDeckPerformanceTool.name,
                 description: getDeckPerformanceTool.description,
                 inputSchema: getDeckPerformanceTool.parameters
@@ -1197,6 +1203,29 @@ The new tool provides the same functionality with better guidance for proper wor
             return NextResponse.json({
               jsonrpc: '2.0', id,
               result: { content: [{ type: 'text', text: `💥 Error listing results: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'add_game_result') {
+          if (DEBUG_MCP) console.log('📝 Executing add game result');
+          try {
+            const tokenToPass = bearerToken;
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await addGameResultTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Games logged.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in add_game_result:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error logging games: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
             }, { headers: corsHeaders() });
           }
         }
@@ -2044,6 +2073,7 @@ The new tool provides the same functionality with better guidance for proper wor
       - who_has (find card owners — use card_unique_id for any version, printing_id for a specific version)
       - get_article / add_article_section / update_article_section
       - list_decks / get_deck / create_deck / add_cards_to_deck / remove_cards_from_deck / update_deck / save_deck_matchup
+      - list_results / get_results / add_game_result (your recorded games; add_game_result logs non-Talishar games by hand)
       - get_decks_to_beat
       - get_deckbuilding_guide
       - list_curated_lists / get_curated_list (public — published lists; 🎯 preferred entry point for deck recommendations)
@@ -2370,7 +2400,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     error: "MCP server expects POST requests with JSON-RPC format",
     version: "4.0.0",
-    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "identify_cards", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "list_articles", "add_article_section", "update_article_section", "get_decks_to_beat", "get_deckbuilding_guide", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
+    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "identify_cards", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "list_articles", "add_article_section", "update_article_section", "get_decks_to_beat", "get_deckbuilding_guide", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup", "add_game_result"],
     hint: "Use POST with JSON-RPC. Read fab://constants once per session, then use search_printings for all card lookups.",
     authMethods: ["Bearer <oauth_token>"],
     workflow: "read_mandatory_constants_first({uri:'fab://constants'}) → search_printings → add_to_binder / add_to_wants / add_cards_to_deck",
