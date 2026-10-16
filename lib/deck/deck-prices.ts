@@ -1,6 +1,6 @@
 /**
  * The deck page's Prices view: what the deck is worth and what it would cost
- * to finish, as one row per card per zone plus a summary. Pure — the page
+ * to finish, as one row per printing plus a summary. Pure — the page
  * already holds the deck and the viewer's card-level ownership
  * (useDeckEditor's cardOwnershipMap).
  *
@@ -9,6 +9,7 @@
  * The bench is a maybe-pile, not part of the deck, so it stays out of every
  * total and the rows, and is reported on its own.
  */
+import { RARITY_SORT_ORDER } from '@/lib/fab-constants/rarities';
 
 interface PricedCard {
   printingId?: string;
@@ -21,6 +22,9 @@ interface PricedCard {
     pitch?: number | null;
     image_url?: string | null;
     tcgplayer_url?: string | null;
+    set?: string | null;
+    collector_number?: string | null;
+    rarity?: string | null;
   };
 }
 
@@ -51,6 +55,9 @@ export interface PriceRow {
   pitch: number | null;
   imageUrl: string | null;
   tcgplayerUrl: string | null;
+  set: string | null;
+  collectorNumber: string | null;
+  rarity: string | null;
   qty: number;
   /** tcg_low per copy; null = unpriced. */
   each: number | null;
@@ -103,6 +110,9 @@ export function deckPrices(
         pitch: d.pitch ?? null,
         imageUrl: d.image_url ?? null,
         tcgplayerUrl: d.tcgplayer_url ?? null,
+        set: d.set ?? null,
+        collectorNumber: d.collector_number ?? null,
+        rarity: d.rarity ?? null,
         qty: qtyOf(c),
         each,
         total: cents((each ?? 0) * qtyOf(c)),
@@ -163,15 +173,24 @@ function allocateOwned(rows: PriceRow[], owned: ReadonlyMap<string, { owned: num
   }
 }
 
-export type PriceSortKey = 'name' | 'qty' | 'each' | 'total' | 'owned' | 'buy' | `finish:${Finish}`;
+export type PriceSortKey = 'name' | 'set' | 'collector' | 'rarity' | 'qty' | 'each' | 'total' | 'owned' | 'buy' | `finish:${Finish}`;
 export type PriceSort = { key: PriceSortKey; dir: 'asc' | 'desc' } | null;
+
+const rarityIndex = (code: string | null): number | null => {
+  const i = code ? (RARITY_SORT_ORDER as readonly string[]).indexOf(code.toLowerCase()) : -1;
+  return i < 0 ? null : i;
+};
 
 type FinishCells = ReadonlyMap<string, Record<Finish, number | null>>;
 
 const sortValue = (r: PriceRow, key: PriceSortKey, cells?: FinishCells): number | string | null =>
   key.startsWith('finish:') ? cells?.get(r.key)?.[key.slice('finish:'.length) as Finish] ?? null
   : key === 'name' ? r.name.toLowerCase()
-  : r[key as Exclude<PriceSortKey, `finish:${Finish}`>];
+  : key === 'set' ? r.set?.toLowerCase() ?? null
+  : key === 'collector' ? r.collectorNumber?.toUpperCase() ?? null
+  // Rarest first in ascending order (RARITY_SORT_ORDER); unknown codes sort as missing.
+  : key === 'rarity' ? rarityIndex(r.rarity)
+  : r[key as 'qty' | 'each' | 'total' | 'owned' | 'buy'];
 
 /** Default: priciest line first. Nulls (unpriced / unknown / not in that
  *  finish) always sort last. `cells` (from finishColumns) backs the finish keys. */

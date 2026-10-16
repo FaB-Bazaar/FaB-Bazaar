@@ -190,3 +190,25 @@ describe('buyCell', () => {
     expect(buyCell(deckPrices(deck()).rows[0])).toEqual({ kind: 'unknown' });
   });
 });
+
+describe('printing columns (set, collector number, rarity)', () => {
+  const print = (name: string, set: string, collector: string, rarity: string, low = 1) => {
+    const c = card(name, 1, low);
+    return { ...c, printingDetails: { ...c.printingDetails, set, collector_number: collector, rarity } };
+  };
+  const rows = deckPrices({
+    maindeck: [print('Snatch', 'wtr', 'WTR163', 'c'), print('Pummel', 'wtr', 'WTR043', 'm'), print('Gold', 'fab', 'FAB001', 'p'), print('Odd', 'zzz', 'ZZZ001', 'q')],
+  }).rows;
+
+  it('carries the printing\'s set, collector number and rarity', () => {
+    expect(rows.find((r) => r.name === 'Pummel')).toMatchObject({ set: 'wtr', collectorNumber: 'WTR043', rarity: 'm' });
+  });
+
+  it('sorts rarity rarest first (the site\'s rarity order), unknown codes last', () => {
+    expect(sortPriceRows(rows, { key: 'rarity', dir: 'asc' }).map((r) => r.name)).toEqual(['Gold', 'Pummel', 'Snatch', 'Odd']);
+  });
+
+  it('sorts by collector number', () => {
+    expect(sortPriceRows(rows, { key: 'collector', dir: 'asc' }).map((r) => r.collectorNumber)).toEqual(['FAB001', 'WTR043', 'WTR163', 'ZZZ001']);
+  });
+});

@@ -16,6 +16,9 @@ import {
 import { decksClient } from "@/lib/client";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import { cn } from "@/lib/utils";
+import { RarityIcon } from "@/components/shared/RarityIcon";
+import { getSetImageOrFallback } from "@/lib/set-images";
+import { SET_MAP } from "@/lib/fab-constants";
 
 const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
@@ -24,6 +27,9 @@ const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400",
 type Column = { key: PriceSortKey; label: string; align?: "right"; className?: string };
 const BASE_COLUMNS: Column[] = [
   { key: "name", label: "Card" },
+  { key: "set", label: "Set", className: "w-16" },
+  { key: "collector", label: "Number", className: "w-24" },
+  { key: "rarity", label: "Rarity", className: "w-20" },
   { key: "qty", label: "Qty", align: "right", className: "w-14" },
   { key: "each", label: "Each", align: "right", className: "w-24" },
   { key: "total", label: "Total", align: "right", className: "w-24" },
@@ -71,7 +77,8 @@ export default function PricesView({ deckId, deck, owned }: {
   // numbers) → reversed → back to the default (Total, biggest first).
   const clickHeader = (key: PriceSortKey) =>
     setSort(prev => {
-      const first = key === "name" ? "asc" : "desc";
+      // A→Z for text columns; rarity's ascending order is rarest first.
+      const first = key === "name" || key === "set" || key === "collector" || key === "rarity" ? "asc" : "desc";
       if (prev?.key !== key) return { key, dir: first };
       return prev.dir === first ? { key, dir: first === "asc" ? "desc" : "asc" } : null;
     });
@@ -162,6 +169,9 @@ export default function PricesView({ deckId, deck, owned }: {
                   {r.name}
                 </span>
               </td>
+              <td className="px-2 py-1"><SetIcon set={r.set} /></td>
+              <td className="px-2 py-1 font-mono text-xs">{r.collectorNumber ?? ""}</td>
+              <td className="px-2 py-1">{r.rarity && <RarityIcon rarityCode={r.rarity} size="sm" />}</td>
               <td className="px-2 py-1 text-right tabular-nums">{r.qty}</td>
               <td className="px-2 py-1 text-right tabular-nums">{r.each == null ? <span title="No price yet" className="text-gray-600 dark:text-gray-400">—</span> : usd(r.each)}</td>
               <td className="px-2 py-1 text-right tabular-nums">{usd(r.total)}</td>
@@ -186,7 +196,7 @@ export default function PricesView({ deckId, deck, owned }: {
         </tbody>
         <tfoot>
           <tr className="font-semibold">
-            <td className="px-2 py-1.5" colSpan={3}>Total</td>
+            <td className="px-2 py-1.5" colSpan={6}>Total</td>
             <td className="px-2 py-1.5 text-right tabular-nums">{usd(p.total)}</td>
             {p.toFinish && (
               <>
@@ -249,4 +259,16 @@ function BuyCellContent({ row }: { row: PriceRow }) {
       {label}
     </TcgAffiliateLink>
   );
+}
+
+/** The set's symbol (name on hover); promo/product sets without one show their code. */
+function SetIcon({ set }: { set: string | null }) {
+  if (!set) return null;
+  const code = set.toLowerCase();
+  const name = (SET_MAP as Record<string, string>)[code] ?? code.toUpperCase();
+  const src = getSetImageOrFallback(code, code.toUpperCase());
+  return src
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={src} alt={name} title={name} className="h-5 w-auto max-w-12 object-contain" />
+    : <span title={name} className="text-xs font-semibold text-gray-700 dark:text-gray-300">{code.toUpperCase()}</span>;
 }
