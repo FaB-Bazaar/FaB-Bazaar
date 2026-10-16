@@ -95,8 +95,8 @@ describe('GET /api/decks/[deckId]/printing-prices', () => {
       success: true,
       data: {
         byCard: {
-          'card-1': { cheapest: { low: 2, url: 'https://tcg/1-s' }, s: { low: 2, url: 'https://tcg/1-s' }, r: { low: 9, url: 'https://tcg/1-r' } },
-          'card-inv': { cheapest: { low: 40, url: null }, c: { low: 40, url: null } },
+          'card-1': { cheapest: { low: 2, url: 'https://tcg/1-s', image: null }, s: { low: 2, url: 'https://tcg/1-s', image: null }, r: { low: 9, url: 'https://tcg/1-r', image: null } },
+          'card-inv': { cheapest: { low: 40, url: null, image: null }, c: { low: 40, url: null, image: null } },
         },
       },
     });

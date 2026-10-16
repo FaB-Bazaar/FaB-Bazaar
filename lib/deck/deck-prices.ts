@@ -217,12 +217,12 @@ export const FINISH_LABEL: Record<Finish, string> = { cheapest: 'Cheapest', s: '
 
 /** card_unique_id → the cheapest printing per finish (foiling code), overall,
  *  and promo (rarity p, any finish — a card can have several). Unpriced printings are ignored. */
-/** The cheapest printing in a finish: its tcg_low and its TCGplayer page. */
-export type FinishPick = { low: number; url: string | null };
+/** The cheapest printing in a finish: its tcg_low, TCGplayer page and image. */
+export type FinishPick = { low: number; url: string | null; image: string | null };
 export type FinishPrices = Record<string, Partial<Record<Finish, FinishPick>>>;
 
 export function cheapestByFinish(
-  printings: Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null; rarity?: string | null; tcgplayer_url?: string | null }>,
+  printings: Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null; rarity?: string | null; tcgplayer_url?: string | null; image_url?: string | null }>,
 ): FinishPrices {
   const out: FinishPrices = {};
   for (const p of printings) {
@@ -232,33 +232,51 @@ export function cheapestByFinish(
     for (const f of ['cheapest', p.foiling?.toLowerCase(), promo] as const) {
       if (!f || !(FINISHES as readonly string[]).includes(f)) continue;
       const key = f as Finish;
-      if (card[key] == null || p.tcg_low < card[key]!.low) card[key] = { low: p.tcg_low, url: p.tcgplayer_url ?? null };
+      if (card[key] == null || p.tcg_low < card[key]!.low) card[key] = { low: p.tcg_low, url: p.tcgplayer_url ?? null, image: p.image_url ?? null };
     }
   }
   return out;
 }
 
 /** Per-row line totals in every finish (null = no priced printing in it) and
- *  the link of the printing each was priced at, the finishes any card has, and
- *  each finish's deck total + copies it couldn't price. */
+ *  the printing each was priced at (link + image), the finishes any card has,
+ *  and each finish's deck total + copies it couldn't price. */
 export function finishColumns(rows: PriceRow[], byCard: FinishPrices) {
   const cells = new Map<string, Record<Finish, number | null>>();
-  const links = new Map<string, Record<Finish, string | null>>();
+  const pickMap = new Map<string, Record<Finish, FinishPick | null>>();
   const totals = Object.fromEntries(FINISHES.map((f) => [f, { value: 0, missingCopies: 0 }])) as Record<Finish, { value: number; missingCopies: number }>;
   const present = new Set<Finish>();
   for (const r of rows) {
     const picks = (r.cardUniqueId && byCard[r.cardUniqueId]) || {};
     const cell = {} as Record<Finish, number | null>;
-    const link = {} as Record<Finish, string | null>;
+    const rowPicks = {} as Record<Finish, FinishPick | null>;
     for (const f of FINISHES) {
       const pick = picks[f];
       cell[f] = pick == null ? null : cents(pick.low * r.qty);
-      link[f] = pick?.url ?? null;
+      rowPicks[f] = pick ?? null;
       if (pick == null) totals[f].missingCopies += r.qty;
       else { totals[f].value = cents(totals[f].value + cell[f]!); present.add(f); }
     }
     cells.set(r.key, cell);
-    links.set(r.key, link);
+    pickMap.set(r.key, rowPicks);
   }
-  return { cells, links, totals, finishes: FINISHES.filter((f) => present.has(f)) };
+  return { cells, picks: pickMap, totals, finishes: FINISHES.filter((f) => present.has(f)) };
+}
+
+// ── Hover preview ───────────────────────────────────────────────────────────
+
+/** Where to put a card-image preview of `size` for a cursor in a viewport: to
+ *  the right of the cursor, or flipped to its left when that would run off the
+ *  screen — never over the cursor, so the hovered link stays visible and
+ *  clickable. Vertically centred on the cursor, clamped into the viewport. */
+export function previewPosition(
+  cursor: { x: number; y: number },
+  viewport: { width: number; height: number },
+  size: { width: number; height: number },
+  gap = 24,
+): { left: number; top: number } {
+  const right = cursor.x + gap;
+  const left = right + size.width <= viewport.width ? right : Math.max(0, cursor.x - gap - size.width);
+  const top = Math.min(Math.max(0, cursor.y - size.height / 2), Math.max(0, viewport.height - size.height));
+  return { left, top };
 }

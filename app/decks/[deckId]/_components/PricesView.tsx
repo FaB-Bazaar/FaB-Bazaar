@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import {
-  buyCell, deckPrices, finishColumns, sortPriceRows, FINISH_LABEL,
+  buyCell, deckPrices, finishColumns, previewPosition, sortPriceRows, FINISH_LABEL,
   type FinishPrices, type PriceRow, type PriceSort, type PriceSortKey,
 } from "@/lib/deck/deck-prices";
 import { decksClient } from "@/lib/client";
@@ -21,6 +21,9 @@ import { getSetImageOrFallback } from "@/lib/set-images";
 import { SET_MAP } from "@/lib/fab-constants";
 
 const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+
+// The hover preview: w-56 at the card's 63:88 ratio.
+const PREVIEW_SIZE = { width: 224, height: 313 };
 
 const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
 
@@ -185,10 +188,18 @@ export default function PricesView({ deckId, deck, owned }: {
               )}
               {fc?.finishes.map(f => {
                 const v = fc.cells.get(r.key)?.[f] ?? null;
-                const url = fc.links.get(r.key)?.[f] ?? null;
+                const pick = fc.picks.get(r.key)?.[f] ?? null;
+                const url = pick?.url ?? null;
                 const each = v != null && r.qty > 1 ? ` (${usd(v / r.qty)} each)` : "";
+                // Hovering shows the exact printing this finish was priced at.
+                const image = pick?.image ?? null;
                 return (
-                  <td key={f} className="px-2 py-1 text-right tabular-nums">
+                  <td
+                    key={f}
+                    className="px-2 py-1 text-right tabular-nums"
+                    onMouseMove={image ? e => setPreview({ url: image, x: e.clientX, y: e.clientY }) : undefined}
+                    onMouseLeave={image ? () => setPreview(null) : undefined}
+                  >
                     {v == null ? <span title={`No ${FINISH_LABEL[f].toLowerCase()} printing with a price`} className="text-gray-600 dark:text-gray-400">—</span>
                       : url ? (
                         // The printing this finish was priced at, not the deck's own.
@@ -235,10 +246,12 @@ export default function PricesView({ deckId, deck, owned }: {
           aria-hidden
           data-testid="price-preview"
           className="pointer-events-none fixed z-50 w-56 rounded-lg shadow-2xl"
-          style={{
-            left: Math.min(preview.x + 24, (typeof window !== "undefined" ? window.innerWidth : 1600) - 240),
-            top: Math.max(72, Math.min(preview.y - 150, (typeof window !== "undefined" ? window.innerHeight : 900) - 320)),
-          }}
+          // Beside the cursor (flipped left near the right edge), never over the hovered link.
+          style={previewPosition(
+            { x: preview.x, y: preview.y },
+            { width: window.innerWidth, height: window.innerHeight },
+            PREVIEW_SIZE,
+          )}
         />
       )}
     </div>

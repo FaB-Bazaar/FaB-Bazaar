@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deckPrices, sortPriceRows, cheapestByFinish, finishColumns, buyCell, type PricedDeck } from './deck-prices';
+import { deckPrices, sortPriceRows, cheapestByFinish, finishColumns, buyCell, previewPosition, type PricedDeck } from './deck-prices';
 
 // A deck card in the shape the deck API returns (only the fields pricing reads).
 const card = (name: string, qty: number, tcgLow: number | undefined, cuid = name, tcgMarket?: number) => ({
@@ -112,8 +112,8 @@ describe('sortPriceRows', () => {
   });
 });
 
-// A finish's pick: the cheapest printing's price and its TCGplayer link.
-const at = (low: number, url: string | null = null) => ({ low, url });
+// A finish's pick: the cheapest printing's price, TCGplayer link and image.
+const at = (low: number, url: string | null = null, image: string | null = null) => ({ low, url, image });
 
 describe('cheapestByFinish', () => {
   it('keeps the cheapest promo (rarity p) of any finish in its own promo column', () => {
@@ -143,6 +143,14 @@ describe('cheapestByFinish', () => {
     });
   });
 
+  it("carries the picked printing's image, for the hover preview", () => {
+    const by = cheapestByFinish([
+      { card_unique_id: 'a', foiling: 'c', tcg_low: 5, image_url: 'https://img/a-cf' },
+      { card_unique_id: 'a', foiling: 'c', tcg_low: 9, image_url: 'https://img/a-cf-ea' },
+    ]);
+    expect(by.a!.c).toEqual(at(5, null, 'https://img/a-cf'));
+  });
+
   it("links each pick to that cheapest printing's TCGplayer page", () => {
     const by = cheapestByFinish([
       { card_unique_id: 'a', foiling: 's', tcg_low: 1.5, tcgplayer_url: 'https://tcg/s-pricey' },
@@ -155,7 +163,7 @@ describe('cheapestByFinish', () => {
 
 describe('finishColumns', () => {
   const p = deckPrices(deck({ equipment: [], hero: [], inventory: [], maindeck: [card('Strike', 3, 1.5, 'a'), card('Snatch', 2, 20, 'b')] }));
-  const by = { a: { cheapest: at(0.9, 'https://tcg/a-s'), s: at(0.9, 'https://tcg/a-s'), r: at(4, 'https://tcg/a-r') }, b: { cheapest: at(15), c: at(15) } };
+  const by = { a: { cheapest: at(0.9, 'https://tcg/a-s', 'https://img/a-s'), s: at(0.9, 'https://tcg/a-s', 'https://img/a-s'), r: at(4, 'https://tcg/a-r', 'https://img/a-r') }, b: { cheapest: at(15), c: at(15) } };
 
   it('prices each row in each finish as a line total, null where the card has no such printing', () => {
     const { cells } = finishColumns(p.rows, by);
@@ -163,10 +171,10 @@ describe('finishColumns', () => {
     expect(cells.get(p.rows[1].key)).toEqual({ cheapest: 30, s: null, r: null, c: 30, g: null, promo: null });
   });
 
-  it("gives each cell the link of the printing it was priced at", () => {
-    const { links } = finishColumns(p.rows, by);
-    expect(links.get(p.rows[0].key)).toMatchObject({ s: 'https://tcg/a-s', r: 'https://tcg/a-r', c: null });
-    expect(links.get(p.rows[1].key)).toMatchObject({ c: null });
+  it('gives each cell the printing it was priced at (link + image), null where there is none', () => {
+    const { picks } = finishColumns(p.rows, by);
+    expect(picks.get(p.rows[0].key)).toMatchObject({ s: at(0.9, 'https://tcg/a-s', 'https://img/a-s'), r: at(4, 'https://tcg/a-r', 'https://img/a-r'), c: null });
+    expect(picks.get(p.rows[1].key)).toMatchObject({ c: at(15), s: null });
   });
 
   it('totals each finish and counts the copies it could not price', () => {
@@ -228,5 +236,33 @@ describe('printing columns (set, collector number, rarity)', () => {
 
   it('sorts by collector number', () => {
     expect(sortPriceRows(rows, { key: 'collector', dir: 'asc' }).map((r) => r.collectorNumber)).toEqual(['FAB001', 'WTR043', 'WTR163', 'ZZZ001']);
+  });
+});
+
+describe('previewPosition', () => {
+  const size = { width: 224, height: 312 };
+  const viewport = { width: 1600, height: 900 };
+  const covers = (pos: { left: number; top: number }, x: number, y: number) =>
+    x >= pos.left && x <= pos.left + size.width && y >= pos.top && y <= pos.top + size.height;
+
+  it('sits to the right of the cursor when there is room', () => {
+    const pos = previewPosition({ x: 400, y: 400 }, viewport, size);
+    expect(pos.left).toBeGreaterThan(400);
+    expect(covers(pos, 400, 400)).toBe(false);
+  });
+
+  it('flips to the left of the cursor near the right edge instead of covering it', () => {
+    for (const x of [1400, 1500, 1590]) { // past 1600 - 24 - 224 = 1352 there is no room on the right
+      const pos = previewPosition({ x, y: 400 }, viewport, size);
+      expect(pos.left + size.width).toBeLessThan(x);
+      expect(covers(pos, x, 400)).toBe(false);
+    }
+  });
+
+  it('stays inside the viewport vertically', () => {
+    const low = previewPosition({ x: 400, y: 880 }, viewport, size);
+    expect(low.top + size.height).toBeLessThanOrEqual(viewport.height);
+    const high = previewPosition({ x: 400, y: 10 }, viewport, size);
+    expect(high.top).toBeGreaterThanOrEqual(0);
   });
 });
