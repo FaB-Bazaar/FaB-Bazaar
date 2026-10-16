@@ -135,3 +135,13 @@ describe('finishColumns', () => {
     expect(totals.r).toEqual({ value: 12, missingCopies: 2 });
   });
 });
+
+describe('sortPriceRows by a finish column', () => {
+  const p = deckPrices(deck({ equipment: [], hero: [], inventory: [], maindeck: [card('Strike', 3, 1.5, 'a'), card('Snatch', 2, 20, 'b'), card('Odd', 1, 5, 'c')] }));
+  const { cells } = finishColumns(p.rows, { a: { cheapest: 0.9, r: 4 }, b: { cheapest: 15, r: 2 }, c: { cheapest: 1 } });
+
+  it('orders by the line total in that finish, cards without it last', () => {
+    expect(sortPriceRows(p.rows, { key: 'finish:r', dir: 'desc' }, cells).map((r) => r.name)).toEqual(['Strike', 'Snatch', 'Odd']);
+    expect(sortPriceRows(p.rows, { key: 'finish:r', dir: 'asc' }, cells).map((r) => r.name)).toEqual(['Snatch', 'Strike', 'Odd']);
+  });
+});

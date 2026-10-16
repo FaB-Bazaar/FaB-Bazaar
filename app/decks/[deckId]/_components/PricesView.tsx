@@ -7,7 +7,7 @@
 // lib/deck/deck-prices.
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import {
   deckPrices, finishColumns, sortPriceRows, FINISH_LABEL, PRICE_ZONE_LABEL,
@@ -41,8 +41,6 @@ export default function PricesView({ deckId, deck, owned }: {
 }) {
   const p = useMemo(() => deckPrices(deck, { owned }), [deck, owned]);
   const [sort, setSort] = useState<PriceSort>(null);
-  const rows = useMemo(() => sortPriceRows(p.rows, sort), [p.rows, sort]);
-  const columns = p.toFinish ? [...BASE_COLUMNS, ...OWNED_COLUMNS] : BASE_COLUMNS;
   const active: NonNullable<PriceSort> = sort ?? { key: "total", dir: "desc" };
   const [preview, setPreview] = useState<{ url: string; x: number; y: number } | null>(null);
 
@@ -53,6 +51,8 @@ export default function PricesView({ deckId, deck, owned }: {
   const toggleCompare = async () => {
     const next = !compare;
     setCompare(next);
+    // A finish column is going away: fall back to the default sort.
+    if (!next) setSort(prev => (prev?.key.startsWith("finish:") ? null : prev));
     if (!next || finishPrices) return;
     setFinishError(null);
     const res = await decksClient.getPrintingPrices(deckId);
@@ -60,6 +60,12 @@ export default function PricesView({ deckId, deck, owned }: {
     else setFinishError(res.error || "Couldn't load printing prices.");
   };
   const fc = useMemo(() => (compare && finishPrices ? finishColumns(p.rows, finishPrices) : null), [compare, finishPrices, p.rows]);
+  const rows = useMemo(() => sortPriceRows(p.rows, sort, fc?.cells), [p.rows, sort, fc]);
+  const columns: Column[] = [
+    ...BASE_COLUMNS,
+    ...(p.toFinish ? OWNED_COLUMNS : []),
+    ...(fc?.finishes.map(f => ({ key: `finish:${f}` as const, label: FINISH_LABEL[f], align: "right" as const, className: "w-24" })) ?? []),
+  ];
 
   // Cycle per column: its natural order (A→Z for text, biggest first for
   // numbers) → reversed → back to the default (Total, biggest first).
@@ -131,15 +137,14 @@ export default function PricesView({ deckId, deck, owned }: {
                 >
                   <button type="button" onClick={() => clickHeader(c.key)} className="inline-flex items-center gap-0.5 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                     {c.label}
-                    {sorted === "asc" && <ChevronUp className="h-3 w-3" aria-hidden />}
-                    {sorted === "desc" && <ChevronDown className="h-3 w-3" aria-hidden />}
+                    {/* Every header carries an arrow so sorting is discoverable; muted until active. */}
+                    {sorted === "asc" ? <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                      : sorted === "desc" ? <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                      : <ChevronsUpDown className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" aria-hidden />}
                   </button>
                 </th>
               );
             })}
-            {fc?.finishes.map(f => (
-              <th key={f} scope="col" className="w-24 px-2 py-1.5 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">{FINISH_LABEL[f]}</th>
-            ))}
           </tr>
         </thead>
         <tbody>

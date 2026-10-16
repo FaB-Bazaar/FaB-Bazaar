@@ -144,21 +144,27 @@ function allocateOwned(rows: PriceRow[], owned: ReadonlyMap<string, { owned: num
   }
 }
 
-export type PriceSortKey = 'name' | 'zone' | 'qty' | 'each' | 'total' | 'owned' | 'buy';
+export type PriceSortKey = 'name' | 'zone' | 'qty' | 'each' | 'total' | 'owned' | 'buy' | `finish:${Finish}`;
 export type PriceSort = { key: PriceSortKey; dir: 'asc' | 'desc' } | null;
 
 const ZONE_RANK: Record<PriceZone, number> = Object.fromEntries(ZONES.map(([z], i) => [z, i])) as Record<PriceZone, number>;
 
-const sortValue = (r: PriceRow, key: PriceSortKey): number | string | null =>
-  key === 'name' ? r.name.toLowerCase() : key === 'zone' ? ZONE_RANK[r.zone] : r[key];
+type FinishCells = ReadonlyMap<string, Record<Finish, number | null>>;
 
-/** Default: priciest line first. Nulls (unpriced / unknown) always sort last. */
-export function sortPriceRows(rows: PriceRow[], sort: PriceSort): PriceRow[] {
+const sortValue = (r: PriceRow, key: PriceSortKey, cells?: FinishCells): number | string | null =>
+  key.startsWith('finish:') ? cells?.get(r.key)?.[key.slice('finish:'.length) as Finish] ?? null
+  : key === 'name' ? r.name.toLowerCase()
+  : key === 'zone' ? ZONE_RANK[r.zone]
+  : r[key as Exclude<PriceSortKey, `finish:${Finish}`>];
+
+/** Default: priciest line first. Nulls (unpriced / unknown / not in that
+ *  finish) always sort last. `cells` (from finishColumns) backs the finish keys. */
+export function sortPriceRows(rows: PriceRow[], sort: PriceSort, cells?: FinishCells): PriceRow[] {
   const { key, dir } = sort ?? { key: 'total' as const, dir: 'desc' as const };
   const sign = dir === 'asc' ? 1 : -1;
   return [...rows].sort((a, b) => {
-    const va = sortValue(a, key);
-    const vb = sortValue(b, key);
+    const va = sortValue(a, key, cells);
+    const vb = sortValue(b, key, cells);
     if (va == null || vb == null) return va == null && vb == null ? 0 : va == null ? 1 : -1;
     if (va < vb) return -sign;
     if (va > vb) return sign;
