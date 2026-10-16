@@ -42,15 +42,22 @@ describe('deckPrices', () => {
     expect(p.zones.find((z) => z.zone === 'maindeck')!.value).toBe(0);
   });
 
-  it('has one row per card per counted zone with each and line total', () => {
+  it('has one row per printing with each and line total', () => {
     const p = deckPrices(deck({ maindeck: [card('Snatch', 2, 20), card('Odd', 1, undefined)] }));
-    expect(p.rows.map((r) => [r.name, r.zone, r.qty, r.each, r.total])).toEqual([
-      ['Hero', 'hero', 1, 2, 2],
-      ['Helm', 'equipment', 1, 10, 10],
-      ['Snatch', 'maindeck', 2, 20, 40],
-      ['Odd', 'maindeck', 1, null, 0],
-      ['Sink', 'inventory', 1, 0.5, 0.5],
+    expect(p.rows.map((r) => [r.name, r.qty, r.each, r.total])).toEqual([
+      ['Hero', 1, 2, 2],
+      ['Helm', 1, 10, 10],
+      ['Snatch', 2, 20, 40],
+      ['Odd', 1, null, 0],
+      ['Sink', 1, 0.5, 0.5],
     ]);
+  });
+
+  it('merges a printing listed in several zones into one row (the table has no zone column)', () => {
+    const p = deckPrices(deck({ maindeck: [card('Snatch', 2, 20)], inventory: [card('Snatch', 1, 20)] }));
+    expect(p.rows.filter((r) => r.name === 'Snatch').map((r) => [r.qty, r.total])).toEqual([[3, 60]]);
+    // Zone values on top still split it.
+    expect(p.zones.find((z) => z.zone === 'inventory')!.value).toBe(20);
   });
 
   it("carries the printing's TCGplayer link for the Buy column", () => {
@@ -67,14 +74,14 @@ describe('deckPrices', () => {
   });
 
   it('spends owned copies on the pricier row first, so buy falls on the cheapest copies', () => {
-    const p = deckPrices(
-      deck({ maindeck: [card('Snatch', 2, 10, 'snatch')], inventory: [card('Snatch', 1, 1, 'snatch')] }),
-      { owned: new Map([['snatch', { owned: 2 }]]) },
-    );
-    const main = p.rows.find((r) => r.zone === 'maindeck')!;
-    const inv = p.rows.find((r) => r.zone === 'inventory')!;
-    expect([main.owned, main.buy]).toEqual([2, 0]);
-    expect([inv.owned, inv.buy]).toEqual([0, 1]);
+    // Two printings of one card: a $10 foil and a $1 base.
+    const foil = { ...card('Snatch', 2, 10, 'snatch'), printingId: 'p-snatch-foil' };
+    const base = { ...card('Snatch', 1, 1, 'snatch'), printingId: 'p-snatch-base' };
+    const p = deckPrices(deck({ maindeck: [foil, base] }), { owned: new Map([['snatch', { owned: 2 }]]) });
+    const pricey = p.rows.find((r) => r.name === 'Snatch' && r.each === 10)!;
+    const cheap = p.rows.find((r) => r.name === 'Snatch' && r.each === 1)!;
+    expect([pricey.owned, pricey.buy]).toEqual([2, 0]);
+    expect([cheap.owned, cheap.buy]).toEqual([0, 1]);
   });
 
   it('prices the shortage after the collection: any printing of a card counts as owned', () => {
@@ -106,6 +113,15 @@ describe('sortPriceRows', () => {
 });
 
 describe('cheapestByFinish', () => {
+  it('keeps the cheapest promo (rarity p) of any finish in its own promo column', () => {
+    const by = cheapestByFinish([
+      { card_unique_id: 'a', foiling: 's', tcg_low: 1, rarity: 'c' },
+      { card_unique_id: 'a', foiling: 'r', tcg_low: 9, rarity: 'p' },
+      { card_unique_id: 'a', foiling: 'c', tcg_low: 30, rarity: 'P' },
+    ]);
+    expect(by.a).toEqual({ cheapest: 1, s: 1, r: 9, c: 30, promo: 9 });
+  });
+
   it('reads the foiling code case-insensitively', () => {
     expect(cheapestByFinish([{ card_unique_id: 'a', foiling: 'R', tcg_low: 3.5 }])).toEqual({ a: { cheapest: 3.5, r: 3.5 } });
   });
@@ -131,8 +147,8 @@ describe('finishColumns', () => {
 
   it('prices each row in each finish as a line total, null where the card has no such printing', () => {
     const { cells } = finishColumns(p.rows, by);
-    expect(cells.get(p.rows[0].key)).toEqual({ cheapest: 2.7, s: 2.7, r: 12, c: null, g: null });
-    expect(cells.get(p.rows[1].key)).toEqual({ cheapest: 30, s: null, r: null, c: 30, g: null });
+    expect(cells.get(p.rows[0].key)).toEqual({ cheapest: 2.7, s: 2.7, r: 12, c: null, g: null, promo: null });
+    expect(cells.get(p.rows[1].key)).toEqual({ cheapest: 30, s: null, r: null, c: 30, g: null, promo: null });
   });
 
   it('totals each finish and counts the copies it could not price', () => {

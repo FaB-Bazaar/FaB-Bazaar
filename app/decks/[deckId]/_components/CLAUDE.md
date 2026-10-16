@@ -14,7 +14,7 @@ The rail page must reuse the classic page's machinery; a feature that exists on 
 - `components/deck/editor/DeckBulkImport` — paste-a-decklist.
 - `lib/deck/highlight-filters` — `applyHighlightEvent` (the filter-list rules) + `matchesHighlight` (card test). The grid, the Table view and the HUD all use it — never re-implement a stat/type/keyword check inline.
 
-Pure logic (all node-tested) sits in `lib/deck/`: `deck-lens` (panel searches), `deck-prices` (Prices view rows + summary: tcg_low value by zone, bench excluded, owned copies cover a card's pricier rows first so the Buy column sums to the cost to finish from `cardOwnershipMap`; "Compare printings" columns = `cheapestByFinish` over `GET /api/decks/[id]/printing-prices`, English only, bench excluded), `deck-table` (rows), `brew` (pool filters, facets, starter kits), `ratios`, `hand-odds`, `matchup-names`.
+Pure logic (all node-tested) sits in `lib/deck/`: `deck-lens` (panel searches), `deck-prices` (Prices view rows + summary: tcg_low value by zone, bench excluded, owned copies cover a card's pricier rows first so the Buy column sums to the cost to finish from `cardOwnershipMap`; "Compare printings" columns = `cheapestByFinish` over `GET /api/decks/[id]/printing-prices`, English only, bench excluded; Promo = cheapest rarity-`p` printing in any finish; one row per printing, merged across zones — no Zone column), `deck-table` (rows), `brew` (pool filters, facets, starter kits), `ratios`, `hand-odds`, `matchup-names`.
 
 ## Highlight sources
 

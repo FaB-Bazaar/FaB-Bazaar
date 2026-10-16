@@ -42,14 +42,12 @@ const ZONES = [
 ] as const;
 
 export type PriceZone = (typeof ZONES)[number][0];
-export const PRICE_ZONE_LABEL: Record<PriceZone, string> = Object.fromEntries(ZONES) as Record<PriceZone, string>;
 
 export interface PriceRow {
   key: string;
   printingId?: string;
   cardUniqueId?: string;
   name: string;
-  zone: PriceZone;
   pitch: number | null;
   imageUrl: string | null;
   tcgplayerUrl: string | null;
@@ -83,17 +81,25 @@ export function deckPrices(
   /** owned: card_unique_id → copies owned in any printing (the page's cardOwnershipMap). */
   opts: { owned?: ReadonlyMap<string, { owned: number }> | null } = {},
 ): DeckPrices {
-  const rows: PriceRow[] = [];
+  // One row per printing: the same printing in several zones (main deck +
+  // inventory) merges, since the table shows no zone.
+  const byPrinting = new Map<string, PriceRow>();
   for (const [zone] of ZONES) {
     (deck[zone] ?? []).forEach((c, i) => {
+      const key = c.printingId ?? `${zone}|${i}`;
+      const existing = byPrinting.get(key);
+      if (existing) {
+        existing.qty += qtyOf(c);
+        existing.total = cents((existing.each ?? 0) * existing.qty);
+        return;
+      }
       const d = c.printingDetails ?? {};
       const each = priceOf(c);
-      const row: PriceRow = {
-        key: `${zone}|${c.printingId ?? i}`,
+      byPrinting.set(key, {
+        key,
         printingId: c.printingId,
         cardUniqueId: d.card_unique_id,
         name: d.display_name ?? d.name ?? 'Unknown card',
-        zone,
         pitch: d.pitch ?? null,
         imageUrl: d.image_url ?? null,
         tcgplayerUrl: d.tcgplayer_url ?? null,
@@ -102,16 +108,15 @@ export function deckPrices(
         total: cents((each ?? 0) * qtyOf(c)),
         owned: null,
         buy: null,
-      };
-      rows.push(row);
+      });
     });
   }
+  const rows = [...byPrinting.values()];
   if (opts.owned) allocateOwned(rows, opts.owned);
 
   const zones = ZONES
-    .map(([zone, label]) => ({ zone, label, rows: rows.filter((r) => r.zone === zone) }))
-    .filter((z) => z.rows.length > 0)
-    .map(({ zone, label, rows: zr }) => ({ zone, label, value: cents(zr.reduce((s, r) => s + r.total, 0)) }));
+    .filter(([zone]) => (deck[zone] ?? []).length > 0)
+    .map(([zone, label]) => ({ zone, label, value: cents((deck[zone] ?? []).reduce((s, c) => s + (priceOf(c) ?? 0) * qtyOf(c), 0)) }));
 
   return {
     zones,
@@ -158,17 +163,14 @@ function allocateOwned(rows: PriceRow[], owned: ReadonlyMap<string, { owned: num
   }
 }
 
-export type PriceSortKey = 'name' | 'zone' | 'qty' | 'each' | 'total' | 'owned' | 'buy' | `finish:${Finish}`;
+export type PriceSortKey = 'name' | 'qty' | 'each' | 'total' | 'owned' | 'buy' | `finish:${Finish}`;
 export type PriceSort = { key: PriceSortKey; dir: 'asc' | 'desc' } | null;
-
-const ZONE_RANK: Record<PriceZone, number> = Object.fromEntries(ZONES.map(([z], i) => [z, i])) as Record<PriceZone, number>;
 
 type FinishCells = ReadonlyMap<string, Record<Finish, number | null>>;
 
 const sortValue = (r: PriceRow, key: PriceSortKey, cells?: FinishCells): number | string | null =>
   key.startsWith('finish:') ? cells?.get(r.key)?.[key.slice('finish:'.length) as Finish] ?? null
   : key === 'name' ? r.name.toLowerCase()
-  : key === 'zone' ? ZONE_RANK[r.zone]
   : r[key as Exclude<PriceSortKey, `finish:${Finish}`>];
 
 /** Default: priciest line first. Nulls (unpriced / unknown / not in that
@@ -190,21 +192,23 @@ export function sortPriceRows(rows: PriceRow[], sort: PriceSort, cells?: FinishC
 // What each card would cost in each finish (cheapest English printing of it,
 // tcg_low), so the deck's value can be read as "all non-foil", "all rainbow"…
 
-export const FINISHES = ['cheapest', 's', 'r', 'c', 'g'] as const;
+export const FINISHES = ['cheapest', 's', 'r', 'c', 'g', 'promo'] as const;
 export type Finish = (typeof FINISHES)[number];
-export const FINISH_LABEL: Record<Finish, string> = { cheapest: 'Cheapest', s: 'Non-foil', r: 'Rainbow', c: 'Cold', g: 'Gold' };
+export const FINISH_LABEL: Record<Finish, string> = { cheapest: 'Cheapest', s: 'Non-foil', r: 'Rainbow', c: 'Cold', g: 'Gold', promo: 'Promo' };
 
-/** card_unique_id → cheapest tcg_low per finish (foiling code) + overall. Unpriced printings are ignored. */
+/** card_unique_id → cheapest tcg_low per finish (foiling code), overall, and
+ *  promo (rarity p, any finish — a card can have several). Unpriced printings are ignored. */
 export type FinishPrices = Record<string, Partial<Record<Finish, number>>>;
 
 export function cheapestByFinish(
-  printings: Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null }>,
+  printings: Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null; rarity?: string | null }>,
 ): FinishPrices {
   const out: FinishPrices = {};
   for (const p of printings) {
     if (p.tcg_low == null || p.tcg_low <= 0) continue;
     const card = (out[p.card_unique_id] ??= {});
-    for (const f of ['cheapest', p.foiling?.toLowerCase()] as const) {
+    const promo = p.rarity?.toLowerCase() === 'p' ? 'promo' : null;
+    for (const f of ['cheapest', p.foiling?.toLowerCase(), promo] as const) {
       if (!f || !(FINISHES as readonly string[]).includes(f)) continue;
       const key = f as Finish;
       if (card[key] == null || p.tcg_low < card[key]!) card[key] = p.tcg_low;

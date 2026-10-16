@@ -1,7 +1,7 @@
 "use client";
 
 // Rail deck page Prices view: the deck's TCG Low value and cost to finish on
-// top, then every card per zone as a sortable priced row (priciest first).
+// top, then every printing as a sortable priced row (priciest first).
 // "Compare printings" adds what each line would cost in every finish
 // (cheapest English printing, fetched on first use). The maths lives in
 // lib/deck/deck-prices.
@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import {
-  buyCell, deckPrices, finishColumns, sortPriceRows, FINISH_LABEL, PRICE_ZONE_LABEL,
+  buyCell, deckPrices, finishColumns, sortPriceRows, FINISH_LABEL,
   type FinishPrices, type PriceRow, type PriceSort, type PriceSortKey,
 } from "@/lib/deck/deck-prices";
 import { decksClient } from "@/lib/client";
@@ -24,7 +24,6 @@ const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400",
 type Column = { key: PriceSortKey; label: string; align?: "right"; className?: string };
 const BASE_COLUMNS: Column[] = [
   { key: "name", label: "Card" },
-  { key: "zone", label: "Zone", className: "w-40" },
   { key: "qty", label: "Qty", align: "right", className: "w-14" },
   { key: "each", label: "Each", align: "right", className: "w-24" },
   { key: "total", label: "Total", align: "right", className: "w-24" },
@@ -72,7 +71,7 @@ export default function PricesView({ deckId, deck, owned }: {
   // numbers) → reversed → back to the default (Total, biggest first).
   const clickHeader = (key: PriceSortKey) =>
     setSort(prev => {
-      const first = key === "name" || key === "zone" ? "asc" : "desc";
+      const first = key === "name" ? "asc" : "desc";
       if (prev?.key !== key) return { key, dir: first };
       return prev.dir === first ? { key, dir: first === "asc" ? "desc" : "asc" } : null;
     });
@@ -163,7 +162,6 @@ export default function PricesView({ deckId, deck, owned }: {
                   {r.name}
                 </span>
               </td>
-              <td className="px-2 py-1">{PRICE_ZONE_LABEL[r.zone]}</td>
               <td className="px-2 py-1 text-right tabular-nums">{r.qty}</td>
               <td className="px-2 py-1 text-right tabular-nums">{r.each == null ? <span title="No price yet" className="text-gray-600 dark:text-gray-400">—</span> : usd(r.each)}</td>
               <td className="px-2 py-1 text-right tabular-nums">{usd(r.total)}</td>
@@ -188,7 +186,7 @@ export default function PricesView({ deckId, deck, owned }: {
         </tbody>
         <tfoot>
           <tr className="font-semibold">
-            <td className="px-2 py-1.5" colSpan={4}>Total</td>
+            <td className="px-2 py-1.5" colSpan={3}>Total</td>
             <td className="px-2 py-1.5 text-right tabular-nums">{usd(p.total)}</td>
             {p.toFinish && (
               <>
