@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, FileText, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, DollarSign, FileText, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -28,6 +28,7 @@ import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-
 import { deckSizeLabel as formatDeckSizeLabel } from "@/lib/deck/deck-size-label";
 import { resolveDefaultDeckViewMode } from "@/lib/deck/deckViewMode";
 import { pitchSplit, playableCount } from "@/lib/deck/deck-lens";
+import { deckPrices } from "@/lib/deck/deck-prices";
 import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./_components/FindPanel";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
@@ -45,7 +46,7 @@ import RatioCompare from "./_components/RatioCompare";
 import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
 import type { BrewFacets } from "@/lib/deck/brew";
 
-type PanelId = "find" | "stats";
+type PanelId = "find" | "stats" | "prices";
 const FIND_COLLAPSED_KEY = "deck-find-panel-collapsed";
 type View = "table" | "cards" | "brew";
 const VIEWS: View[] = ["table", "cards", "brew"];
@@ -357,6 +358,7 @@ function DeckV2Page() {
     ...(canEdit ? [{ kind: "main" as const, id: "results" as const, label: "Results", icon: Trophy }] : []),
     ...(canEdit ? [{ kind: "main" as const, id: "notes" as const, label: "Notes", icon: FileText }] : []),
     { kind: "link", href: `/decks/${deckId}/present`, label: "Present", icon: Tv },
+    { kind: "panel", id: "prices", label: "Prices", icon: DollarSign },
   ];
 
   if (state.deckLoading || authLoading) {
@@ -492,6 +494,7 @@ function DeckV2Page() {
                 />
               </StatsPanel>
             )}
+            {panel === "prices" && <PricesPanel deck={deck} owned={state.cardOwnershipMap} />}
           </aside>
         )}
 
@@ -749,6 +752,61 @@ function StatsPanel({ deck, children }: { deck: NonNullable<ReturnType<typeof us
         ))}
       </section>
       {children}
+    </div>
+  );
+}
+
+const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+
+/** What the deck is worth (TCG Low, the deck's own printings) and, for a
+ *  signed-in viewer, what the cards they don't own yet would cost. */
+function PricesPanel({ deck, owned }: { deck: NonNullable<ReturnType<typeof useDeckEditor>["state"]["deck"]>; owned: ReadonlyMap<string, { owned: number }> | null }) {
+  const p = useMemo(() => deckPrices(deck, { owned }), [deck, owned]);
+  return (
+    <div className="space-y-5 text-sm text-gray-800 dark:text-gray-200">
+      <div>
+        <h2 className={PANEL_H2}>Prices</h2>
+        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">TCG Low for the printings in this deck.</p>
+      </div>
+      <section className="space-y-1">
+        <h3 className={PANEL_H3}>Deck value</h3>
+        <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100" data-testid="deck-value">{usd(p.total)}</p>
+        {p.zones.map(z => (
+          <div key={z.zone} className="flex justify-between"><span>{z.label}</span><span className="tabular-nums">{usd(z.value)}</span></div>
+        ))}
+        {p.benchValue > 0 && (
+          <div className="flex justify-between text-gray-600 dark:text-gray-400"><span>Bench (not counted)</span><span className="tabular-nums">{usd(p.benchValue)}</span></div>
+        )}
+        {p.unpricedCopies > 0 && (
+          <p className="text-xs text-gray-600 dark:text-gray-400">{p.unpricedCopies} {p.unpricedCopies === 1 ? "copy has" : "copies have"} no price yet (counted as $0).</p>
+        )}
+      </section>
+      {p.toFinish && (
+        <section className="space-y-1">
+          <h3 className={PANEL_H3}>Cost to finish</h3>
+          {p.toFinish.missingCopies === 0 ? (
+            <p>You own every card in this deck.</p>
+          ) : (
+            <>
+              <p className="text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100" data-testid="cost-to-finish">{usd(p.toFinish.value)}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                {p.toFinish.missingCopies} {p.toFinish.missingCopies === 1 ? "copy" : "copies"} you don&apos;t own in any printing, at this deck&apos;s prices.
+              </p>
+            </>
+          )}
+        </section>
+      )}
+      {p.topCards.length > 0 && (
+        <section className="space-y-1">
+          <h3 className={PANEL_H3}>Most expensive</h3>
+          {p.topCards.map(c => (
+            <div key={`${c.name}|${c.each}`} className="flex justify-between gap-2">
+              <span className="min-w-0 truncate">{c.quantity}× {c.name}</span>
+              <span className="shrink-0 tabular-nums">{usd(c.total)}</span>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # The rail deck page (`/decks/[deckId]`, components in `_components/`)
 
-The desktop deck page since 2026-09 (trialled at `/v2`, which now redirects here; the classic page lives on at `/decks/[deckId]/deprecated`): a left rail (Deck · Stats · Matchups · Import list · Results · Notes · Present · Tools ⌘K · Classic view · Options) and three views — **Cards** (the classic tile/game grid; EVERY visit opens here — the pick is deliberately not remembered, and the /v2 trial's `deckV2View` localStorage key is ignored), **Table** (one row per card, sortable) and **Brew** (the deck's legal pool minus what's already in it, with add-to-zone buttons). The rail's **Classic view** links to `/deprecated`. Phones (`useIsMobile`) render the classic page instead — resolved after the viewport is known, same timing rule as the classic page.
+The desktop deck page since 2026-09 (trialled at `/v2`, which now redirects here; the classic page lives on at `/decks/[deckId]/deprecated`): a left rail (Deck · Stats · Matchups · Import list · Results · Notes · Present · Prices · Tools ⌘K · Classic view · Options) and three views — **Cards** (the classic tile/game grid; EVERY visit opens here — the pick is deliberately not remembered, and the /v2 trial's `deckV2View` localStorage key is ignored), **Table** (one row per card, sortable) and **Brew** (the deck's legal pool minus what's already in it, with add-to-zone buttons). The rail's **Classic view** links to `/deprecated`. Phones (`useIsMobile`) render the classic page instead — resolved after the viewport is known, same timing rule as the classic page.
 
 ## Share, don't duplicate
 
@@ -14,7 +14,7 @@ The rail page must reuse the classic page's machinery; a feature that exists on 
 - `components/deck/editor/DeckBulkImport` — paste-a-decklist.
 - `lib/deck/highlight-filters` — `applyHighlightEvent` (the filter-list rules) + `matchesHighlight` (card test). The grid, the Table view and the HUD all use it — never re-implement a stat/type/keyword check inline.
 
-Pure logic (all node-tested) sits in `lib/deck/`: `deck-lens` (panel searches), `deck-table` (rows), `brew` (pool filters, facets, starter kits), `ratios`, `hand-odds`, `matchup-names`.
+Pure logic (all node-tested) sits in `lib/deck/`: `deck-lens` (panel searches), `deck-prices` (Prices panel: tcg_low value by zone, bench excluded, cost to finish from `cardOwnershipMap`), `deck-table` (rows), `brew` (pool filters, facets, starter kits), `ratios`, `hand-odds`, `matchup-names`.
 
 ## Highlight sources
 
