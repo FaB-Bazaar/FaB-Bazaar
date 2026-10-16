@@ -165,10 +165,10 @@ describe('finishColumns', () => {
   const p = deckPrices(deck({ equipment: [], hero: [], inventory: [], maindeck: [card('Strike', 3, 1.5, 'a'), card('Snatch', 2, 20, 'b')] }));
   const by = { a: { cheapest: at(0.9, 'https://tcg/a-s', 'https://img/a-s'), s: at(0.9, 'https://tcg/a-s', 'https://img/a-s'), r: at(4, 'https://tcg/a-r', 'https://img/a-r') }, b: { cheapest: at(15), c: at(15) } };
 
-  it('prices each row in each finish as a line total, null where the card has no such printing', () => {
+  it('shows the per-copy price in each finish (not × quantity), null where the card has no such printing', () => {
     const { cells } = finishColumns(p.rows, by);
-    expect(cells.get(p.rows[0].key)).toEqual({ cheapest: 2.7, s: 2.7, r: 12, c: null, g: null, promo: null });
-    expect(cells.get(p.rows[1].key)).toEqual({ cheapest: 30, s: null, r: null, c: 30, g: null, promo: null });
+    expect(cells.get(p.rows[0].key)).toEqual({ cheapest: 0.9, s: 0.9, r: 4, c: null, g: null, promo: null });
+    expect(cells.get(p.rows[1].key)).toEqual({ cheapest: 15, s: null, r: null, c: 15, g: null, promo: null });
   });
 
   it('gives each cell the printing it was priced at (link + image), null where there is none', () => {
@@ -189,7 +189,7 @@ describe('sortPriceRows by a finish column', () => {
   const p = deckPrices(deck({ equipment: [], hero: [], inventory: [], maindeck: [card('Strike', 3, 1.5, 'a'), card('Snatch', 2, 20, 'b'), card('Odd', 1, 5, 'c')] }));
   const { cells } = finishColumns(p.rows, { a: { cheapest: at(0.9), r: at(4) }, b: { cheapest: at(15), r: at(2) }, c: { cheapest: at(1) } });
 
-  it('orders by the line total in that finish, cards without it last', () => {
+  it('orders by the per-copy price in that finish, cards without it last', () => {
     expect(sortPriceRows(p.rows, { key: 'finish:r', dir: 'desc' }, cells).map((r) => r.name)).toEqual(['Strike', 'Snatch', 'Odd']);
     expect(sortPriceRows(p.rows, { key: 'finish:r', dir: 'asc' }, cells).map((r) => r.name)).toEqual(['Snatch', 'Strike', 'Odd']);
   });

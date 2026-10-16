@@ -130,7 +130,7 @@ export default function PricesView({ deckId, deck, owned }: {
         </button>
         {compare && !finishPrices && !finishError && <span className="text-xs text-gray-600 dark:text-gray-400">Loading printing prices…</span>}
         {compare && finishError && <span role="alert" className="text-xs text-red-700 dark:text-red-300">{finishError}</span>}
-        {fc && <span className="text-xs text-gray-600 dark:text-gray-400">Each finish column: the line at the cheapest English printing in that finish.</span>}
+        {fc && <span className="text-xs text-gray-600 dark:text-gray-400">Each finish column: one copy at the cheapest English printing in that finish. Its Total is the whole deck in that finish.</span>}
       </div>
 
       <table aria-label="Deck prices" className="w-full border-collapse text-sm text-gray-800 dark:text-gray-200">
@@ -190,7 +190,6 @@ export default function PricesView({ deckId, deck, owned }: {
                 const v = fc.cells.get(r.key)?.[f] ?? null;
                 const pick = fc.picks.get(r.key)?.[f] ?? null;
                 const url = pick?.url ?? null;
-                const each = v != null && r.qty > 1 ? ` (${usd(v / r.qty)} each)` : "";
                 // Hovering shows the exact printing this finish was priced at.
                 const image = pick?.image ?? null;
                 return (
@@ -206,12 +205,12 @@ export default function PricesView({ deckId, deck, owned }: {
                         <TcgAffiliateLink
                           tcgplayerUrl={url}
                           feature="DeckPricesCompare"
-                          title={`${FINISH_LABEL[f]} ${r.name} on TCGplayer${each}`}
+                          title={`${FINISH_LABEL[f]} ${r.name} on TCGplayer`}
                           className="underline decoration-gray-400/50 underline-offset-2 hover:text-blue-700 hover:decoration-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:decoration-gray-500/50 dark:hover:text-blue-300 dark:hover:decoration-blue-300"
                         >
                           <span className="sr-only">{FINISH_LABEL[f]} {r.name} on TCGplayer: </span>{usd(v)}
                         </TcgAffiliateLink>
-                      ) : <span title={each.trim() || undefined}>{usd(v)}</span>}
+                      ) : usd(v)}
                   </td>
                 );
               })}

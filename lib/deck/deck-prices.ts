@@ -238,9 +238,9 @@ export function cheapestByFinish(
   return out;
 }
 
-/** Per-row line totals in every finish (null = no priced printing in it) and
+/** Per-row, per-copy prices in every finish (null = no priced printing in it) and
  *  the printing each was priced at (link + image), the finishes any card has,
- *  and each finish's deck total + copies it couldn't price. */
+ *  and each finish's whole-deck total (× quantity) + copies it couldn't price. */
 export function finishColumns(rows: PriceRow[], byCard: FinishPrices) {
   const cells = new Map<string, Record<Finish, number | null>>();
   const pickMap = new Map<string, Record<Finish, FinishPick | null>>();
@@ -252,10 +252,11 @@ export function finishColumns(rows: PriceRow[], byCard: FinishPrices) {
     const rowPicks = {} as Record<Finish, FinishPick | null>;
     for (const f of FINISHES) {
       const pick = picks[f];
-      cell[f] = pick == null ? null : cents(pick.low * r.qty);
+      // Cells are per copy (what the card costs in that finish); the totals are the whole deck.
+      cell[f] = pick == null ? null : pick.low;
       rowPicks[f] = pick ?? null;
       if (pick == null) totals[f].missingCopies += r.qty;
-      else { totals[f].value = cents(totals[f].value + cell[f]!); present.add(f); }
+      else { totals[f].value = cents(totals[f].value + pick.low * r.qty); present.add(f); }
     }
     cells.set(r.key, cell);
     pickMap.set(r.key, rowPicks);
