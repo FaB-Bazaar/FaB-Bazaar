@@ -18,8 +18,15 @@ vi.mock('next/navigation', () => ({ usePathname: () => mocks.pathname }))
 vi.mock('@/contexts/CookieConsentContext', () => ({
   useCookieConsent: () => ({ consentOptions: mocks.consent }),
 }))
+// A bare context (the real module pulls in next-auth). No provider = the
+// standalone renders above; the signed-in tests wrap one.
+vi.mock('@/contexts/AuthContext', async () => {
+  const { createContext } = await import('react')
+  return { AuthContext: createContext(undefined) }
+})
 
 import { TcgAffiliateLink } from './TcgAffiliateLink'
+import { AuthContext } from '@/contexts/AuthContext'
 import { recordPageView } from '@/lib/gtag'
 
 const PRODUCT = 'https://www.tcgplayer.com/product/198609?Language=English'
@@ -114,5 +121,42 @@ describe('TcgAffiliateLink click tracking', () => {
     expect(affiliateClicks()).toMatchObject([
       { page_context: 'PrintingDetails', page_path: '/printing/abc123', previous_page_path: '/daily' },
     ])
+  })
+})
+
+// The subIds Impact reports on, read back out of the partner URL's `u` param.
+const subIds = () => {
+  const href = screen.getByText('Buy').closest('a')!.getAttribute('href')!
+  return new URL(new URL(href).searchParams.get('u')!).searchParams
+}
+const renderWithAuth = (auth: { user: unknown; loading: boolean }) =>
+  render(
+    <AuthContext.Provider value={auth as never}>
+      <TcgAffiliateLink tcgplayerUrl={PRODUCT} feature="f">Buy</TcgAffiliateLink>
+    </AuthContext.Provider>
+  )
+
+describe('TcgAffiliateLink partner subIds', () => {
+  it('labels deck pages "Decks" (subId1), not "Other"', () => {
+    mocks.pathname = '/decks/abc123'
+    render(<TcgAffiliateLink tcgplayerUrl={PRODUCT} feature="DeckPricesBuy">Buy</TcgAffiliateLink>)
+    expect(subIds().get('subId1')).toBe('Decks')
+    fireEvent.click(screen.getByText('Buy'))
+    expect(affiliateClicks()).toMatchObject([{ page_context: 'Decks' }])
+  })
+
+  it('reports a signed-in visitor as LoggedIn (subId3) from the auth session', () => {
+    renderWithAuth({ user: { id: 'u1' }, loading: false })
+    expect(subIds().get('subId3')).toBe('LoggedIn')
+  })
+
+  it('reports a signed-out visitor as Guest', () => {
+    renderWithAuth({ user: null, loading: false })
+    expect(subIds().get('subId3')).toBe('Guest')
+  })
+
+  it('reports Unknown while the session is still loading or outside an auth provider', () => {
+    renderWithAuth({ user: null, loading: true })
+    expect(subIds().get('subId3')).toBe('Unknown')
   })
 })

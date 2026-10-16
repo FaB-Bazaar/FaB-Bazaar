@@ -1,6 +1,8 @@
 "use client"
 
+import { useContext } from 'react'
 import { useCookieConsent } from '@/contexts/CookieConsentContext'
+import { AuthContext } from '@/contexts/AuthContext'
 import { usePathname } from 'next/navigation'
 import { trackAffiliateClick } from '@/lib/gtag'
 
@@ -18,6 +20,7 @@ interface TcgAffiliateLinkProps {
 
 function getPageContext(pathname: string): string {
   if (pathname.startsWith('/binder/')) return 'Binder'
+  if (pathname.startsWith('/decks/')) return 'Decks'
   if (pathname === '/wants') return 'Wants'
   if (pathname.startsWith('/heroes/')) return 'Heroes'
   if (pathname.startsWith('/printing/')) return 'PrintingDetails'
@@ -28,14 +31,13 @@ function getPageContext(pathname: string): string {
   return 'Other'
 }
 
-function getUserContext(): string {
-  if (typeof window === 'undefined') return 'Unknown'
-  
-  // Check if user is logged in - adjust this based on your auth implementation
-  const hasAuth = localStorage.getItem('auth') || 
-                   sessionStorage.getItem('session') ||
-                   document.cookie.includes('session')
-  return hasAuth ? 'LoggedIn' : 'Guest'
+// From the app's auth session. Read through the context directly (not
+// useAuth, which throws) so a link rendered outside the provider reports
+// Unknown instead of crashing. The old storage/cookie sniffing always said
+// Guest: the NextAuth session cookie is httpOnly.
+function getUserContext(auth: { user: unknown; loading: boolean } | undefined): string {
+  if (!auth || auth.loading) return 'Unknown'
+  return auth.user ? 'LoggedIn' : 'Guest'
 }
 
 function getReturnUserContext(): string {
@@ -74,6 +76,7 @@ export function TcgAffiliateLink({
 }: TcgAffiliateLinkProps) {
   const { consentOptions } = useCookieConsent()
   const pathname = usePathname()
+  const auth = useContext(AuthContext)
   const affiliate = Boolean(consentOptions.advertising)
 
   // GA sees every buy click regardless of the branch below; `affiliate`
@@ -107,7 +110,7 @@ export function TcgAffiliateLink({
 
   // Build comprehensive tracking parameters
   const pageContext = getPageContext(pathname)
-  const userContext = getUserContext()
+  const userContext = getUserContext(auth)
   const returnContext = getReturnUserContext()
   const deviceContext = getDeviceContext()
 
