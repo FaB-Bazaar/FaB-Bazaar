@@ -14,7 +14,7 @@ The rail page must reuse the classic page's machinery; a feature that exists on 
 - `components/deck/editor/DeckBulkImport` — paste-a-decklist.
 - `lib/deck/highlight-filters` — `applyHighlightEvent` (the filter-list rules) + `matchesHighlight` (card test). The grid, the Table view and the HUD all use it — never re-implement a stat/type/keyword check inline.
 
-Pure logic (all node-tested) sits in `lib/deck/`: `deck-lens` (panel searches), `deck-prices` (Prices panel: tcg_low value by zone, bench excluded, cost to finish from `cardOwnershipMap`), `deck-table` (rows), `brew` (pool filters, facets, starter kits), `ratios`, `hand-odds`, `matchup-names`.
+Pure logic (all node-tested) sits in `lib/deck/`: `deck-lens` (panel searches), `deck-prices` (Prices view rows + summary: tcg_low value by zone, bench excluded, owned copies cover a card's pricier rows first so the Buy column sums to the cost to finish from `cardOwnershipMap`), `deck-table` (rows), `brew` (pool filters, facets, starter kits), `ratios`, `hand-odds`, `matchup-names`.
 
 ## Highlight sources
 
@@ -22,7 +22,7 @@ Both pages speak the `deck-highlight-filter` / `deck-highlight-clear` window eve
 
 ## Main views and deep links
 
-Results, Notes and Import list replace the deck views in the main area (`mainMode`), embedding the same components as the classic tabs (`DeckResultsTab`, `DeckNotesTab`). `?tab=notes` / `?tab=results` open them for editors — `/decks/[id]/notes` redirects to `?tab=notes`, which works on both pages (phones get the classic page, which reads the same param).
+Results, Notes, Import list and Prices (every viewer; `_components/PricesView`) replace the deck views in the main area (`mainMode`), embedding the same components as the classic tabs (`DeckResultsTab`, `DeckNotesTab`). `?tab=notes` / `?tab=results` open them for editors — `/decks/[id]/notes` redirects to `?tab=notes`, which works on both pages (phones get the classic page, which reads the same param).
 
 ## Brew pool
 

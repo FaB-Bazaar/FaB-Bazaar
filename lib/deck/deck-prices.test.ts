@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deckPrices, type PricedDeck } from './deck-prices';
+import { deckPrices, sortPriceRows, type PricedDeck } from './deck-prices';
 
 // A deck card in the shape the deck API returns (only the fields pricing reads).
 const card = (name: string, qty: number, tcgLow: number | undefined, cuid = name, tcgMarket?: number) => ({
@@ -42,12 +42,32 @@ describe('deckPrices', () => {
     expect(p.zones.find((z) => z.zone === 'maindeck')!.value).toBe(0);
   });
 
-  it('lists the most expensive cards by line total, merged across zones', () => {
-    const p = deckPrices(deck({ inventory: [card('Snatch', 1, 20)] }), { top: 2 });
-    expect(p.topCards).toEqual([
-      { name: 'Snatch', quantity: 3, each: 20, total: 60 },
-      { name: 'Helm', quantity: 1, each: 10, total: 10 },
+  it('has one row per card per counted zone with each and line total', () => {
+    const p = deckPrices(deck({ maindeck: [card('Snatch', 2, 20), card('Odd', 1, undefined)] }));
+    expect(p.rows.map((r) => [r.name, r.zone, r.qty, r.each, r.total])).toEqual([
+      ['Hero', 'hero', 1, 2, 2],
+      ['Helm', 'equipment', 1, 10, 10],
+      ['Snatch', 'maindeck', 2, 20, 40],
+      ['Odd', 'maindeck', 1, null, 0],
+      ['Sink', 'inventory', 1, 0.5, 0.5],
     ]);
+  });
+
+  it('leaves own and buy unknown when ownership is unknown', () => {
+    const r = deckPrices(deck()).rows[0];
+    expect(r.owned).toBeNull();
+    expect(r.buy).toBeNull();
+  });
+
+  it('spends owned copies on the pricier row first, so buy falls on the cheapest copies', () => {
+    const p = deckPrices(
+      deck({ maindeck: [card('Snatch', 2, 10, 'snatch')], inventory: [card('Snatch', 1, 1, 'snatch')] }),
+      { owned: new Map([['snatch', { owned: 2 }]]) },
+    );
+    const main = p.rows.find((r) => r.zone === 'maindeck')!;
+    const inv = p.rows.find((r) => r.zone === 'inventory')!;
+    expect([main.owned, main.buy]).toEqual([2, 0]);
+    expect([inv.owned, inv.buy]).toEqual([0, 1]);
   });
 
   it('prices the shortage after the collection: any printing of a card counts as owned', () => {
@@ -62,5 +82,18 @@ describe('deckPrices', () => {
 
   it('has no cost to finish when ownership is unknown', () => {
     expect(deckPrices(deck()).toFinish).toBeNull();
+  });
+});
+
+describe('sortPriceRows', () => {
+  const rows = deckPrices(deck({ maindeck: [card('Snatch', 2, 20), card('Odd', 1, undefined)] })).rows;
+
+  it('defaults to the priciest line first', () => {
+    expect(sortPriceRows(rows, null).map((r) => r.name)).toEqual(['Snatch', 'Helm', 'Hero', 'Sink', 'Odd']);
+  });
+
+  it('sorts by a column either way, unpriced rows last', () => {
+    expect(sortPriceRows(rows, { key: 'each', dir: 'asc' }).map((r) => r.name)).toEqual(['Sink', 'Hero', 'Helm', 'Snatch', 'Odd']);
+    expect(sortPriceRows(rows, { key: 'name', dir: 'desc' }).map((r) => r.name)[0]).toBe('Snatch');
   });
 });
