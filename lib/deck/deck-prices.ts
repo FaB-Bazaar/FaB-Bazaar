@@ -46,6 +46,7 @@ export const PRICE_ZONE_LABEL: Record<PriceZone, string> = Object.fromEntries(ZO
 export interface PriceRow {
   key: string;
   printingId?: string;
+  cardUniqueId?: string;
   name: string;
   zone: PriceZone;
   pitch: number | null;
@@ -81,7 +82,6 @@ export function deckPrices(
   opts: { owned?: ReadonlyMap<string, { owned: number }> | null } = {},
 ): DeckPrices {
   const rows: PriceRow[] = [];
-  const cardOf = new Map<PriceRow, string | undefined>();
   for (const [zone] of ZONES) {
     (deck[zone] ?? []).forEach((c, i) => {
       const d = c.printingDetails ?? {};
@@ -89,6 +89,7 @@ export function deckPrices(
       const row: PriceRow = {
         key: `${zone}|${c.printingId ?? i}`,
         printingId: c.printingId,
+        cardUniqueId: d.card_unique_id,
         name: d.display_name ?? d.name ?? 'Unknown card',
         zone,
         pitch: d.pitch ?? null,
@@ -100,10 +101,9 @@ export function deckPrices(
         buy: null,
       };
       rows.push(row);
-      cardOf.set(row, d.card_unique_id);
     });
   }
-  if (opts.owned) allocateOwned(rows, cardOf, opts.owned);
+  if (opts.owned) allocateOwned(rows, opts.owned);
 
   const zones = ZONES
     .map(([zone, label]) => ({ zone, label, rows: rows.filter((r) => r.zone === zone) }))
@@ -127,10 +127,10 @@ export function deckPrices(
 
 /** A card's owned copies cover its pricier rows first, so what's left to buy
  *  is the cheapest copies — and the buy column sums to the cost to finish. */
-function allocateOwned(rows: PriceRow[], cardOf: Map<PriceRow, string | undefined>, owned: ReadonlyMap<string, { owned: number }>) {
+function allocateOwned(rows: PriceRow[], owned: ReadonlyMap<string, { owned: number }>) {
   const byCard = new Map<string, PriceRow[]>();
   for (const r of rows) {
-    const id = cardOf.get(r);
+    const id = r.cardUniqueId;
     if (!id) { r.owned = 0; r.buy = r.total; continue; }
     byCard.set(id, [...(byCard.get(id) ?? []), r]);
   }
@@ -164,4 +164,51 @@ export function sortPriceRows(rows: PriceRow[], sort: PriceSort): PriceRow[] {
     if (va > vb) return sign;
     return a.name.localeCompare(b.name);
   });
+}
+
+// ── Compare printings ───────────────────────────────────────────────────────
+// What each card would cost in each finish (cheapest English printing of it,
+// tcg_low), so the deck's value can be read as "all non-foil", "all rainbow"…
+
+export const FINISHES = ['cheapest', 's', 'r', 'c', 'g'] as const;
+export type Finish = (typeof FINISHES)[number];
+export const FINISH_LABEL: Record<Finish, string> = { cheapest: 'Cheapest', s: 'Non-foil', r: 'Rainbow', c: 'Cold', g: 'Gold' };
+
+/** card_unique_id → cheapest tcg_low per finish (foiling code) + overall. Unpriced printings are ignored. */
+export type FinishPrices = Record<string, Partial<Record<Finish, number>>>;
+
+export function cheapestByFinish(
+  printings: Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null }>,
+): FinishPrices {
+  const out: FinishPrices = {};
+  for (const p of printings) {
+    if (p.tcg_low == null || p.tcg_low <= 0) continue;
+    const card = (out[p.card_unique_id] ??= {});
+    for (const f of ['cheapest', p.foiling?.toLowerCase()] as const) {
+      if (!f || !(FINISHES as readonly string[]).includes(f)) continue;
+      const key = f as Finish;
+      if (card[key] == null || p.tcg_low < card[key]!) card[key] = p.tcg_low;
+    }
+  }
+  return out;
+}
+
+/** Per-row line totals in every finish (null = no priced printing in it), the
+ *  finishes any card has, and each finish's deck total + copies it couldn't price. */
+export function finishColumns(rows: PriceRow[], byCard: FinishPrices) {
+  const cells = new Map<string, Record<Finish, number | null>>();
+  const totals = Object.fromEntries(FINISHES.map((f) => [f, { value: 0, missingCopies: 0 }])) as Record<Finish, { value: number; missingCopies: number }>;
+  const present = new Set<Finish>();
+  for (const r of rows) {
+    const prices = (r.cardUniqueId && byCard[r.cardUniqueId]) || {};
+    const cell = {} as Record<Finish, number | null>;
+    for (const f of FINISHES) {
+      const each = prices[f];
+      cell[f] = each == null ? null : cents(each * r.qty);
+      if (each == null) totals[f].missingCopies += r.qty;
+      else { totals[f].value = cents(totals[f].value + cell[f]!); present.add(f); }
+    }
+    cells.set(r.key, cell);
+  }
+  return { cells, totals, finishes: FINISHES.filter((f) => present.has(f)) };
 }

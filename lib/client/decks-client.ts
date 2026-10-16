@@ -31,6 +31,7 @@ import type {
 } from '@/lib/services/contracts/IDeckService';
 import type { ImportFabraryResult } from '@/lib/deck/import-fabrary';
 import type { DeckMatchup } from '@/types/deck';
+import type { FinishPrices } from '@/lib/deck/deck-prices';
 
 // ====================================
 // Deck CRUD Operations
@@ -398,6 +399,20 @@ export async function getInventoryComparison(
       `/api/decks/${publicId}/inventory-comparison?${params.toString()}`
     );
     return await handleResponse<InventoryComparisonDTO>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Cheapest English tcg_low per card per finish (Prices view → Compare printings).
+ */
+export async function getPrintingPrices(
+  publicId: string
+): Promise<ApiResponse<{ byCard: FinishPrices }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/printing-prices`);
+    return await handleResponse<{ byCard: FinishPrices }>(response);
   } catch (error) {
     return handleError(error);
   }

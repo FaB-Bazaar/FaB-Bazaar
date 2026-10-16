@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deckPrices, sortPriceRows, type PricedDeck } from './deck-prices';
+import { deckPrices, sortPriceRows, cheapestByFinish, finishColumns, type PricedDeck } from './deck-prices';
 
 // A deck card in the shape the deck API returns (only the fields pricing reads).
 const card = (name: string, qty: number, tcgLow: number | undefined, cuid = name, tcgMarket?: number) => ({
@@ -95,5 +95,43 @@ describe('sortPriceRows', () => {
   it('sorts by a column either way, unpriced rows last', () => {
     expect(sortPriceRows(rows, { key: 'each', dir: 'asc' }).map((r) => r.name)).toEqual(['Sink', 'Hero', 'Helm', 'Snatch', 'Odd']);
     expect(sortPriceRows(rows, { key: 'name', dir: 'desc' }).map((r) => r.name)[0]).toBe('Snatch');
+  });
+});
+
+describe('cheapestByFinish', () => {
+  it('reads the foiling code case-insensitively', () => {
+    expect(cheapestByFinish([{ card_unique_id: 'a', foiling: 'R', tcg_low: 3.5 }])).toEqual({ a: { cheapest: 3.5, r: 3.5 } });
+  });
+
+  it('keeps the cheapest priced printing per card per finish, plus the cheapest overall', () => {
+    const by = cheapestByFinish([
+      { card_unique_id: 'a', foiling: 's', tcg_low: 1.5 },
+      { card_unique_id: 'a', foiling: 's', tcg_low: 0.9 },
+      { card_unique_id: 'a', foiling: 'r', tcg_low: 4 },
+      { card_unique_id: 'a', foiling: 'c', tcg_low: null },
+      { card_unique_id: 'b', foiling: 'c', tcg_low: 30 },
+    ]);
+    expect(by).toEqual({
+      a: { cheapest: 0.9, s: 0.9, r: 4 },
+      b: { cheapest: 30, c: 30 },
+    });
+  });
+});
+
+describe('finishColumns', () => {
+  const p = deckPrices(deck({ equipment: [], hero: [], inventory: [], maindeck: [card('Strike', 3, 1.5, 'a'), card('Snatch', 2, 20, 'b')] }));
+  const by = { a: { cheapest: 0.9, s: 0.9, r: 4 }, b: { cheapest: 15, c: 15 } };
+
+  it('prices each row in each finish as a line total, null where the card has no such printing', () => {
+    const { cells } = finishColumns(p.rows, by);
+    expect(cells.get(p.rows[0].key)).toEqual({ cheapest: 2.7, s: 2.7, r: 12, c: null, g: null });
+    expect(cells.get(p.rows[1].key)).toEqual({ cheapest: 30, s: null, r: null, c: 30, g: null });
+  });
+
+  it('totals each finish and counts the copies it could not price', () => {
+    const { totals, finishes } = finishColumns(p.rows, by);
+    expect(finishes).toEqual(['cheapest', 's', 'r', 'c']);
+    expect(totals.cheapest).toEqual({ value: 32.7, missingCopies: 0 });
+    expect(totals.r).toEqual({ value: 12, missingCopies: 2 });
   });
 });

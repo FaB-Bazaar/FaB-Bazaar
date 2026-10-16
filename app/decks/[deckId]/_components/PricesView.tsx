@@ -2,12 +2,18 @@
 
 // Rail deck page Prices view: the deck's TCG Low value and cost to finish on
 // top, then every card per zone as a sortable priced row (priciest first).
-// The maths lives in lib/deck/deck-prices.
+// "Compare printings" adds what each line would cost in every finish
+// (cheapest English printing, fetched on first use). The maths lives in
+// lib/deck/deck-prices.
 
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
-import { deckPrices, sortPriceRows, PRICE_ZONE_LABEL, type PriceSort, type PriceSortKey } from "@/lib/deck/deck-prices";
+import {
+  deckPrices, finishColumns, sortPriceRows, FINISH_LABEL, PRICE_ZONE_LABEL,
+  type FinishPrices, type PriceSort, type PriceSortKey,
+} from "@/lib/deck/deck-prices";
+import { decksClient } from "@/lib/client";
 import { cn } from "@/lib/utils";
 
 const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -27,7 +33,8 @@ const OWNED_COLUMNS: Column[] = [
   { key: "buy", label: "Buy", align: "right", className: "w-24" },
 ];
 
-export default function PricesView({ deck, owned }: {
+export default function PricesView({ deckId, deck, owned }: {
+  deckId: string;
   deck: DeckDTO;
   /** card_unique_id → copies owned in any printing; null = unknown (signed out / loading). */
   owned: ReadonlyMap<string, { owned: number }> | null;
@@ -37,6 +44,22 @@ export default function PricesView({ deck, owned }: {
   const rows = useMemo(() => sortPriceRows(p.rows, sort), [p.rows, sort]);
   const columns = p.toFinish ? [...BASE_COLUMNS, ...OWNED_COLUMNS] : BASE_COLUMNS;
   const active: NonNullable<PriceSort> = sort ?? { key: "total", dir: "desc" };
+  const [preview, setPreview] = useState<{ url: string; x: number; y: number } | null>(null);
+
+  // Compare printings: fetched once, on first use.
+  const [compare, setCompare] = useState(false);
+  const [finishPrices, setFinishPrices] = useState<FinishPrices | null>(null);
+  const [finishError, setFinishError] = useState<string | null>(null);
+  const toggleCompare = async () => {
+    const next = !compare;
+    setCompare(next);
+    if (!next || finishPrices) return;
+    setFinishError(null);
+    const res = await decksClient.getPrintingPrices(deckId);
+    if (res.success) setFinishPrices(res.data.byCard);
+    else setFinishError(res.error || "Couldn't load printing prices.");
+  };
+  const fc = useMemo(() => (compare && finishPrices ? finishColumns(p.rows, finishPrices) : null), [compare, finishPrices, p.rows]);
 
   // Cycle per column: its natural order (A→Z for text, biggest first for
   // numbers) → reversed → back to the default (Total, biggest first).
@@ -75,6 +98,25 @@ export default function PricesView({ deck, owned }: {
         {p.benchValue > 0 && ` Bench (${usd(p.benchValue)}) isn't counted.`}
       </p>
 
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          aria-pressed={compare}
+          onClick={toggleCompare}
+          className={cn(
+            "rounded-sm border px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+            compare
+              ? "border-blue-600 bg-blue-50 text-blue-800 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-200"
+              : "border-gray-400 bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700",
+          )}
+        >
+          {compare && "✓ "}Compare printings
+        </button>
+        {compare && !finishPrices && !finishError && <span className="text-xs text-gray-600 dark:text-gray-400">Loading printing prices…</span>}
+        {compare && finishError && <span role="alert" className="text-xs text-red-700 dark:text-red-300">{finishError}</span>}
+        {fc && <span className="text-xs text-gray-600 dark:text-gray-400">Each finish column: the line at the cheapest English printing in that finish.</span>}
+      </div>
+
       <table aria-label="Deck prices" className="w-full border-collapse text-sm text-gray-800 dark:text-gray-200">
         <thead className="sticky top-16 z-10 bg-gray-100 dark:bg-gray-800">
           <tr className="border-b border-gray-300 dark:border-gray-700">
@@ -95,12 +137,19 @@ export default function PricesView({ deck, owned }: {
                 </th>
               );
             })}
+            {fc?.finishes.map(f => (
+              <th key={f} scope="col" className="w-24 px-2 py-1.5 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">{FINISH_LABEL[f]}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {rows.map(r => (
             <tr key={r.key} className="border-b border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60">
-              <td className="px-2 py-1 font-medium">
+              <td
+                className="px-2 py-1 font-medium"
+                onMouseMove={e => r.imageUrl && setPreview({ url: r.imageUrl, x: e.clientX, y: e.clientY })}
+                onMouseLeave={() => setPreview(null)}
+              >
                 <span className="inline-flex items-center gap-1.5">
                   {r.pitch != null && PITCH_DOT[r.pitch]
                     ? <span className={cn("h-2 w-2 shrink-0 rounded-full", PITCH_DOT[r.pitch])} aria-label={`Pitch ${r.pitch}`} />
@@ -118,6 +167,14 @@ export default function PricesView({ deck, owned }: {
                   <td className="px-2 py-1 text-right tabular-nums">{r.buy ? usd(r.buy) : <span className="text-gray-600 dark:text-gray-400">—</span>}</td>
                 </>
               )}
+              {fc?.finishes.map(f => {
+                const v = fc.cells.get(r.key)?.[f] ?? null;
+                return (
+                  <td key={f} className="px-2 py-1 text-right tabular-nums" title={v != null && r.qty > 1 ? `${usd(v / r.qty)} each` : undefined}>
+                    {v == null ? <span title={`No ${FINISH_LABEL[f].toLowerCase()} printing with a price`} className="text-gray-600 dark:text-gray-400">—</span> : usd(v)}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
@@ -131,9 +188,30 @@ export default function PricesView({ deck, owned }: {
                 <td className="px-2 py-1.5 text-right tabular-nums">{usd(p.toFinish.value)}</td>
               </>
             )}
+            {fc?.finishes.map(f => (
+              <td key={f} className="px-2 py-1.5 text-right tabular-nums">
+                {usd(fc.totals[f].value)}
+                {fc.totals[f].missingCopies > 0 && (
+                  <span className="block text-xs font-normal text-gray-600 dark:text-gray-400">{fc.totals[f].missingCopies} not in this finish</span>
+                )}
+              </td>
+            ))}
           </tr>
         </tfoot>
       </table>
+      {preview && (
+        <img
+          src={preview.url}
+          alt=""
+          aria-hidden
+          data-testid="price-preview"
+          className="pointer-events-none fixed z-50 w-56 rounded-lg shadow-2xl"
+          style={{
+            left: Math.min(preview.x + 24, (typeof window !== "undefined" ? window.innerWidth : 1600) - 240),
+            top: Math.max(72, Math.min(preview.y - 150, (typeof window !== "undefined" ? window.innerHeight : 900) - 320)),
+          }}
+        />
+      )}
     </div>
   );
 }

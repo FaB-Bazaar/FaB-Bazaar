@@ -554,7 +554,7 @@ function DeckV2Page() {
             </section>
           ) : mainMode === "prices" ? (
             <section aria-label="Prices">
-              <PricesView deck={deck} owned={state.cardOwnershipMap} />
+              <PricesView deckId={deckId} deck={deck} owned={state.cardOwnershipMap} />
             </section>
           ) : mainMode === "notes" ? (
             <section aria-label="Notes">
