@@ -112,6 +112,9 @@ describe('sortPriceRows', () => {
   });
 });
 
+// A finish's pick: the cheapest printing's price and its TCGplayer link.
+const at = (low: number, url: string | null = null) => ({ low, url });
+
 describe('cheapestByFinish', () => {
   it('keeps the cheapest promo (rarity p) of any finish in its own promo column', () => {
     const by = cheapestByFinish([
@@ -119,11 +122,11 @@ describe('cheapestByFinish', () => {
       { card_unique_id: 'a', foiling: 'r', tcg_low: 9, rarity: 'p' },
       { card_unique_id: 'a', foiling: 'c', tcg_low: 30, rarity: 'P' },
     ]);
-    expect(by.a).toEqual({ cheapest: 1, s: 1, r: 9, c: 30, promo: 9 });
+    expect(by.a).toEqual({ cheapest: at(1), s: at(1), r: at(9), c: at(30), promo: at(9) });
   });
 
   it('reads the foiling code case-insensitively', () => {
-    expect(cheapestByFinish([{ card_unique_id: 'a', foiling: 'R', tcg_low: 3.5 }])).toEqual({ a: { cheapest: 3.5, r: 3.5 } });
+    expect(cheapestByFinish([{ card_unique_id: 'a', foiling: 'R', tcg_low: 3.5 }])).toEqual({ a: { cheapest: at(3.5), r: at(3.5) } });
   });
 
   it('keeps the cheapest priced printing per card per finish, plus the cheapest overall', () => {
@@ -135,20 +138,35 @@ describe('cheapestByFinish', () => {
       { card_unique_id: 'b', foiling: 'c', tcg_low: 30 },
     ]);
     expect(by).toEqual({
-      a: { cheapest: 0.9, s: 0.9, r: 4 },
-      b: { cheapest: 30, c: 30 },
+      a: { cheapest: at(0.9), s: at(0.9), r: at(4) },
+      b: { cheapest: at(30), c: at(30) },
     });
+  });
+
+  it("links each pick to that cheapest printing's TCGplayer page", () => {
+    const by = cheapestByFinish([
+      { card_unique_id: 'a', foiling: 's', tcg_low: 1.5, tcgplayer_url: 'https://tcg/s-pricey' },
+      { card_unique_id: 'a', foiling: 's', tcg_low: 0.9, tcgplayer_url: 'https://tcg/s-cheap' },
+      { card_unique_id: 'a', foiling: 'r', tcg_low: 4, tcgplayer_url: 'https://tcg/r' },
+    ]);
+    expect(by.a).toEqual({ cheapest: at(0.9, 'https://tcg/s-cheap'), s: at(0.9, 'https://tcg/s-cheap'), r: at(4, 'https://tcg/r') });
   });
 });
 
 describe('finishColumns', () => {
   const p = deckPrices(deck({ equipment: [], hero: [], inventory: [], maindeck: [card('Strike', 3, 1.5, 'a'), card('Snatch', 2, 20, 'b')] }));
-  const by = { a: { cheapest: 0.9, s: 0.9, r: 4 }, b: { cheapest: 15, c: 15 } };
+  const by = { a: { cheapest: at(0.9, 'https://tcg/a-s'), s: at(0.9, 'https://tcg/a-s'), r: at(4, 'https://tcg/a-r') }, b: { cheapest: at(15), c: at(15) } };
 
   it('prices each row in each finish as a line total, null where the card has no such printing', () => {
     const { cells } = finishColumns(p.rows, by);
     expect(cells.get(p.rows[0].key)).toEqual({ cheapest: 2.7, s: 2.7, r: 12, c: null, g: null, promo: null });
     expect(cells.get(p.rows[1].key)).toEqual({ cheapest: 30, s: null, r: null, c: 30, g: null, promo: null });
+  });
+
+  it("gives each cell the link of the printing it was priced at", () => {
+    const { links } = finishColumns(p.rows, by);
+    expect(links.get(p.rows[0].key)).toMatchObject({ s: 'https://tcg/a-s', r: 'https://tcg/a-r', c: null });
+    expect(links.get(p.rows[1].key)).toMatchObject({ c: null });
   });
 
   it('totals each finish and counts the copies it could not price', () => {
@@ -161,7 +179,7 @@ describe('finishColumns', () => {
 
 describe('sortPriceRows by a finish column', () => {
   const p = deckPrices(deck({ equipment: [], hero: [], inventory: [], maindeck: [card('Strike', 3, 1.5, 'a'), card('Snatch', 2, 20, 'b'), card('Odd', 1, 5, 'c')] }));
-  const { cells } = finishColumns(p.rows, { a: { cheapest: 0.9, r: 4 }, b: { cheapest: 15, r: 2 }, c: { cheapest: 1 } });
+  const { cells } = finishColumns(p.rows, { a: { cheapest: at(0.9), r: at(4) }, b: { cheapest: at(15), r: at(2) }, c: { cheapest: at(1) } });
 
   it('orders by the line total in that finish, cards without it last', () => {
     expect(sortPriceRows(p.rows, { key: 'finish:r', dir: 'desc' }, cells).map((r) => r.name)).toEqual(['Strike', 'Snatch', 'Odd']);

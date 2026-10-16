@@ -215,12 +215,14 @@ export const FINISHES = ['cheapest', 's', 'r', 'c', 'g', 'promo'] as const;
 export type Finish = (typeof FINISHES)[number];
 export const FINISH_LABEL: Record<Finish, string> = { cheapest: 'Cheapest', s: 'Non-foil', r: 'Rainbow', c: 'Cold', g: 'Gold', promo: 'Promo' };
 
-/** card_unique_id → cheapest tcg_low per finish (foiling code), overall, and
- *  promo (rarity p, any finish — a card can have several). Unpriced printings are ignored. */
-export type FinishPrices = Record<string, Partial<Record<Finish, number>>>;
+/** card_unique_id → the cheapest printing per finish (foiling code), overall,
+ *  and promo (rarity p, any finish — a card can have several). Unpriced printings are ignored. */
+/** The cheapest printing in a finish: its tcg_low and its TCGplayer page. */
+export type FinishPick = { low: number; url: string | null };
+export type FinishPrices = Record<string, Partial<Record<Finish, FinishPick>>>;
 
 export function cheapestByFinish(
-  printings: Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null; rarity?: string | null }>,
+  printings: Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null; rarity?: string | null; tcgplayer_url?: string | null }>,
 ): FinishPrices {
   const out: FinishPrices = {};
   for (const p of printings) {
@@ -230,28 +232,33 @@ export function cheapestByFinish(
     for (const f of ['cheapest', p.foiling?.toLowerCase(), promo] as const) {
       if (!f || !(FINISHES as readonly string[]).includes(f)) continue;
       const key = f as Finish;
-      if (card[key] == null || p.tcg_low < card[key]!) card[key] = p.tcg_low;
+      if (card[key] == null || p.tcg_low < card[key]!.low) card[key] = { low: p.tcg_low, url: p.tcgplayer_url ?? null };
     }
   }
   return out;
 }
 
-/** Per-row line totals in every finish (null = no priced printing in it), the
- *  finishes any card has, and each finish's deck total + copies it couldn't price. */
+/** Per-row line totals in every finish (null = no priced printing in it) and
+ *  the link of the printing each was priced at, the finishes any card has, and
+ *  each finish's deck total + copies it couldn't price. */
 export function finishColumns(rows: PriceRow[], byCard: FinishPrices) {
   const cells = new Map<string, Record<Finish, number | null>>();
+  const links = new Map<string, Record<Finish, string | null>>();
   const totals = Object.fromEntries(FINISHES.map((f) => [f, { value: 0, missingCopies: 0 }])) as Record<Finish, { value: number; missingCopies: number }>;
   const present = new Set<Finish>();
   for (const r of rows) {
-    const prices = (r.cardUniqueId && byCard[r.cardUniqueId]) || {};
+    const picks = (r.cardUniqueId && byCard[r.cardUniqueId]) || {};
     const cell = {} as Record<Finish, number | null>;
+    const link = {} as Record<Finish, string | null>;
     for (const f of FINISHES) {
-      const each = prices[f];
-      cell[f] = each == null ? null : cents(each * r.qty);
-      if (each == null) totals[f].missingCopies += r.qty;
+      const pick = picks[f];
+      cell[f] = pick == null ? null : cents(pick.low * r.qty);
+      link[f] = pick?.url ?? null;
+      if (pick == null) totals[f].missingCopies += r.qty;
       else { totals[f].value = cents(totals[f].value + cell[f]!); present.add(f); }
     }
     cells.set(r.key, cell);
+    links.set(r.key, link);
   }
-  return { cells, totals, finishes: FINISHES.filter((f) => present.has(f)) };
+  return { cells, links, totals, finishes: FINISHES.filter((f) => present.has(f)) };
 }

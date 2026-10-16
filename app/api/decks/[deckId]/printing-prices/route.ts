@@ -49,7 +49,7 @@ export async function GET(
     if (!searchResult.success) {
       return NextResponse.json({ success: false, error: searchResult.error }, { status: 500 });
     }
-    const printings = searchResult.data.printings as unknown as Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null; rarity: string | null }>;
+    const printings = searchResult.data.printings as unknown as Array<{ card_unique_id: string; foiling: string | null; tcg_low: number | null; rarity: string | null; tcgplayer_url: string | null }>;
 
     return NextResponse.json({ success: true, data: { byCard: cheapestByFinish(printings) } });
   } catch (error) {

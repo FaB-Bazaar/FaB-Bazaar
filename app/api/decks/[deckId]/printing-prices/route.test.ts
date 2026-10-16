@@ -1,6 +1,6 @@
 /**
  * Route unit tests for GET /api/decks/[deckId]/printing-prices — the Prices
- * view's "Compare printings" data: cheapest English tcg_low per card per finish.
+ * view's "Compare printings" data: cheapest English tcg_low per card per finish, with that printing's TCGplayer link.
  * Services mocked; cheapestByFinish runs for real.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -76,9 +76,9 @@ describe('GET /api/decks/[deckId]/printing-prices', () => {
       success: true,
       data: {
         printings: [
-          { card_unique_id: 'card-1', foiling: 's', tcg_low: 2 },
-          { card_unique_id: 'card-1', foiling: 'r', tcg_low: 9 },
-          { card_unique_id: 'card-inv', foiling: 'c', tcg_low: 40 },
+          { card_unique_id: 'card-1', foiling: 's', tcg_low: 2, tcgplayer_url: 'https://tcg/1-s' },
+          { card_unique_id: 'card-1', foiling: 'r', tcg_low: 9, tcgplayer_url: 'https://tcg/1-r' },
+          { card_unique_id: 'card-inv', foiling: 'c', tcg_low: 40, tcgplayer_url: null },
         ],
         total: 3, page: 1, pages: 1,
       },
@@ -93,7 +93,12 @@ describe('GET /api/decks/[deckId]/printing-prices', () => {
     expect((options as any).limit).toBeGreaterThanOrEqual(1000);
     expect(body).toEqual({
       success: true,
-      data: { byCard: { 'card-1': { cheapest: 2, s: 2, r: 9 }, 'card-inv': { cheapest: 40, c: 40 } } },
+      data: {
+        byCard: {
+          'card-1': { cheapest: { low: 2, url: 'https://tcg/1-s' }, s: { low: 2, url: 'https://tcg/1-s' }, r: { low: 9, url: 'https://tcg/1-r' } },
+          'card-inv': { cheapest: { low: 40, url: null }, c: { low: 40, url: null } },
+        },
+      },
     });
   });
 });

@@ -185,9 +185,22 @@ export default function PricesView({ deckId, deck, owned }: {
               )}
               {fc?.finishes.map(f => {
                 const v = fc.cells.get(r.key)?.[f] ?? null;
+                const url = fc.links.get(r.key)?.[f] ?? null;
+                const each = v != null && r.qty > 1 ? ` (${usd(v / r.qty)} each)` : "";
                 return (
-                  <td key={f} className="px-2 py-1 text-right tabular-nums" title={v != null && r.qty > 1 ? `${usd(v / r.qty)} each` : undefined}>
-                    {v == null ? <span title={`No ${FINISH_LABEL[f].toLowerCase()} printing with a price`} className="text-gray-600 dark:text-gray-400">—</span> : usd(v)}
+                  <td key={f} className="px-2 py-1 text-right tabular-nums">
+                    {v == null ? <span title={`No ${FINISH_LABEL[f].toLowerCase()} printing with a price`} className="text-gray-600 dark:text-gray-400">—</span>
+                      : url ? (
+                        // The printing this finish was priced at, not the deck's own.
+                        <TcgAffiliateLink
+                          tcgplayerUrl={url}
+                          feature="DeckPricesCompare"
+                          title={`${FINISH_LABEL[f]} ${r.name} on TCGplayer${each}`}
+                          className="underline decoration-gray-400/50 underline-offset-2 hover:text-blue-700 hover:decoration-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:decoration-gray-500/50 dark:hover:text-blue-300 dark:hover:decoration-blue-300"
+                        >
+                          <span className="sr-only">{FINISH_LABEL[f]} {r.name} on TCGplayer: </span>{usd(v)}
+                        </TcgAffiliateLink>
+                      ) : <span title={each.trim() || undefined}>{usd(v)}</span>}
                   </td>
                 );
               })}

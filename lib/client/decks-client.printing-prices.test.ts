@@ -11,7 +11,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('decksClient.getPrintingPrices', () => {
   it('GETs /api/decks/<id>/printing-prices and unwraps data', async () => {
-    const byCard = { c1: { cheapest: 1, s: 1 } };
+    const byCard = { c1: { cheapest: { low: 1, url: 'https://tcg/1' }, s: { low: 1, url: 'https://tcg/1' } } };
     fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK', json: async () => ({ success: true, data: { byCard } }) } as unknown as Response);
     const res = await getPrintingPrices('deck-1');
     expect(fetchMock.mock.calls[0][0]).toBe('/api/decks/deck-1/printing-prices');
