@@ -171,17 +171,24 @@ export default function PricesView({ deckId, deck, owned }: {
                 <>
                   <td className="px-2 py-1 text-right tabular-nums">{r.owned}</td>
                   <td className="px-2 py-1 text-right tabular-nums">
-                    {!r.buy ? <span className="text-gray-600 dark:text-gray-400">—</span>
-                      : r.tcgplayerUrl ? (
-                        <TcgAffiliateLink
-                          tcgplayerUrl={r.tcgplayerUrl}
-                          feature="DeckPricesBuy"
-                          title={`Buy ${r.name} on TCGplayer`}
-                          className="text-blue-700 underline decoration-blue-700/40 underline-offset-2 hover:decoration-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:text-blue-300 dark:decoration-blue-300/40 dark:hover:decoration-blue-300"
-                        >
-                          <span className="sr-only">Buy {r.name} on TCGplayer: </span>{usd(r.buy)}
-                        </TcgAffiliateLink>
-                      ) : usd(r.buy)}
+                    {/* Linked whenever the printing is on TCGplayer — "—" too (nothing
+                        left to buy, or no price), e.g. for an extra copy. */}
+                    {r.tcgplayerUrl ? (
+                      <TcgAffiliateLink
+                        tcgplayerUrl={r.tcgplayerUrl}
+                        feature="DeckPricesBuy"
+                        title={`${r.buy ? "Buy" : "View"} ${r.name} on TCGplayer`}
+                        className={cn(
+                          "underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                          r.buy
+                            ? "text-blue-700 decoration-blue-700/40 hover:decoration-blue-700 dark:text-blue-300 dark:decoration-blue-300/40 dark:hover:decoration-blue-300"
+                            : "text-gray-600 decoration-gray-500/40 hover:text-blue-700 hover:decoration-blue-700 dark:text-gray-400 dark:hover:text-blue-300 dark:hover:decoration-blue-300",
+                        )}
+                      >
+                        <span className="sr-only">{r.buy ? "Buy" : "View"} {r.name} on TCGplayer: </span>
+                        {r.buy ? usd(r.buy) : <>—<span className="sr-only">{r.each == null ? " (no price yet)" : " (nothing left to buy)"}</span></>}
+                      </TcgAffiliateLink>
+                    ) : r.buy ? usd(r.buy) : <span className="text-gray-600 dark:text-gray-400">—</span>}
                   </td>
                 </>
               )}
