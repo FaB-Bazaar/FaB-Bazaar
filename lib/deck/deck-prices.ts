@@ -20,6 +20,7 @@ interface PricedCard {
     tcg_low?: number | null;
     pitch?: number | null;
     image_url?: string | null;
+    tcgplayer_url?: string | null;
   };
 }
 
@@ -51,6 +52,7 @@ export interface PriceRow {
   zone: PriceZone;
   pitch: number | null;
   imageUrl: string | null;
+  tcgplayerUrl: string | null;
   qty: number;
   /** tcg_low per copy; null = unpriced. */
   each: number | null;
@@ -94,6 +96,7 @@ export function deckPrices(
         zone,
         pitch: d.pitch ?? null,
         imageUrl: d.image_url ?? null,
+        tcgplayerUrl: d.tcgplayer_url ?? null,
         qty: qtyOf(c),
         each,
         total: cents((each ?? 0) * qtyOf(c)),

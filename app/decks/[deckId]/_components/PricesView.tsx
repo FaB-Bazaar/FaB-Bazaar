@@ -14,6 +14,7 @@ import {
   type FinishPrices, type PriceSort, type PriceSortKey,
 } from "@/lib/deck/deck-prices";
 import { decksClient } from "@/lib/client";
+import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import { cn } from "@/lib/utils";
 
 const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -169,7 +170,19 @@ export default function PricesView({ deckId, deck, owned }: {
               {p.toFinish && (
                 <>
                   <td className="px-2 py-1 text-right tabular-nums">{r.owned}</td>
-                  <td className="px-2 py-1 text-right tabular-nums">{r.buy ? usd(r.buy) : <span className="text-gray-600 dark:text-gray-400">—</span>}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">
+                    {!r.buy ? <span className="text-gray-600 dark:text-gray-400">—</span>
+                      : r.tcgplayerUrl ? (
+                        <TcgAffiliateLink
+                          tcgplayerUrl={r.tcgplayerUrl}
+                          feature="DeckPricesBuy"
+                          title={`Buy ${r.name} on TCGplayer`}
+                          className="text-blue-700 underline decoration-blue-700/40 underline-offset-2 hover:decoration-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:text-blue-300 dark:decoration-blue-300/40 dark:hover:decoration-blue-300"
+                        >
+                          <span className="sr-only">Buy {r.name} on TCGplayer: </span>{usd(r.buy)}
+                        </TcgAffiliateLink>
+                      ) : usd(r.buy)}
+                  </td>
                 </>
               )}
               {fc?.finishes.map(f => {

@@ -53,6 +53,13 @@ describe('deckPrices', () => {
     ]);
   });
 
+  it("carries the printing's TCGplayer link for the Buy column", () => {
+    const withUrl = { ...card('Snatch', 2, 20), printingDetails: { ...card('Snatch', 2, 20).printingDetails, tcgplayer_url: 'https://www.tcgplayer.com/product/1' } };
+    const rows = deckPrices(deck({ maindeck: [withUrl] })).rows;
+    expect(rows.find((r) => r.name === 'Snatch')!.tcgplayerUrl).toBe('https://www.tcgplayer.com/product/1');
+    expect(rows.find((r) => r.name === 'Helm')!.tcgplayerUrl).toBeNull();
+  });
+
   it('leaves own and buy unknown when ownership is unknown', () => {
     const r = deckPrices(deck()).rows[0];
     expect(r.owned).toBeNull();
