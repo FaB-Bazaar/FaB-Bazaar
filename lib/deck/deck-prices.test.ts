@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deckPrices, sortPriceRows, cheapestByFinish, finishColumns, type PricedDeck } from './deck-prices';
+import { deckPrices, sortPriceRows, cheapestByFinish, finishColumns, buyCell, type PricedDeck } from './deck-prices';
 
 // A deck card in the shape the deck API returns (only the fields pricing reads).
 const card = (name: string, qty: number, tcgLow: number | undefined, cuid = name, tcgMarket?: number) => ({
@@ -150,5 +150,27 @@ describe('sortPriceRows by a finish column', () => {
   it('orders by the line total in that finish, cards without it last', () => {
     expect(sortPriceRows(p.rows, { key: 'finish:r', dir: 'desc' }, cells).map((r) => r.name)).toEqual(['Strike', 'Snatch', 'Odd']);
     expect(sortPriceRows(p.rows, { key: 'finish:r', dir: 'asc' }, cells).map((r) => r.name)).toEqual(['Snatch', 'Strike', 'Odd']);
+  });
+});
+
+describe('buyCell', () => {
+  const rowFor = (c: ReturnType<typeof card>, owned: number) =>
+    deckPrices(deck({ hero: [], equipment: [], inventory: [], maindeck: [c] }), { owned: new Map([[c.printingDetails.card_unique_id, { owned }]]) }).rows[0];
+
+  it('shows what the missing copies cost', () => {
+    expect(buyCell(rowFor(card('Snatch', 3, 2), 1))).toEqual({ kind: 'buy', amount: 4 });
+  });
+
+  it('says Owned when every copy is in the collection, priced or not', () => {
+    expect(buyCell(rowFor(card('Snatch', 3, 2), 3))).toEqual({ kind: 'owned' });
+    expect(buyCell(rowFor(card('Odd', 1, undefined), 1))).toEqual({ kind: 'owned' });
+  });
+
+  it('says No price when copies are missing but the card has no tcg_low', () => {
+    expect(buyCell(rowFor(card('Odd', 2, undefined), 0))).toEqual({ kind: 'noPrice' });
+  });
+
+  it('is unknown when ownership is unknown', () => {
+    expect(buyCell(deckPrices(deck()).rows[0])).toEqual({ kind: 'unknown' });
   });
 });

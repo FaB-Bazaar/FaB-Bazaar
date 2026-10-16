@@ -10,8 +10,8 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import {
-  deckPrices, finishColumns, sortPriceRows, FINISH_LABEL, PRICE_ZONE_LABEL,
-  type FinishPrices, type PriceSort, type PriceSortKey,
+  buyCell, deckPrices, finishColumns, sortPriceRows, FINISH_LABEL, PRICE_ZONE_LABEL,
+  type FinishPrices, type PriceRow, type PriceSort, type PriceSortKey,
 } from "@/lib/deck/deck-prices";
 import { decksClient } from "@/lib/client";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
@@ -171,24 +171,7 @@ export default function PricesView({ deckId, deck, owned }: {
                 <>
                   <td className="px-2 py-1 text-right tabular-nums">{r.owned}</td>
                   <td className="px-2 py-1 text-right tabular-nums">
-                    {/* Linked whenever the printing is on TCGplayer — "—" too (nothing
-                        left to buy, or no price), e.g. for an extra copy. */}
-                    {r.tcgplayerUrl ? (
-                      <TcgAffiliateLink
-                        tcgplayerUrl={r.tcgplayerUrl}
-                        feature="DeckPricesBuy"
-                        title={`${r.buy ? "Buy" : "View"} ${r.name} on TCGplayer`}
-                        className={cn(
-                          "underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
-                          r.buy
-                            ? "text-blue-700 decoration-blue-700/40 hover:decoration-blue-700 dark:text-blue-300 dark:decoration-blue-300/40 dark:hover:decoration-blue-300"
-                            : "text-gray-600 decoration-gray-500/40 hover:text-blue-700 hover:decoration-blue-700 dark:text-gray-400 dark:hover:text-blue-300 dark:hover:decoration-blue-300",
-                        )}
-                      >
-                        <span className="sr-only">{r.buy ? "Buy" : "View"} {r.name} on TCGplayer: </span>
-                        {r.buy ? usd(r.buy) : <>—<span className="sr-only">{r.each == null ? " (no price yet)" : " (nothing left to buy)"}</span></>}
-                      </TcgAffiliateLink>
-                    ) : r.buy ? usd(r.buy) : <span className="text-gray-600 dark:text-gray-400">—</span>}
+                    <BuyCellContent row={r} />
                   </td>
                 </>
               )}
@@ -238,5 +221,34 @@ export default function PricesView({ deckId, deck, owned }: {
         />
       )}
     </div>
+  );
+}
+
+/** Buy column: the missing copies' cost, "✓ Owned" or "No price" — linked to
+ *  the deck printing on TCGplayer whenever it has a URL (an extra copy, a trade). */
+function BuyCellContent({ row }: { row: PriceRow }) {
+  const cell = buyCell(row);
+  if (cell.kind === "unknown") return null;
+  const label =
+    cell.kind === "buy" ? usd(cell.amount)
+    : cell.kind === "owned" ? <span className="text-green-700 dark:text-green-400">✓ Owned</span>
+    : <span className="text-gray-600 dark:text-gray-400">No price</span>;
+  if (!row.tcgplayerUrl) return label;
+  const verb = cell.kind === "buy" ? "Buy" : "View";
+  return (
+    <TcgAffiliateLink
+      tcgplayerUrl={row.tcgplayerUrl}
+      feature="DeckPricesBuy"
+      title={`${verb} ${row.name} on TCGplayer`}
+      className={cn(
+        "underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+        cell.kind === "buy"
+          ? "text-blue-700 decoration-blue-700/40 hover:decoration-blue-700 dark:text-blue-300 dark:decoration-blue-300/40 dark:hover:decoration-blue-300"
+          : "decoration-gray-500/40 hover:decoration-blue-700 dark:hover:decoration-blue-300",
+      )}
+    >
+      <span className="sr-only">{verb} {row.name} on TCGplayer: </span>
+      {label}
+    </TcgAffiliateLink>
   );
 }

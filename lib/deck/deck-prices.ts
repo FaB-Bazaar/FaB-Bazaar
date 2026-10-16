@@ -128,6 +128,17 @@ export function deckPrices(
   };
 }
 
+/** What a row's Buy cell says: the missing copies' cost, Owned (every copy in
+ *  the collection), No price (copies missing, no tcg_low), or unknown ownership. */
+export type BuyCell = { kind: 'buy'; amount: number } | { kind: 'owned' } | { kind: 'noPrice' } | { kind: 'unknown' };
+
+export function buyCell(r: PriceRow): BuyCell {
+  if (r.owned == null) return { kind: 'unknown' };
+  if (r.owned >= r.qty) return { kind: 'owned' };
+  if (r.each == null) return { kind: 'noPrice' };
+  return { kind: 'buy', amount: r.buy ?? 0 };
+}
+
 /** A card's owned copies cover its pricier rows first, so what's left to buy
  *  is the cheapest copies — and the buy column sums to the cost to finish. */
 function allocateOwned(rows: PriceRow[], owned: ReadonlyMap<string, { owned: number }>) {
