@@ -157,6 +157,7 @@ Pipeline Steps:
     04. Price Snapshot Creator  - Create lean price snapshot + save to price_history/
     05. Weekly Printings Updater - Upsert all cards + printings into PostgreSQL
     08. Daily Price Updater     - Update all price fields in PostgreSQL printings table
+    05c. Cardmarket Prices      - Cardmarket (EUR) price guide -> printings.cardmarket_* (non-fatal)
     11. Price Analysis Export   - Compare two price_history snapshots, generate market analysis
     12. Discord Market Poster   - Post market analysis to Discord
 
@@ -351,6 +352,23 @@ if [ "${DRY_RUN}" = true ]; then
 else
     run_script "05b" "Provisional TCG Pricer - ids + prices for provisional printings" \
         "python3 009_provisional_tcg_pricer.py ${DB_FLAG} || echo '⚠️  provisional pricer failed (non-fatal)'"
+fi
+
+################################################################################
+# Step 05c: Cardmarket (EUR) prices -> printings.cardmarket_* (migration 0126).
+# Downloads Cardmarket's daily price guide + product list (public S3, ETag,
+# last good copy kept in /app/data/cardmarket), maps products to printings
+# (cardmarket_match.py) and writes prices + product links. Cardmarket publishes
+# ~00:44 UTC, so this 23:00 run prices from the previous night's guide; an
+# unchanged guide is skipped. Non-fatal: TCGplayer prices never depend on it.
+################################################################################
+
+if [ "${DRY_RUN}" = true ]; then
+    run_script "05c" "Cardmarket Prices - EUR price guide -> printings (DRY RUN)" \
+        "python3 012_cardmarket_prices.py --dry-run ${DB_FLAG} || echo '⚠️  Cardmarket prices failed (non-fatal)'"
+else
+    run_script "05c" "Cardmarket Prices - EUR price guide -> printings" \
+        "python3 012_cardmarket_prices.py ${DB_FLAG} || echo '⚠️  Cardmarket prices failed (non-fatal)'"
 fi
 
 ################################################################################

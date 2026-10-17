@@ -129,6 +129,9 @@ export const users = pgTable('users', {
   // Logged-in landing page: 'volzar' | 'collection' | 'decks'; NULL = /volzar
   landingPage: text('landing_page'),
 
+  // Show Cardmarket € instead of TCGplayer $ everywhere (migration 0126)
+  cardmarketPrices: boolean('cardmarket_prices').default(false).notNull(),
+
   // Deck shown by the profile-level stream overlay (/overlay/u/<username>/deck).
   // FK to decks.id ON DELETE SET NULL is declared in migration 0120 (circular ref here).
   streamingDeckId: text('streaming_deck_id'),
@@ -597,6 +600,17 @@ export const printings = pgTable('printings', {
   tcgHigh: real('tcg_high'),
   hasPrice: boolean('has_price').default(false).notNull(),
   priceUpdatedAt: timestamp('price_updated_at'),
+
+  // Cardmarket (EUR), pipeline step 012 only (migration 0126). NULL = no Cardmarket product.
+  // The Cardmarket price is cardmarketTrend ?? cardmarketLow (for users.cardmarketPrices viewers).
+  cardmarketProductId: integer('cardmarket_product_id'),
+  cardmarketTrend: numeric('cardmarket_trend', { precision: 10, scale: 2, mode: 'number' }),
+  cardmarketLow: numeric('cardmarket_low', { precision: 10, scale: 2, mode: 'number' }),
+  cardmarketAvg7: numeric('cardmarket_avg7', { precision: 10, scale: 2, mode: 'number' }),
+  cardmarketAvg30: numeric('cardmarket_avg30', { precision: 10, scale: 2, mode: 'number' }),
+  cardmarketUrl: text('cardmarket_url'),
+  cardmarketMatchStatus: text('cardmarket_match_status'), // 'matched' | 'review'
+  cardmarketPriceUpdatedAt: timestamp('cardmarket_price_updated_at', { withTimezone: true }),
 
   // Price category flags
   isBudget: boolean('is_budget').default(false).notNull(),
