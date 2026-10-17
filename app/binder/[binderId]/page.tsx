@@ -62,6 +62,10 @@ import { BinderService } from "@/lib/services/binderService";
 
 // Client service for API calls
 import { bindersClient } from "@/lib/client";
+import { usePriceSource } from "@/hooks/usePriceSource";
+import { PriceSourceToggle } from "@/components/pricing/PriceSourceToggle";
+import { PriceSortOptions } from "@/components/pricing/PriceSortOptions";
+import { binderValue, sortForSource } from "@/lib/pricing/price-source";
 
 export default function BinderPage() {
   const params = useParams();
@@ -96,6 +100,11 @@ export default function BinderPage() {
   // Initial sort comes from the binder's saved defaultSort once it loads;
   // fallback is name A–Z for hide-value binders, TCG Low high-to-low otherwise.
   const [sortBy, setSortBy] = useState<string | null>(null);
+  const [priceSource, setPriceSource] = usePriceSource();
+  // The sort actually used: a price sort follows the viewer's price source
+  // (TCG Low $ <-> Cardmarket €). Derived, not stored — the binder's default
+  // sort resolves before the saved price source is read.
+  const effectiveSort = sortBy && sortForSource(sortBy, priceSource);
   
   // Dialog and sidebar state
   const [isCardSearchOpen, setIsCardSearchOpen] = useState(false);
@@ -113,6 +122,7 @@ export default function BinderPage() {
   const [filterSidebarVisible, setFilterSidebarVisible] = useState(true);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<Date | null>(null);
+  const [cardmarketPriceUpdatedAt, setCardmarketPriceUpdatedAt] = useState<Date | null>(null);
   const [chordMode, setChordMode] = useState<null | 'select' | 'rarity' | 'foiling' | 'set' | 'class' | 'clear'>(null);
   const [chordExiting, setChordExiting] = useState(false);
   const [setBuffer, setSetBuffer] = useState('');
@@ -215,7 +225,7 @@ export default function BinderPage() {
       const options = {
         page,
         limit: 200,
-        sortBy: sortBy ?? 'tcg-low-desc',
+        sortBy: effectiveSort ?? 'tcg-low-desc',
       };
 
       const result = await bindersClient.getBinderCards(binderId, filters, options);
@@ -247,6 +257,9 @@ export default function BinderPage() {
         }
         if (data.metadata.priceUpdatedAt) {
           setPriceUpdatedAt(new Date(data.metadata.priceUpdatedAt));
+        }
+        if (data.metadata.cardmarketPriceUpdatedAt) {
+          setCardmarketPriceUpdatedAt(new Date(data.metadata.cardmarketPriceUpdatedAt));
         }
       }
     } catch (err: any) {
@@ -282,10 +295,10 @@ export default function BinderPage() {
   // Initial load + refetch when filters/sort change (sortBy is null until the
   // binder's saved default sort is resolved — don't fetch before that)
   useEffect(() => {
-    if (binder?._id && sortBy) {
+    if (binder?._id && effectiveSort) {
       fetchCards(1, true);
     }
-  }, [binder?._id, debouncedSearchQuery, activeFilters, sortBy]);
+  }, [binder?._id, debouncedSearchQuery, activeFilters, effectiveSort]);
 
   // Infinite scroll for server-side pagination
   useEffect(() => {
@@ -829,7 +842,10 @@ const SuperSlamDisclosure = () => {
     forTradeCount: binder?.stats?.forTradeCount || binder?.quantityForTrade || 0,
     uniqueCards: binder?.stats?.uniqueCards || 0,
     totalQuantity: binder?.stats?.totalQuantity || binder?.totalQuantity || 0,
-    estimatedValue: binder?.totalValue?.tcg_low || binder?.stats?.estimatedValue || 0
+    estimatedValue: priceSource === 'cardmarket'
+      ? binderValue(binder?.totalValue, 'cardmarket')
+      : binderValue(binder?.totalValue, 'tcgplayer') || binder?.stats?.estimatedValue || 0,
+    cardmarketUnpricedCards: binder?.stats?.cardmarketUnpricedCards || 0,
   };
 
 
@@ -915,6 +931,7 @@ const SuperSlamDisclosure = () => {
           <BinderHeader
             binder={binder}
             stats={stats}
+            priceSource={priceSource}
             editable={editable}
             selectedCards={selectedCards}
             onAddCard={() => {
@@ -925,7 +942,7 @@ const SuperSlamDisclosure = () => {
             onExportList={handleExportList}
             onRefreshStats={handleRefreshStats}
             cardsCount={pagination?.totalCards || 0}
-            priceUpdatedAt={priceUpdatedAt}
+            priceUpdatedAt={priceSource === 'cardmarket' ? cardmarketPriceUpdatedAt : priceUpdatedAt}
           />
           
           {/* Two-column flex layout: filter sidebar + main content */}
@@ -955,8 +972,10 @@ const SuperSlamDisclosure = () => {
                   setFiltersExpanded={setFiltersExpanded}
                   activeFilters={activeFilters}
                   activeFilterCount={activeFilterCount}
-                  sortBy={sortBy ?? 'tcg-low-desc'}
+                  sortBy={effectiveSort ?? 'tcg-low-desc'}
                   setSortBy={setSortBy}
+                  priceSource={priceSource}
+                  setPriceSource={setPriceSource}
                   setFilter={setFilter}
                   clearFilter={clearFilter}
                   clearAllFilters={clearAllFilters}
@@ -982,8 +1001,9 @@ const SuperSlamDisclosure = () => {
                   <SlidersHorizontal className="w-4 h-4" />
                   {filterSidebarVisible ? 'Hide Filters' : 'Show Filters'}
                 </button>
+                <PriceSourceToggle value={priceSource} onChange={setPriceSource} />
                 <select
-                  value={sortBy ?? 'tcg-low-desc'}
+                  value={effectiveSort ?? 'tcg-low-desc'}
                   onChange={e => setSortBy(e.target.value)}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                 >
@@ -993,8 +1013,7 @@ const SuperSlamDisclosure = () => {
                   <option value="quantity-asc">Sort: Quantity (Low to High)</option>
                   <option value="tcg-market-desc">Sort: TCG Market (High to Low)</option>
                   <option value="tcg-market-asc">Sort: TCG Market (Low to High)</option>
-                  <option value="tcg-low-desc">Sort: TCG Low (High to Low)</option>
-                  <option value="tcg-low-asc">Sort: TCG Low (Low to High)</option>
+                  <PriceSortOptions source={priceSource} />
                   <option value="collector-release">Sort: Collector # (Release Order)</option>
                   <option value="collector-absolute">Sort: Collector # (A–Z)</option>
                   <option value="recently-added">Sort: Recently Added</option>
@@ -1150,6 +1169,7 @@ const SuperSlamDisclosure = () => {
                             >
                               <BinderCard
                                 card={card}
+                                priceSource={priceSource}
                                 editable={editable}
                                 onEdit={setEditingCard}
                                 onRemove={() => handleRemove(cardId)}

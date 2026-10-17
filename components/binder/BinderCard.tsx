@@ -12,6 +12,7 @@ import { cn, getCardImageUrl } from '@/lib/utils'
 import Link from "next/link"
 import { TcgAffiliateLink } from '@/components/tracking'
 import DeckUsageButton, { type DeckUsageSummary } from '@/components/binder/DeckUsageButton'
+import { formatPrice, type PriceSource } from '@/lib/pricing/price-source'
 
 
 interface EnhancedBinderCardProps {
@@ -19,6 +20,8 @@ interface EnhancedBinderCardProps {
     deckUsage?: DeckUsageSummary;
   };
   editable: boolean;
+  /** Viewer's price source: TCGplayer $ lines + link, or one Cardmarket € line + link */
+  priceSource?: PriceSource;
   compactMode?: boolean;
   onEdit: (card: any) => void;
   onRemove: (id: string) => void;
@@ -54,6 +57,7 @@ export default function EnhancedBinderCard({
   isInTransferDialog,
   transferDialogOpen,
   compactMode = false,
+  priceSource = 'tcgplayer',
 }: EnhancedBinderCardProps) {
 
   const [showFeedback, setShowFeedback] = useState(false)
@@ -99,6 +103,8 @@ export default function EnhancedBinderCard({
     tcg_high,
     tcg_market,
     tcgplayer_url,
+    cardmarket_price,
+    cardmarket_url,
     quantity = 1,
     printingId,
     collector_number
@@ -107,7 +113,7 @@ export default function EnhancedBinderCard({
   const editionDisplay = getEditionDisplayName(edition)
   const foilingInfo    = getFoilingInfo(foiling)
 
-  const renderPriceLine = (price: number | undefined, label: string, isLow = false) => {
+  const renderPriceLine = (price: number | undefined, label: string, isLow = false, source: PriceSource = 'tcgplayer') => {
     const hasPrice = typeof price === 'number'
     const totalValue = hasPrice ? price * quantity : 0
     return (
@@ -118,10 +124,28 @@ export default function EnhancedBinderCard({
             {!hasPrice
               ? 'N/A'
               : quantity > 1
-                ? `$${price.toFixed(2)} × ${quantity} = $${totalValue.toFixed(2)}`
-                : `$${price.toFixed(2)}`}
+                ? `${formatPrice(price, source)} × ${quantity} = ${formatPrice(totalValue, source)}`
+                : formatPrice(price, source)}
           </span>
         </div>
+      </div>
+    )
+  }
+
+  const renderCardmarketLink = () => {
+    if (!cardmarket_url) return null
+    return (
+      <div className="text-xs mt-2 pt-2 border-t border-gray-100 dark:border-gray-600">
+        <a
+          href={cardmarket_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        >
+          <span>View on Cardmarket</span>
+          <ExternalLink className="w-3 h-3" aria-hidden="true" />
+        </a>
       </div>
     )
   }
@@ -240,11 +264,20 @@ export default function EnhancedBinderCard({
 
           {!compactMode && (
             <div className="space-y-1">
-              {renderPriceLine(tcg_market, "Market")}
-              {renderPriceLine(tcg_high, "High")}
-              {renderPriceLine(tcg_mid, "Mid")}
-              {renderPriceLine(tcg_low, "Low", true)}
-              {renderPurchaseLink()}
+              {priceSource === 'cardmarket' ? (
+                <>
+                  {renderPriceLine(cardmarket_price, "Cardmarket", true, 'cardmarket')}
+                  {renderCardmarketLink()}
+                </>
+              ) : (
+                <>
+                  {renderPriceLine(tcg_market, "Market")}
+                  {renderPriceLine(tcg_high, "High")}
+                  {renderPriceLine(tcg_mid, "Mid")}
+                  {renderPriceLine(tcg_low, "Low", true)}
+                  {renderPurchaseLink()}
+                </>
+              )}
             </div>
           )}
 

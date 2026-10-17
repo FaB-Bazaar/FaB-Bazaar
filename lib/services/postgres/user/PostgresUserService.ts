@@ -422,6 +422,7 @@ export class PostgresUserService implements IUserService {
           countryCode: user.countryCode || undefined,
           preferredLanguage: user.preferredLanguage || undefined,
           landingPage: user.landingPage || undefined,
+          cardmarketPrices: user.cardmarketPrices,
           stateCode: user.stateCode || undefined,
         },
       };
@@ -660,6 +661,7 @@ export class PostgresUserService implements IUserService {
       if (updates.state !== undefined) set.stateCode = updates.state || null;
       if (updates.preferredLanguage !== undefined) set.preferredLanguage = updates.preferredLanguage || null;
       if (updates.landingPage !== undefined) set.landingPage = updates.landingPage || null;
+      if (updates.cardmarketPrices !== undefined) set.cardmarketPrices = updates.cardmarketPrices;
 
       const result = await db
         .update(users)

@@ -3,9 +3,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Info } from 'lucide-react';
+import type { PriceSource } from '@/lib/pricing/price-source';
 
 interface PricingStatusProps {
   lastUpdatedAt?: Date | null;
+  /** whose prices the date describes: TCGplayer (tcgcsv sync) or Cardmarket (price guide) */
+  source?: PriceSource;
 }
 
 function formatRelativeDate(date: Date): string {
@@ -19,7 +22,7 @@ function formatRelativeDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export const PricingStatus: React.FC<PricingStatusProps> = ({ lastUpdatedAt }) => {
+export const PricingStatus: React.FC<PricingStatusProps> = ({ lastUpdatedAt, source = 'tcgplayer' }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Close tooltip when clicking outside
@@ -35,9 +38,10 @@ export const PricingStatus: React.FC<PricingStatusProps> = ({ lastUpdatedAt }) =
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showTooltip]);
 
+  const subject = source === 'cardmarket' ? 'Cardmarket prices' : 'Prices';
   const label = lastUpdatedAt
-    ? `Prices updated ${formatRelativeDate(lastUpdatedAt)}`
-    : 'Prices updated daily';
+    ? `${subject} updated ${formatRelativeDate(lastUpdatedAt)}`
+    : `${subject} updated daily`;
 
   return (
     <div className="flex items-center gap-2">
@@ -62,9 +66,19 @@ export const PricingStatus: React.FC<PricingStatusProps> = ({ lastUpdatedAt }) =
           <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-80 p-3 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg shadow-lg z-50">
             <div className="space-y-2">
               <p className="font-medium">How pricing works:</p>
-              <p>• Card prices sync once daily from tcgcsv.com</p>
-              <p>• Collection values are calculated in real-time</p>
-              <p>• For live prices, check <a href="https://www.tcgplayer.com/search/flesh-and-blood-tcg/product?productLineName=flesh-and-blood-tcg&page=1&view=grid" target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline">tcgplayer.com</a></p>
+              {source === 'cardmarket' ? (
+                <>
+                  <p>• Prices in euros come from Cardmarket&apos;s daily price guide</p>
+                  <p>• A card&apos;s price is its trend price, or its cheapest listing when there&apos;s no trend</p>
+                  <p>• For live listings, check <a href="https://www.cardmarket.com/en/FleshAndBlood" target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline">cardmarket.com</a></p>
+                </>
+              ) : (
+                <>
+                  <p>• Card prices sync once daily from tcgcsv.com</p>
+                  <p>• Collection values are calculated in real-time</p>
+                  <p>• For live prices, check <a href="https://www.tcgplayer.com/search/flesh-and-blood-tcg/product?productLineName=flesh-and-blood-tcg&page=1&view=grid" target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 underline">tcgplayer.com</a></p>
+                </>
+              )}
             </div>
             {/* Tooltip arrow pointing up */}
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900 dark:border-b-gray-800"></div>

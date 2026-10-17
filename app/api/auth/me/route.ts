@@ -45,6 +45,7 @@ export async function GET() {
         stateCode: profile.stateCode,
         preferredLanguage: profile.preferredLanguage,
         landingPage: profile.landingPage,
+        cardmarketPrices: profile.cardmarketPrices,
       },
       sessionType: "nextauth",
       debug: {

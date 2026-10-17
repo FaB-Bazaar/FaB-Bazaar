@@ -225,6 +225,8 @@ export interface BinderCardSearchOptions {
     | 'tcg-market-asc'
     | 'tcg-low-desc'
     | 'tcg-low-asc'
+    | 'cardmarket-desc' // Cardmarket € viewers (users.cardmarket_prices); not a defaultSort value
+    | 'cardmarket-asc'
     | 'collector-release'
     | 'collector-absolute'
     | 'recently-added'
@@ -265,7 +267,11 @@ export interface BinderCardsResult {
         tcg_market: number;
         tcg_mid: number;
         tcg_high: number;
+        /** € total for users.cardmarket_prices viewers (cards without a Cardmarket price add 0) */
+        cardmarket?: number;
       };
+      /** copies (quantity) with no Cardmarket price */
+      cardmarketUnpricedCards?: number;
       valueForTrade?: {
         tcg_low: number;
       };
@@ -275,6 +281,8 @@ export interface BinderCardsResult {
       rarityCounts?: Record<string, number>;
     };
     priceUpdatedAt?: Date | null;
+    /** when Cardmarket generated the € prices (users.cardmarket_prices viewers) */
+    cardmarketPriceUpdatedAt?: Date | null;
   };
 }
 
@@ -339,6 +347,9 @@ export interface InventoryCardDTO {
   has_price: boolean;
   price_updated_at?: Date;
   tcgplayer_url?: string;
+  /** Cardmarket € price (trend, else low); undefined = no Cardmarket price */
+  cardmarket_price?: number;
+  cardmarket_url?: string;
 }
 
 /**

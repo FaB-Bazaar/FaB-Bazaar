@@ -9,6 +9,7 @@ import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check, Keyboard 
 
 import { PricingStatus } from './PricingStatus';
 import { profileHref, displayUsername } from '@/lib/utils/display-username';
+import { formatPrice, type PriceSource } from '@/lib/pricing/price-source';
 
 interface BinderHeaderProps {
   binder: any;
@@ -16,7 +17,9 @@ interface BinderHeaderProps {
     totalCards: number;
     forTradeCount: number;
     estimatedValue: number;
+    cardmarketUnpricedCards?: number;
   };
+  priceSource?: PriceSource;
   editable: boolean;
   selectedCards: any[];
   onAddCard: () => void;
@@ -26,18 +29,10 @@ interface BinderHeaderProps {
   priceUpdatedAt?: Date | null;
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 export const BinderHeader: React.FC<BinderHeaderProps> = ({
   binder,
   stats,
+  priceSource = 'tcgplayer',
   editable,
   selectedCards,
   onAddCard,
@@ -111,10 +106,15 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
 
         {stats.estimatedValue > 0 && (
           <span className="text-green-600 dark:text-green-400 font-semibold">
-            {formatCurrency(stats.estimatedValue)} (TCG Low)
+            {formatPrice(stats.estimatedValue, priceSource)} ({priceSource === 'cardmarket' ? 'Cardmarket' : 'TCG Low'})
           </span>
         )}
-        <PricingStatus lastUpdatedAt={priceUpdatedAt} />
+        {priceSource === 'cardmarket' && (stats.cardmarketUnpricedCards ?? 0) > 0 && (
+          <span className="text-gray-600 dark:text-gray-300">
+            {stats.cardmarketUnpricedCards} {stats.cardmarketUnpricedCards === 1 ? 'card has' : 'cards have'} no Cardmarket price
+          </span>
+        )}
+        <PricingStatus lastUpdatedAt={priceUpdatedAt} source={priceSource} />
       </div>
 
       <div className="flex flex-wrap items-start gap-1.5 sm:gap-2">

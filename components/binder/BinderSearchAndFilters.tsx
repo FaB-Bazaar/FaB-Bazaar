@@ -11,6 +11,9 @@ import { FOILING_MAP, RARITY_MAP, SET_MAP } from '@/lib/fab-constants';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
 import { OFFICIAL_TALENTS } from '@/lib/talent-constants';
 import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
+import type { PriceSource } from '@/lib/pricing/price-source';
+import { PriceSourceToggle } from '@/components/pricing/PriceSourceToggle';
+import { PriceSortOptions } from '@/components/pricing/PriceSortOptions';
 
 const CLASS_LIST = [
   { key: 'generic', label: 'Generic' },
@@ -31,6 +34,9 @@ interface BinderSearchAndFiltersProps {
   activeFilterCount: number;
   sortBy: string;
   setSortBy: (sort: string) => void;
+  /** Omit both on pages not yet on the price-source switch (TCGplayer, no switch shown) */
+  priceSource?: PriceSource;
+  setPriceSource?: (source: PriceSource) => void;
   setFilter: (type: string, value: string) => void;
   clearFilter: (type: string) => void;
   clearAllFilters: () => void;
@@ -92,6 +98,8 @@ export const BinderSearchAndFilters: React.FC<BinderSearchAndFiltersProps> = ({
   activeFilterCount,
   sortBy,
   setSortBy,
+  priceSource = 'tcgplayer',
+  setPriceSource,
   setFilter,
   clearFilter,
   clearAllFilters,
@@ -112,6 +120,12 @@ export const BinderSearchAndFilters: React.FC<BinderSearchAndFiltersProps> = ({
           className="pl-10 h-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
         />
       </div>
+
+      {setPriceSource && (
+        <div className="mb-3">
+          <PriceSourceToggle value={priceSource} onChange={setPriceSource} />
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mb-4">
         <button
@@ -138,8 +152,7 @@ export const BinderSearchAndFilters: React.FC<BinderSearchAndFiltersProps> = ({
           <option value="quantity-asc">Sort: Quantity (Low to High)</option>
           <option value="tcg-market-desc">Sort: TCG Market (High to Low)</option>
           <option value="tcg-market-asc">Sort: TCG Market (Low to High)</option>
-          <option value="tcg-low-desc">Sort: TCG Low (High to Low)</option>
-          <option value="tcg-low-asc">Sort: TCG Low (Low to High)</option>
+          <PriceSortOptions source={priceSource} />
           <option value="collector-release">Sort: Collector # (Release Order)</option>
           <option value="collector-absolute">Sort: Collector # (A–Z)</option>
           <option value="recently-added">Sort: Recently Added</option>

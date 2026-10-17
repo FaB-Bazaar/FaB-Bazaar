@@ -108,6 +108,8 @@ export interface UserProfileDTO {
   preferredLanguage?: string;
   /** Logged-in landing page (users.landing_page); absent = /volzar default. */
   landingPage?: string;
+  /** Show Cardmarket € instead of TCGplayer $ everywhere (users.cardmarket_prices). */
+  cardmarketPrices: boolean;
 }
 
 /**
@@ -182,6 +184,8 @@ export interface UpdateProfileDTO {
   preferredLanguage?: string;
   /** Landing page preference — persisted to users.landing_page ('' clears). */
   landingPage?: string;
+  /** Cardmarket € instead of TCGplayer $ — persisted to users.cardmarket_prices. */
+  cardmarketPrices?: boolean;
 }
 
 export interface MetafyCommunityDTO {

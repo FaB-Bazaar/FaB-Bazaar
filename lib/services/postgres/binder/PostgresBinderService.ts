@@ -53,6 +53,7 @@ import { rarityRank } from '../rarity-rank';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeCondition } from '@/lib/utils/card-condition';
+import { cardmarketPriceSql } from '../cardmarket-price';
 
 export class PostgresBinderService implements IBinderService {
   // ============================================================================
@@ -1856,6 +1857,8 @@ export class PostgresBinderService implements IBinderService {
       hasPrice: printings.hasPrice,
       priceUpdatedAt: printings.priceUpdatedAt,
       tcgplayerUrl: printings.tcgplayerUrl,
+      cardmarketPrice: cardmarketPriceSql,
+      cardmarketUrl: printings.cardmarketUrl,
       // Card fields
       cardUniqueId: cards.cardUniqueId,
       name: cards.name,
@@ -1921,6 +1924,8 @@ export class PostgresBinderService implements IBinderService {
       has_price: row.hasPrice || false,
       price_updated_at: row.priceUpdatedAt || undefined,
       tcgplayer_url: row.tcgplayerUrl || undefined,
+      cardmarket_price: row.cardmarketPrice ?? undefined,
+      cardmarket_url: row.cardmarketUrl || undefined,
     };
   }
 
@@ -1938,6 +1943,10 @@ export class PostgresBinderService implements IBinderService {
         return [asc(printings.tcgMarket), asc(cards.displayName)];
       case 'tcg-low-desc':
         return [sql`${printings.tcgLow} DESC NULLS LAST`, asc(cards.displayName)];
+      case 'cardmarket-desc':
+        return [sql`${cardmarketPriceSql} DESC NULLS LAST`, asc(cards.displayName)];
+      case 'cardmarket-asc':
+        return [sql`${cardmarketPriceSql} ASC NULLS LAST`, asc(cards.displayName)];
       case 'tcg-low-asc':
         return [asc(printings.tcgLow), asc(cards.displayName)];
       // 'collector-release' = set release chronology first (sets.release_order),
@@ -2011,11 +2020,17 @@ export class PostgresBinderService implements IBinderService {
           totalValueHigh: sql<number>`COALESCE(SUM(${inventoryItems.quantity} * ${printings.tcgHigh}), 0)::real`,
           forTradeValueLow: sql<number>`COALESCE(SUM(CASE WHEN ${inventoryItems.forTrade} THEN ${inventoryItems.quantity} * ${printings.tcgLow} ELSE 0 END), 0)::real`,
           notForTradeValueLow: sql<number>`COALESCE(SUM(CASE WHEN NOT ${inventoryItems.forTrade} THEN ${inventoryItems.quantity} * ${printings.tcgLow} ELSE 0 END), 0)::real`,
+          totalValueCardmarket: sql<number>`COALESCE(SUM(${inventoryItems.quantity} * ${cardmarketPriceSql}), 0)::real`,
+          cardmarketUnpricedCards: sql<number>`COALESCE(SUM(CASE WHEN ${cardmarketPriceSql} IS NULL THEN ${inventoryItems.quantity} ELSE 0 END), 0)::int`,
         })
           .from(inventoryItems)
           .leftJoin(printings, eq(inventoryItems.printingId, printings.printingId))
           .where(eq(inventoryItems.binderId, binderId)),
-        db.select({ priceUpdatedAt: sql<Date>`MAX(${printings.priceUpdatedAt})` })
+        db.select({
+          priceUpdatedAt: sql<Date>`MAX(${printings.priceUpdatedAt})`,
+          // epoch ms: the raw MAX() of a timestamptz arrives as a string drizzle won't map
+          cardmarketPriceUpdatedMs: sql<string | null>`(EXTRACT(EPOCH FROM MAX(${printings.cardmarketPriceUpdatedAt})) * 1000)::bigint`,
+        })
           .from(inventoryItems)
           .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
           .where(eq(inventoryItems.binderId, binderId)),
@@ -2082,12 +2097,18 @@ export class PostgresBinderService implements IBinderService {
             tcg_market: row?.totalValueMarket || 0,
             tcg_mid: row?.totalValueMid || 0,
             tcg_high: row?.totalValueHigh || 0,
+            cardmarket: row?.totalValueCardmarket || 0,
           },
+          cardmarketUnpricedCards: row?.cardmarketUnpricedCards || 0,
           valueForTrade: { tcg_low: row?.forTradeValueLow || 0 },
           valueNotForTrade: { tcg_low: row?.notForTradeValueLow || 0 },
           rarityCounts,
         },
         priceUpdatedAt,
+        // Cardmarket price guide date (pipeline step 012), for Cardmarket € viewers
+        cardmarketPriceUpdatedAt: priceRow[0]?.cardmarketPriceUpdatedMs
+          ? new Date(Number(priceRow[0].cardmarketPriceUpdatedMs))
+          : null,
       };
     } catch (error) {
       // Return empty metadata on error
@@ -2111,6 +2132,7 @@ export class PostgresBinderService implements IBinderService {
           rarityCounts: {},
         },
         priceUpdatedAt: null,
+        cardmarketPriceUpdatedAt: null,
       };
     }
   }
