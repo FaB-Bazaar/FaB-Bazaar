@@ -54,6 +54,7 @@ import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/co
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeCondition } from '@/lib/utils/card-condition';
 import { cardmarketPriceSql } from '../cardmarket-price';
+import { recordInventoryOperation, type InventoryOperationItem } from './inventory-history';
 
 export class PostgresBinderService implements IBinderService {
   // ============================================================================
@@ -895,6 +896,12 @@ export class PostgresBinderService implements IBinderService {
 
         let transferred = 0;
         let merged = 0;
+        const movedItems: InventoryOperationItem[] = sourceCards.map((card) => ({
+          printingId: card.printingId,
+          condition: card.condition,
+          language: card.language,
+          quantity: card.quantity,
+        }));
 
         for (const card of sourceCards) {
           // Check if target has same card (same printing, condition, language)
@@ -934,6 +941,8 @@ export class PostgresBinderService implements IBinderService {
 
         // Update stats flags and record activity for both binders
         await tx.update(binders).set({ statsNeedUpdate: true, lastActivityAt: new Date() }).where(inArray(binders.id, [sourceBinderId, targetBinderId]));
+
+        await recordInventoryOperation(tx, { userId, kind: 'transfer', sourceBinderId, targetBinderId }, movedItems);
 
         return {
           success: true,
@@ -984,6 +993,7 @@ export class PostgresBinderService implements IBinderService {
         let partiallyTransferred = 0;
         let mergedInTarget = 0;
         let totalQuantityTransferred = 0;
+        const movedItems: InventoryOperationItem[] = [];
 
         for (const transfer of cardsToTransfer) {
           try {
@@ -1077,6 +1087,12 @@ export class PostgresBinderService implements IBinderService {
 
             successful++;
             totalQuantityTransferred += quantityToTransfer;
+            movedItems.push({
+              printingId: sourceCard.printingId,
+              condition: sourceCard.condition,
+              language: sourceCard.language,
+              quantity: quantityToTransfer,
+            });
 
             results.push({
               success: true,
@@ -1106,6 +1122,8 @@ export class PostgresBinderService implements IBinderService {
 
         // Update stats flags and record activity for both binders
         await tx.update(binders).set({ statsNeedUpdate: true, lastActivityAt: new Date() }).where(inArray(binders.id, [sourceBinderId, targetBinderId]));
+
+        await recordInventoryOperation(tx, { userId, kind: 'transfer', sourceBinderId, targetBinderId }, movedItems);
 
         return {
           success: true,

@@ -729,6 +729,23 @@ export const inventoryItems = pgTable('inventory_items', {
     .on(table.binderId, table.printingId, table.condition, table.language),
 }));
 
+// Binder change history (migration 0128): one row per action that moved cards,
+// written in the same transaction as the change. Binder FKs SET NULL so history
+// outlives a deleted binder. 30-day retention (lib/services/postgres/binder/inventory-history.ts).
+export const inventoryOperations = pgTable('inventory_operations', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(), // 'transfer' (add/remove/import to follow)
+  sourceBinderId: text('source_binder_id').references(() => binders.id, { onDelete: 'set null' }),
+  targetBinderId: text('target_binder_id').references(() => binders.id, { onDelete: 'set null' }),
+  items: jsonb('items').notNull(), // InventoryOperationItem[] — only what actually changed
+  revertedBy: text('reverted_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  userCreatedIdx: index('idx_inventory_operations_user_created').on(table.userId, table.createdAt),
+  createdAtIdx: index('idx_inventory_operations_created_at').on(table.createdAt),
+}));
+
 // ============================================================================
 // WANTS ITEMS (User's want list)
 // ============================================================================
