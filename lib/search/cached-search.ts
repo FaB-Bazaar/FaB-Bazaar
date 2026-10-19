@@ -34,7 +34,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //   v8 — migration 0125 gave provisional (CardVault) cards a color outside a
 //        nightly run (color filters now match them)
 //   v9 — the cc filter includes spoiler-season sets (future-release cards)
-const SEARCH_CACHE_VERSION = 'v9';
+//   v10 — migration 0127 moved GEM212 from red to blue Seek Vengeance
+//        outside a nightly run (cached bodies group it under the old card)
+const SEARCH_CACHE_VERSION = 'v10';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')
