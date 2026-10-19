@@ -43,7 +43,8 @@ import {
   Swords,
   UserCog,
   Camera,
-  Rss
+  Rss,
+  History,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { accessibleAdminLinks } from "@/components/nav/admin-links"
@@ -960,6 +961,12 @@ export default function Navbar() {
                         Connected Accounts
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/change-history" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                        <History className="h-4 w-4 mr-2" />
+                        Change history
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
                     <DropdownMenuItem asChild>
                       <Link href="/browse" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
@@ -1231,6 +1238,12 @@ export default function Navbar() {
                     <div className="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                       <User className="h-5 w-5 mr-3" />
                       Profile
+                    </div>
+                  </Link>
+                  <Link href="/change-history" onClick={() => setIsMenuOpen(false)}>
+                    <div className="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <History className="h-5 w-5 mr-3" />
+                      Change history
                     </div>
                   </Link>
                   <div className="border-t dark:border-gray-700 my-1"></div>
