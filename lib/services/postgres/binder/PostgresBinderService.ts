@@ -54,7 +54,7 @@ import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/co
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeCondition } from '@/lib/utils/card-condition';
 import { cardmarketPriceSql } from '../cardmarket-price';
-import { recordInventoryOperation, type InventoryOperationItem } from './inventory-history';
+import { recordInventoryOperation, listInventoryOperations, type InventoryOperationItem, type ChangeHistoryEntry } from './inventory-history';
 
 export class PostgresBinderService implements IBinderService {
   // ============================================================================
@@ -958,6 +958,20 @@ export class PostgresBinderService implements IBinderService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to transfer all cards',
+      };
+    }
+  }
+
+  /**
+   * The user's binder change history (last 30 days), newest first
+   */
+  async listChangeHistory(userId: string): AsyncResult<ChangeHistoryEntry[]> {
+    try {
+      return { success: true, data: await listInventoryOperations(userId) };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to load change history',
       };
     }
   }

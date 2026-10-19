@@ -148,6 +148,48 @@ describe('transfer history', () => {
   });
 });
 
+describe('listChangeHistory', () => {
+  it('lists the user\'s operations newest first with binder and card names', async () => {
+    await service.transferSelectedCards(sourceBinderId, targetBinderId, testUserId, [
+      { cardId: sourceItemId, quantity: 1 },
+    ]);
+    await service.transferAllCards(sourceBinderId, targetBinderId, testUserId);
+
+    const result = await service.listChangeHistory(testUserId);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.data).toHaveLength(2);
+    const [newest, oldest] = result.data;
+    expect(newest.items[0].quantity).toBe(2);
+    expect(oldest.items[0].quantity).toBe(1);
+    expect(newest.kind).toBe('transfer');
+    expect(newest.sourceBinder).toEqual({ id: sourceBinderId, name: `Source ${sourceBinderId}` });
+    expect(newest.targetBinder).toEqual({ id: targetBinderId, name: `Target ${targetBinderId}` });
+    expect(newest.items[0].printingId).toBe(realPrintingId);
+    expect(typeof newest.items[0].name).toBe('string');
+    expect(newest.items[0].name.length).toBeGreaterThan(0);
+    expect(newest.totalQuantity).toBe(2);
+  });
+
+  it('shows a deleted binder as null', async () => {
+    await service.transferAllCards(sourceBinderId, targetBinderId, testUserId);
+    await db.delete(binders).where(eq(binders.id, sourceBinderId));
+
+    const result = await service.listChangeHistory(testUserId);
+    if (!result.success) throw new Error(result.error);
+    expect(result.data[0].sourceBinder).toBeNull();
+  });
+
+  it('never returns another user\'s history', async () => {
+    await service.transferAllCards(sourceBinderId, targetBinderId, testUserId);
+
+    const result = await service.listChangeHistory(crypto.randomUUID());
+    if (!result.success) throw new Error(result.error);
+    expect(result.data).toEqual([]);
+  });
+});
+
 describe('pruneInventoryOperations', () => {
   it('keeps 30 days of history', () => {
     expect(INVENTORY_HISTORY_RETENTION_DAYS).toBe(30);

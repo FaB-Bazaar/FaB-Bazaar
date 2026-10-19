@@ -8,6 +8,7 @@
  */
 
 import type { AsyncResult, PaginationOptions } from './common';
+import type { ChangeHistoryEntry } from '../postgres/binder/inventory-history';
 
 /**
  * Visibility settings for a binder
@@ -996,6 +997,12 @@ export interface IBinderService {
     userId: string,
     cardsToTransfer: TransferCardInput[]
   ): AsyncResult<TransferSelectedResultDTO>;
+
+  /**
+   * The user's binder change history (inventory_operations, last 30 days), newest first,
+   * with binder and card names resolved. A deleted binder is null.
+   */
+  listChangeHistory(userId: string): AsyncResult<ChangeHistoryEntry[]>;
 
   /**
    * Copy entire binder (creates new binder with all cards)
