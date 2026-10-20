@@ -240,8 +240,20 @@ describe('LIVING_LEGEND_POINTS', () => {
   });
 
   it('includes at least one active-CC hero (< threshold)', () => {
-    const kassai = LIVING_LEGEND_POINTS['kassai of the golden sand'];
-    expect(kassai).toBeLessThan(LIVING_LEGEND_THRESHOLD);
+    const cindra = LIVING_LEGEND_POINTS['cindra, dracai of retribution'];
+    expect(cindra).toBeLessThan(LIVING_LEGEND_THRESHOLD);
+  });
+
+  it('heroes that graduated during IAR season are ≥ threshold', () => {
+    for (const hero of [
+      'kassai of the golden sand',
+      'arakni, marionette',
+      'fai, rising rebellion',
+      'dash i/o',
+      'oscilio, constella intelligence',
+    ]) {
+      expect(LIVING_LEGEND_POINTS[hero]).toBeGreaterThanOrEqual(LIVING_LEGEND_THRESHOLD);
+    }
   });
 
   it('victor goldmane has graduated (≥ threshold)', () => {
@@ -426,7 +438,7 @@ describe('getAllClasses', () => {
 describe('getLivingLegendPoints / isLivingLegendGraduated', () => {
   it('returns points for known heroes (any casing)', () => {
     expect(getLivingLegendPoints('Bravo, Star of the Show')).toBeGreaterThanOrEqual(1000);
-    expect(getLivingLegendPoints('kassai of the golden sand')).toBeLessThan(1000);
+    expect(getLivingLegendPoints('Cindra, Dracai of Retribution')).toBeLessThan(1000);
   });
 
   it('returns null for heroes with no LL points', () => {
@@ -436,7 +448,8 @@ describe('getLivingLegendPoints / isLivingLegendGraduated', () => {
   it('isLivingLegendGraduated true for ≥ threshold, false otherwise', () => {
     expect(isLivingLegendGraduated('bravo, star of the show')).toBe(true);
     expect(isLivingLegendGraduated('victor goldmane, high and mighty')).toBe(true);
-    expect(isLivingLegendGraduated('kassai of the golden sand')).toBe(false);
+    expect(isLivingLegendGraduated('kassai of the golden sand')).toBe(true);
+    expect(isLivingLegendGraduated('cindra, dracai of retribution')).toBe(false);
     expect(isLivingLegendGraduated('not-a-real-hero-xyz')).toBe(false);
   });
 });
