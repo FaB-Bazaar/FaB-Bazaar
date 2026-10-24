@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { publicArticlePath } from '@/lib/articles/public-path';
-import mongoose from 'mongoose';
+import { isLegacyHexId } from '@/lib/articles/legacy-id';
 import { authenticateRequest as multiAuthRequest } from '@/lib/auth/multi-auth';
 import { articleService, userService } from '@/lib/services';
 
@@ -67,7 +67,7 @@ export async function GET(
 
     // Enforce publicId-only (or MongoDB ObjectId for internal admin operations)
     // Slug parameter no longer supported as of 2026-02
-    const result = mongoose.Types.ObjectId.isValid(id)
+    const result = isLegacyHexId(id)
       ? await articleService.getArticleById(id)
       : await articleService.getArticleByPublicId(id);
 
@@ -130,7 +130,7 @@ export async function PATCH(
 
     // Get article to check ownership using service layer
     // Enforce publicId-only (or MongoDB ObjectId for internal admin operations)
-    const articleResult = mongoose.Types.ObjectId.isValid(id)
+    const articleResult = isLegacyHexId(id)
       ? await articleService.getArticleById(id)
       : await articleService.getArticleByPublicId(id);
 

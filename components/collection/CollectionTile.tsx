@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FaDiscord } from "react-icons/fa";
+import { DiscordIcon } from "@/components/icons/DiscordIcon";
 import { generateUniqueBinderSlug } from "@/lib/utils";
 import { Trash2, SquarePen, Eye, ChevronDown, ChevronUp, Globe, Lock, EyeOff, Star, BarChart3, ArrowRightLeft } from "lucide-react";
 import { RarityIcon } from "@/components/shared/RarityIcon";
@@ -424,7 +424,7 @@ export function CollectionTile({
             
             {(binder.slug || binder.discordExternalId) && (
               <div className="flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400 mb-2">
-                <FaDiscord className="inline-block mr-1" />
+                <DiscordIcon className="inline-block mr-1" />
                 <span>Slug:</span>
                 <span className="font-mono bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">{binder.slug || binder.discordExternalId}</span>
               </div>

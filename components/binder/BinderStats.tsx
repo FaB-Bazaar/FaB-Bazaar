@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { BarChart3, Eye, Settings, Globe, Lock, EyeOff, TrendingUp, Package, Coins, Star, PieChart, RefreshCw, Loader2 } from "lucide-react"
 import { RarityIcon } from "@/components/shared/RarityIcon"
-import { formatDistanceToNow } from "date-fns"
 
 // --- TYPES ---
 interface BinderWithStats {

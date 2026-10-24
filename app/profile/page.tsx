@@ -30,7 +30,6 @@ import { ExportDataDialog } from "@/components/dialogs/account/export-data-dialo
 import { ExportOptions } from "@/components/profile/ExportOptions"
 import { useCookieConsent } from "@/contexts/CookieConsentContext"
 import { toast } from "sonner"
-import Select from 'react-select'
 import { useRouter } from "next/navigation"
 // Client services for API calls
 import { bindersClient, wantsClient, usersClient, locationsClient } from '@/lib/client';

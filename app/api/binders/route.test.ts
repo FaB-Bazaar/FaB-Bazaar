@@ -84,3 +84,19 @@ describe('GET /api/binders ?summary=true — pinned flow', () => {
     expect(body.hasPinned).toBe(true);
   });
 });
+
+describe('GET /api/binders (no summary) — Postgres only', () => {
+  it('returns the service binders for a UUID-keyed binder without a Mongo lookup', async () => {
+    vi.mocked(binderService.listBinders).mockResolvedValue({
+      success: true,
+      data: [{ _id: '550e8400-e29b-41d4-a716-446655440000', name: 'Trade binder', isPublic: true }],
+    } as any);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.binders.map((b: any) => b._id)).toEqual(['550e8400-e29b-41d4-a716-446655440000']);
+  });
+});

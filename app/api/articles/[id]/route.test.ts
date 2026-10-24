@@ -27,7 +27,7 @@ vi.mock('next/cache', () => ({
   revalidateTag: vi.fn(),
 }));
 
-import { PATCH } from './route';
+import { GET, PATCH } from './route';
 import { articleService, userService } from '@/lib/services';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { revalidatePath } from 'next/cache';
@@ -108,4 +108,33 @@ describe('PATCH /api/articles/[id] — revalidation after a section edit', () =>
 
     expect(paths).toContain(`/articles/${PUBLIC_ID}`);
   });
+});
+
+describe('GET /api/articles/[id] — id-shape routing', () => {
+  const callGet = (id: string) =>
+    GET(new NextRequest(`http://localhost/api/articles/${id}`), { params: Promise.resolve({ id }) });
+
+  beforeEach(() => {
+    vi.mocked(articleService.getArticleById).mockResolvedValue(article() as any);
+    mockGetByPublicId.mockResolvedValue(article() as any);
+  });
+
+  // 15 local articles still carry 24-hex ids from the Mongo era; they resolve by internal id.
+  it.each(['507f1f77bcf86cd799439011', '507F1F77BCF86CD799439011'])(
+    'looks up a legacy 24-hex id %s by internal id',
+    async (id) => {
+      await callGet(id);
+      expect(articleService.getArticleById).toHaveBeenCalledWith(id);
+      expect(mockGetByPublicId).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([PUBLIC_ID, 'cLHGKMCjPb89zwNPmMFBp', '507f1f77bcf86cd79943901z', '507f1f77bcf86cd7994390111'])(
+    'looks up %s by publicId',
+    async (id) => {
+      await callGet(id);
+      expect(mockGetByPublicId).toHaveBeenCalledWith(id);
+      expect(articleService.getArticleById).not.toHaveBeenCalled();
+    }
+  );
 });

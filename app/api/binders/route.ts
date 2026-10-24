@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/auth";
 import { binderService, userService } from '@/lib/services';
 import { authenticateRequest, verifyDiscordBotToken } from '@/lib/auth/multi-auth';
-import mongoose from 'mongoose';
 
 /**
  * GET /api/binders
@@ -156,26 +155,6 @@ export async function GET(req: NextRequest) {
         }
       );
     }
-
-    // Add card count (requires reading from Binder model directly for now)
-    // This will be refactored in Phase 2B when we implement card management
-    const Binder = (await import('@/models/Binder')).default;
-    const binderIds = binders.map(b => new mongoose.Types.ObjectId(b._id));
-    const fullBinders = await Binder.find({ _id: { $in: binderIds } }).lean();
-
-    binders = binders.map(binder => {
-      const fullBinder = fullBinders.find(fb => fb._id.toString() === binder._id);
-      return {
-        ...binder,
-        cardCount: Array.isArray(fullBinder?.cards) ? fullBinder.cards.length : 0,
-        cards: Array.isArray(fullBinder?.cards)
-          ? fullBinder.cards.map((card: any) => ({
-              ...card,
-              _id: card._id?.toString?.() || card._id,
-            }))
-          : [],
-      };
-    });
 
     return NextResponse.json({
       success: true,
