@@ -100,11 +100,12 @@ export function cardLookupKeys(familySlugs: string[], payloads: Map<string, any>
   const inPlay = cardsInPlayOf(familySlugs, payloads);
   return {
     lssCardIds: inPlay.map((c) => c.card.id),
-    talisharIds: inPlay.map(({ card }) => {
-      const en = (card.card_prints ?? []).flatMap((p: any) => p.faces ?? [])
-        .find((f: any) => f.face_language === 'en' && f.printed_name);
-      return en ? talOf(en) : '';
-    }).filter(Boolean),
+    // Every named en face, not just the front: a named back ('Viserai, Usurper')
+    // may already exist from another set and must resolve to that card.
+    talisharIds: [...new Set(inPlay.flatMap(({ card }) =>
+      (card.card_prints ?? []).flatMap((p: any) => p.faces ?? [])
+        .filter((f: any) => f.face_language === 'en' && f.printed_name)
+        .map((f: any) => talOf(f))))].filter(Boolean),
   };
 }
 

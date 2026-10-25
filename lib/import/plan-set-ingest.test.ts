@@ -113,9 +113,17 @@ describe('planSetIngest', () => {
 });
 
 describe('cardLookupKeys', () => {
-  it('returns the CardVault card ids and front talishar ids for the DB lookup', () => {
+  it('returns the CardVault card ids and front + named-back talishar ids for the DB lookup', () => {
     const k = cardLookupKeys(SLUGS, payloads);
     expect(k.lssCardIds).toContain('bea60cd8-3383-429a-b4b2-a79d9bff140e');
-    expect(k.talisharIds.sort()).toEqual(['viserai_between_worlds', 'viserai_the_forsaken']);
+    expect(k.talisharIds.sort()).toEqual(['viserai_between_worlds', 'viserai_the_forsaken', 'viserai_usurper']);
+  });
+
+  // SBW (2026-10): the Between Worlds family alone in play, Usurper already in
+  // the DB from IAR. Without the back's id in the lookup the planner never saw
+  // the existing Usurper card and minted a duplicate.
+  it('includes a named back that is only reachable through its face', () => {
+    const k = cardLookupKeys([SLUGS[1]], payloads);
+    expect(k.talisharIds.sort()).toEqual(['viserai_between_worlds', 'viserai_usurper']);
   });
 });
