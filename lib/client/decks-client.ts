@@ -794,6 +794,27 @@ export async function getDeckResults(
 }
 
 /**
+ * Get EVERY game summary for a deck, paging at the route's 100-row cap.
+ * The Results tab computes its stats client-side, so a partial page
+ * would make them describe only the newest games.
+ */
+export async function getAllDeckResults(
+  publicId: string
+): Promise<ApiResponse<{ games: any[]; total: number }>> {
+  const PAGE = 100;
+  const games: any[] = [];
+  let total = 0;
+  do {
+    const page = await getDeckResults(publicId, { limit: PAGE, offset: games.length });
+    if (!page.success) return page;
+    total = page.data.total ?? 0;
+    games.push(...page.data.games);
+    if (page.data.games.length === 0) break;
+  } while (games.length < total);
+  return { success: true, data: { games, total: Math.max(total, games.length) } };
+}
+
+/**
  * Get one game result's detail (turn log, per-card stats, image map)
  */
 export async function getDeckResult(

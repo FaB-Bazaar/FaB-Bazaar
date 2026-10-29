@@ -635,6 +635,8 @@ function GameRow({ game, deckId, detail, cardLookup, cardIdLookup, isExpanded, o
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+const GAMES_PER_PAGE = 20;
+
 export default function DeckResultsTab({ deckId, deck }: Props) {
   const [results, setResults] = useState<GameResultSummaryDTO[]>([]);
   // Cache of detail responses keyed by result id. Populated lazily when the
@@ -647,7 +649,8 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
   const [showCardStats, setShowCardStats] = useState(false);
   const [total, setTotal] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // Every game is loaded (stats cover them all); the list renders a page at a time.
+  const [visibleCount, setVisibleCount] = useState(GAMES_PER_PAGE);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["never-used"]));
   const [heroFilter, setHeroFilter] = useState<string>("all");
   const [hoveredCard, setHoveredCard] = useState<HoverCard | null>(null);
@@ -773,7 +776,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   }, [filteredResults]);
 
   useEffect(() => {
-    decksClient.getDeckResults(deckId, { limit: 20, offset: 0 })
+    decksClient.getAllDeckResults(deckId)
       .then(data => {
         if (data.success) { setResults(data.data.games); setTotal(data.data.total ?? data.data.games.length); }
         else setError(data.error);
@@ -782,13 +785,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       .finally(() => setLoading(false));
   }, [deckId]);
 
-  const loadMore = () => {
-    setLoadingMore(true);
-    decksClient.getDeckResults(deckId, { limit: 20, offset: results.length })
-      .then(data => { if (data.success) setResults(prev => [...prev, ...data.data.games]); })
-      .catch(() => {})
-      .finally(() => setLoadingMore(false));
-  };
+  useEffect(() => { setVisibleCount(GAMES_PER_PAGE); }, [heroFilter]);
 
   // Fetch the heavy detail (turn logs, turnResults) for a game only when the
   // user expands its row. Cached forever in component state — re-expand hits
@@ -985,7 +982,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
         {/* Game list */}
         {filteredResults.length > 0 && (
           <div className="rounded-lg border border-gray-300 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
-            {filteredResults.map(r => (
+            {filteredResults.slice(0, visibleCount).map(r => (
               <GameRow
                 key={r.id}
                 game={r}
@@ -1004,15 +1001,14 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
           </div>
         )}
 
-        {/* Load more */}
-        {results.length < total && (
+        {/* Show more */}
+        {filteredResults.length > visibleCount && (
           <div className="flex justify-center pt-1">
             <button
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2 rounded border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              onClick={() => setVisibleCount(c => c + GAMES_PER_PAGE)}
+              className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 px-4 py-2 rounded border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              {loadingMore ? "Loading..." : `Load more (${total - results.length} remaining)`}
+              Show more games ({filteredResults.length - visibleCount} more)
             </button>
           </div>
         )}

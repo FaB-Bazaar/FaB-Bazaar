@@ -14,6 +14,7 @@ import {
   getDeckNotes,
   saveDeckNotes,
   getDeckResults,
+  getAllDeckResults,
   getDeckResult,
   getDeckResultRaw,
   deleteDeckResult,
@@ -109,6 +110,46 @@ describe('decksClient.getDeckResults', () => {
     await getDeckResults('abc123');
 
     expect(fetchMock.mock.calls[0][0]).toBe('/api/decks/abc123/results');
+  });
+});
+
+describe('decksClient.getAllDeckResults', () => {
+  it('pages through every game in 100s until it has the total', async () => {
+    const page = (start: number, n: number) => Array.from({ length: n }, (_, i) => ({ id: `g${start + i}` }));
+    fetchMock
+      .mockResolvedValueOnce(mockJsonResponse({ success: true, data: page(0, 100), total: 165 }))
+      .mockResolvedValueOnce(mockJsonResponse({ success: true, data: page(100, 65), total: 165 }));
+
+    const result = await getAllDeckResults('abc123');
+
+    expect(fetchMock.mock.calls.map(c => c[0])).toEqual([
+      '/api/decks/abc123/results?limit=100&offset=0',
+      '/api/decks/abc123/results?limit=100&offset=100',
+    ]);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.games).toHaveLength(165);
+      expect(result.data.total).toBe(165);
+    }
+  });
+
+  it('stops on an empty page even if the total says more remain', async () => {
+    fetchMock
+      .mockResolvedValueOnce(mockJsonResponse({ success: true, data: [{ id: 'g1' }], total: 5 }))
+      .mockResolvedValueOnce(mockJsonResponse({ success: true, data: [], total: 5 }));
+
+    const result = await getAllDeckResults('abc123');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    if (result.success) expect(result.data.games).toHaveLength(1);
+  });
+
+  it('returns the error when a page fails', async () => {
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({ success: false, error: 'nope' }, false, 500));
+
+    const result = await getAllDeckResults('abc123');
+
+    expect(result.success).toBe(false);
   });
 });
 
