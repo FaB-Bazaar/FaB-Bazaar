@@ -3,7 +3,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import HighlightFiltersPopover, { type HighlightFilter as HF } from "./HighlightFiltersPopover";
-import WebcamGameDialog from "./WebcamGameDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -2433,13 +2432,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
           </div>
         )}
 
-        {/* Webcam play — desktop only. Links to play.fabbazaar.app + this deck's QR stickers. */}
-        <div className="hidden md:block">
-          <WebcamGameDialog />
-        </div>
-
-        {/* Pimp My Deck — desktop toolbar button in the dead space next to
-            Webcam (the small chip on the stats row covers < md). The WHOLE
+        {/* Pimp My Deck — desktop toolbar button (the small chip on the stats row covers < md). The WHOLE
             banner art is the button (owner call — a plain-text label reads
             wrong); -my overhang keeps its layout height at row height so the
             larger art never pushes the toolbar taller. Signed-in only — the

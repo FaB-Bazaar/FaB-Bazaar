@@ -140,41 +140,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Webcam play companion (play.fabbazaar.app). Deploys independently via
-  # .github/workflows/deploy-fab-table.yml — the main deploy never touches it.
-  # Hard-capped so a runaway can only OOM-kill itself (cgroup-scoped), never
-  # trigger the host OOM killer against postgres/nextjs. Still no DB and no
-  # shared state (reaches fabbazaar only via its public HTTPS API); the one
-  # volume below holds a self-contained room snapshot so a graceful redeploy
-  # doesn't drop live games — clients reconnect and replay. Ungraceful kill/OOM
-  # just skips the snapshot: crash-only, no worse than before.
-  fab-table:
-    image: ghcr.io/fab-bazaar/fab-table:${FAB_TABLE_VERSION:-latest}
-    container_name: fabbazaar-fab-table
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
-    cpus: 0.5
-    environment:
-      PORT: 8787
-      PUBLIC_URL: https://play.fabbazaar.app
-      FABBAZAAR_URL: https://fabbazaar.app
-      SESSION_SECRET: ${FAB_TABLE_SESSION_SECRET}
-      OAUTH_CLIENT_ID: ${FAB_TABLE_OAUTH_CLIENT_ID}
-      OAUTH_CLIENT_SECRET: ${FAB_TABLE_OAUTH_CLIENT_SECRET}
-      BUILD_SHA: ${FAB_TABLE_VERSION:-latest}
-      # Persist rooms across a graceful restart (deploy). Unset => pure in-memory.
-      ROOMS_SNAPSHOT_PATH: /data/rooms.json
-    volumes:
-      - fab_table_data:/data
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
-    networks:
-      - fabbazaar
-
 networks:
   fabbazaar:
     driver: bridge
@@ -186,7 +151,6 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
-  fab_table_data: # fab-table room snapshot (graceful-restart survival)
   pipeline_price_history:
   pipeline_logs:
   pipeline_duckdb:

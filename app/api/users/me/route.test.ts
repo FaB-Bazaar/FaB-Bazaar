@@ -1,5 +1,5 @@
 // app/api/users/me/route.test.ts
-// Identity endpoint for OAuth clients (e.g. play.fabbazaar.app): given a
+// Identity endpoint for OAuth clients: given a
 // valid credential (session or bearer), returns who the caller is.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';

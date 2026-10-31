@@ -29,4 +29,3 @@ coverage
 scripts/
 # ...except the prebuild step that copies the scanner's text reader into public/tesseract/
 !scripts/copy-tesseract-assets.mjs
-apps/

@@ -1,6 +1,6 @@
 // app/api/users/me/route.ts
 // Who am I? Identity endpoint for any authenticated credential, including
-// OAuth bearer tokens — used by external clients (e.g. play.fabbazaar.app)
+// OAuth bearer tokens — used by external OAuth clients
 // to resolve a token to a fabbazaar user after the OAuth code exchange.
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
