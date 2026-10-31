@@ -113,7 +113,7 @@ function impactColor(v: number): string {
 function HoldingLine({ m }: { m: MergedMover }) {
   const deckNames = m.decks.map((d) => d.deckName).join(", ");
   return (
-    <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+    <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 break-words">
       {m.binders.map((b, i) => (
         <React.Fragment key={b.binderId}>
           {i > 0 && ", "}
@@ -223,7 +223,7 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Link
             href={`/printing/${m.printingId}`}
-            className="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+            className="min-w-0 max-w-full break-words sm:truncate font-medium text-gray-900 dark:text-gray-100 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
           >
             {m.displayName}
           </Link>
@@ -533,7 +533,7 @@ export function DailyMoversView({
                 </div>
               </div>
             ) : (
-              <div className="grid gap-2 xl:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                 {mergedMovers.map((m) => (
                   <MergedMoverRow key={m.printingId} m={m} featurePrefix={sparse ? "mover_compact_" : "mover_"} />
                 ))}
