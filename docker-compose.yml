@@ -6,6 +6,10 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+    environment:
+      # Go 1.24+ listens with multipath TCP by default; opt out until the
+      # kernel fix for CVE-2026-98432 ships on the host.
+      - GODEBUG=multipathtcp=0
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./certs:/certs:ro
