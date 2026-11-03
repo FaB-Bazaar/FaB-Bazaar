@@ -190,11 +190,14 @@ export function buildProvisionalPrinting(
 const CLASS_FLAGS = [
   'generic', 'brute', 'guardian', 'mechanologist', 'ranger', 'runeblade',
   'assassin', 'warrior', 'ninja', 'wizard', 'merchant', 'bard', 'adjudicator',
-  'illusionist', 'thief', 'shapeshifter', 'necromancer',
+  'illusionist', 'thief', 'shapeshifter', 'necromancer', 'pirate',
 ] as const;
+// Pirate is a CLASS (official LSS; transformer 003, migration 0104) but its
+// flag column is has_pirate — there is no is_pirate column.
+const classFlagColumn = (c: string) => (c === 'pirate' ? 'has_pirate' : `is_${c}`);
 const TALENT_FLAGS = [
   'chaos', 'light', 'royal', 'draconic', 'lightning', 'shadow', 'earth',
-  'mystic', 'revered', 'ice', 'reviled', 'pirate', 'elemental',
+  'mystic', 'revered', 'ice', 'reviled', 'elemental',
 ] as const;
 const TYPE_FLAGS = ['action', 'attack', 'instant', 'equipment', 'weapon', 'hero', 'mentor', 'token'] as const;
 
@@ -269,7 +272,7 @@ export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds
 
   const flags: Record<string, boolean> = {};
   for (const t of TYPE_FLAGS) flags[`is_${t}`] = typeTokens.includes(t);
-  for (const c of CLASS_FLAGS) flags[`is_${c}`] = typeTokens.includes(c);
+  for (const c of CLASS_FLAGS) flags[classFlagColumn(c)] = typeTokens.includes(c);
   for (const t of TALENT_FLAGS) flags[`has_${t}`] = typeTokens.includes(t);
   flags.is_defense_reaction = /defense reaction/i.test(typebox);
 

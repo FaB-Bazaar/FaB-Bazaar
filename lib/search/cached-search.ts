@@ -36,7 +36,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //   v9 — the cc filter includes spoiler-season sets (future-release cards)
 //   v10 — migration 0127 moved GEM212 from red to blue Seek Vengeance
 //        outside a nightly run (cached bodies group it under the old card)
-const SEARCH_CACHE_VERSION = 'v10';
+//   v11 — migration 0129 moved Pirate from talents to classes on provisional
+//        cards (Favorable Winds now matches Marlynn's hero-legality pool)
+const SEARCH_CACHE_VERSION = 'v11';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

@@ -157,6 +157,22 @@ describe('buildProvisionalCard', () => {
     expect(dr).toMatchObject({ is_defense_reaction: true, is_guardian: true, defense: 4 });
   });
 
+  it('classifies Pirate as a CLASS, not a talent (Favorable Winds, IAR251), keeping has_pirate', () => {
+    // Pirate is a class (official LSS; transformer 003 / migration 0104). As a
+    // talent, a "Pirate Ranger Action" failed the hero subset check for
+    // Marlynn and couldn't be added to or imported into any deck.
+    const c = buildProvisionalCard(
+      face({ printed_name: 'Favorable Winds', printed_typebox: 'Pirate Ranger Action', printed_pitch: '2' }),
+      { cardUniqueId: 'c7', lssCardId: 'uuid7' },
+    );
+    expect(c).toMatchObject({
+      classes: ['pirate', 'ranger'], talents: [],
+      has_pirate: true, is_ranger: true,
+      has_class_only: true, has_class_and_talent: false, has_talent_only: false,
+    });
+    expect(c).not.toHaveProperty('is_pirate');
+  });
+
   it('derives color from pitch the way the fab-cube feed does (1/2/3 → red/yellow/blue)', () => {
     const colorOf = (printed_pitch: string | null) =>
       buildProvisionalCard(face({ printed_pitch }), { cardUniqueId: 'c', lssCardId: 'u' }).color;
