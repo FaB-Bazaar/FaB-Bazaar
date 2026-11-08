@@ -141,6 +141,6 @@ export function collectorModeToast(unownedCount: number): { title: string; descr
     title: 'Collector Mode on',
     description: `${unownedCount} card${unownedCount === 1 ? ' ' : 's '}in this deck ${
       unownedCount === 1 ? "isn't" : "aren't"
-    } in your binder — owned copies are hidden. 📖 adds one to your binder, ♥ adds it to your wants list.`,
+    } in your collection — owned copies are hidden. 📖 adds one to your binder, ♥ adds it to your wants list.`,
   };
 }

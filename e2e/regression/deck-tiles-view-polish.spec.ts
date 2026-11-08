@@ -1,8 +1,9 @@
 /**
  * Deck editor tiles view — polish from the 2026-09 desktop walkthrough.
  *
- *  1. The binder the ownership dots compare against was an unlabelled dropdown
- *     ("silver") — it now carries a visible "Compare to" label.
+ *  1. The binder dropdown was unlabelled ("silver"), then labelled "Compare to" —
+ *     wrong: the dots check the WHOLE collection; the dropdown only picks where
+ *     the add buttons put cards. Now labelled "Add cards to" (2026-11).
  *  2. Empty zones (Inventory / Bench / an empty pitch colour) rendered a full
  *     card-sized dashed "+" tile each; they now collapse to a slim header row
  *     whose add button is always visible (not hover-only).
@@ -49,10 +50,12 @@ async function openTiles(page: Page) {
   await expect(page.locator(TILE_IMG).first()).toBeVisible()
 }
 
-test('the ownership-comparison binder dropdown is labelled "Compare to"', async ({ page }) => {
+test('the binder dropdown is labelled as the add target; dots compare to the whole collection', async ({ page }) => {
   await openTiles(page)
-  await expect(page.getByText('Compare to', { exact: true })).toBeVisible()
-  await expect(page.getByRole('combobox', { name: /compare to/i })).toBeVisible()
+  await expect(page.getByText('Compare to', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: /add cards to/i })).toBeVisible()
+  await expect(page.getByText('in your collection', { exact: true })).toBeVisible()
+  await expect(page.getByText('not owned', { exact: true })).toBeVisible()
 })
 
 test('empty zones collapse to a slim header with an always-visible add button', async ({ page }) => {

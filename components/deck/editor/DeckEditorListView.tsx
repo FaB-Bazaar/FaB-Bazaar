@@ -2521,10 +2521,11 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
               <span>Collector Mode</span>
             </button>
             <div className="flex items-center gap-1.5">
-              {/* Names what the dots compare against — a bare binder name ("silver") reads as noise. */}
-              <span id="deck-compare-binder-label" className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">Compare to</span>
+              {/* The binder the 📖 add buttons put cards into. NOT what the dots compare
+                  against — ownership is checked across every binder (binderMode 'all'). */}
+              <span id="deck-add-binder-label" className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">Add cards to</span>
               <Select value={selectedBinderId} onValueChange={onBinderChange}>
-                <SelectTrigger aria-labelledby="deck-compare-binder-label" className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[160px] gap-1">
+                <SelectTrigger aria-labelledby="deck-add-binder-label" className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[160px] gap-1">
                   <SelectValue placeholder="Select binder" />
                 </SelectTrigger>
               <SelectContent>
@@ -2542,11 +2543,11 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
             <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20" aria-hidden="true" />
-                in your binder
+                in your collection
               </span>
               <span className="flex items-center gap-1">
                 <span data-testid="legend-missing" className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-red-500" aria-hidden="true" />
-                not in binder
+                not owned
               </span>
             </div>
           </div>

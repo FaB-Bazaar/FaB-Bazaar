@@ -169,6 +169,10 @@ describe('collectorModeToast', () => {
     expect(description).toMatch(/wants/i);
   });
 
+  it('counts ownership across the whole collection, not one binder', () => {
+    expect(collectorModeToast(3).description).toMatch(/in your collection/i);
+  });
+
   it('uses singular phrasing for one card', () => {
     expect(collectorModeToast(1).description).toContain('1 card ');
   });
