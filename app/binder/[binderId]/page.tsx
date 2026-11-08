@@ -61,7 +61,7 @@ import { BinderActions } from "@/lib/services/binderActions";
 import { BinderService } from "@/lib/services/binderService";
 
 // Client service for API calls
-import { bindersClient } from "@/lib/client";
+import { bindersClient, wantsClient } from "@/lib/client";
 import { usePriceSource } from "@/hooks/usePriceSource";
 import { PriceSourceToggle } from "@/components/pricing/PriceSourceToggle";
 import { PriceSortOptions } from "@/components/pricing/PriceSortOptions";
@@ -700,6 +700,17 @@ const handleTradeRequestSent = async () => {
       }
   };
   
+  // Owner-only tile action: one copy of this printing onto the wants list.
+  const handleAddToWants = async (card: any) => {
+    const name = card.display_name || card.name || "Card";
+    const result = await wantsClient.addWantsItem(card.printingId, 1, "medium");
+    if (result.success) {
+      toast({ title: "Added to wants", description: name });
+    } else {
+      toast({ title: "Failed to add to wants", description: result.error, variant: "destructive" });
+    }
+  };
+
   const handleToggleForTrade = async (card: any, forTrade: boolean) => {
     const cardId = card.id || card._id;
 
@@ -1182,6 +1193,7 @@ const SuperSlamDisclosure = () => {
                                 onQuantityIncrease={() => handleQuantityChange(card, 1)}
                                 onQuantityDecrease={() => handleQuantityChange(card, -1)}
                                 onToggleForTrade={handleToggleForTrade}
+                                onAddToWants={editable ? handleAddToWants : undefined}
                               />
                             </div>
                           );

@@ -4,7 +4,7 @@
 
 import React, { useState } from "react"
 import { Switch } from "@/components/ui/switch"
-import { Minus, Plus, Edit3, Trash2, ExternalLink } from "lucide-react"
+import { Minus, Plus, Edit3, Trash2, ExternalLink, Heart } from "lucide-react"
 import { RarityIcon } from '@/components/shared/RarityIcon'
 import FoilCardImage from '@/components/shared/FoilCardImage'
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil'
@@ -35,6 +35,8 @@ interface EnhancedBinderCardProps {
   onQuantityIncrease: (cardId: string) => void;
   onQuantityDecrease: (cardId: string) => void;
   onOpenPrintingSwap?: (card: any) => void;
+  /** Owner-only: add 1 copy of this printing to the viewer's wants list */
+  onAddToWants?: (card: any) => void;
   isInTransferDialog?: boolean;
   transferDialogOpen?: boolean;
 }
@@ -54,6 +56,7 @@ export default function EnhancedBinderCard({
   onQuantityIncrease,
   onQuantityDecrease,
   onOpenPrintingSwap,
+  onAddToWants,
   isInTransferDialog,
   transferDialogOpen,
   compactMode = false,
@@ -328,15 +331,21 @@ export default function EnhancedBinderCard({
 
           {editable && (
             <div className="flex gap-1">
+              {/* Left of the existing icons so printing link / edit / delete keep their place. */}
+              {onAddToWants && printingId && (
+                <button onClick={(e) => { e.stopPropagation(); onAddToWants(card) }} aria-label={`Add ${display_name} to wants`} title="Add to wants" className="p-1 rounded hover:bg-pink-50 dark:hover:bg-pink-900/40 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                  <Heart className="w-4 h-4 text-pink-600 dark:text-pink-400" />
+                </button>
+              )}
               {printingId && (
                 <Link href={`/printing/${printingId}`} onClick={(e) => e.stopPropagation()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" title="View Printing Details">
                   <ExternalLink className="w-4 h-4 text-blue-500 hover:text-blue-600" />
                 </Link>
               )}
-              <button onClick={(e) => { e.stopPropagation(); onEdit(card) }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+              <button onClick={(e) => { e.stopPropagation(); onEdit(card) }} aria-label={`Edit ${display_name}`} title="Edit" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                 <Edit3 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onRemove(card.id || card._id) }} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900 text-red-500 dark:text-red-400 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+              <button onClick={(e) => { e.stopPropagation(); onRemove(card.id || card._id) }} aria-label={`Remove ${display_name} from binder`} title="Remove from binder" className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900 text-red-500 dark:text-red-400 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
