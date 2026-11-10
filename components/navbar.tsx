@@ -180,6 +180,21 @@ export default function Navbar() {
   }
 
 
+  // Fill the Collection / Decks / Stores menus in the background once the page
+  // is idle, so a menu is already populated when it opens. (The onOpenChange
+  // loaders stay as the fallback for a click that beats this.)
+  useEffect(() => {
+    if (!user) return
+    const preload = () => { loadBindersOnDemand(); loadDecksOnDemand(); loadStoresOnDemand() }
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preload, { timeout: 2000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const timer = setTimeout(preload, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per signed-in user; the loaders guard themselves
+  }, [user?.id])
+
   useEffect(() => {
     if (!user) return
 
