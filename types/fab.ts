@@ -192,11 +192,11 @@ export interface FABCard {
     colors?: string[];
   }
   
-  // Utility type for MongoDB price fields that can be either objects or numbers
-  export type MongoPrice = { $numberDouble: string } | number | null;
+  // A price that is either a number or the legacy { $numberDouble } wrapper
+  export type WrappedPrice = { $numberDouble: string } | number | null;
   
-  // Helper function to extract numeric price from MongoDB price field
-  export function extractPrice(price: MongoPrice): number | null {
+  // Extract the number from a price that may carry the legacy wrapper
+  export function extractPrice(price: WrappedPrice): number | null {
     if (price === null || price === undefined) return null;
     if (typeof price === 'number') return price;
     if (typeof price === 'object' && price.$numberDouble) {

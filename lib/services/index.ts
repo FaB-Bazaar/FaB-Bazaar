@@ -80,17 +80,10 @@ import { PostgresCollectibleService } from './postgres/collectibles/PostgresColl
  * Manages creation and caching of service instances.
  * Uses singleton pattern to ensure only one instance per service.
  *
- * Database Provider:
- * PostgreSQL is the only active database. MongoDB implementations are deprecated
- * and kept as reference code only.
- *
- * The DATABASE_PROVIDER env var exists for migration testing purposes only.
- * Production should always use 'postgres' (default).
+ * Every service is backed by PostgreSQL (the Postgres* classes under
+ * lib/services/postgres).
  */
 class ServiceFactory {
-  // Database provider configuration (postgres is default and only supported option)
-  private static _dbProvider: 'mongodb' | 'postgres' =
-    (process.env.DATABASE_PROVIDER as 'mongodb' | 'postgres') || 'postgres';
   // Existing services
   private static _userService: IUserService | null = null;
   private static _binderService: IBinderService | null = null;
@@ -122,15 +115,10 @@ class ServiceFactory {
    * Get the User Service instance
    *
    * Creates a new UserService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get userService(): IUserService {
     if (!this._userService) {
-      if (this._dbProvider === 'postgres') {
-        this._userService = new PostgresUserService();
-      } else {
-        throw new Error('MongoDB is deprecated. Use DATABASE_PROVIDER=postgres');
-      }
+      this._userService = new PostgresUserService();
     }
     return this._userService;
   }
@@ -139,15 +127,10 @@ class ServiceFactory {
    * Get the Binder Service instance
    *
    * Creates a new BinderService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get binderService(): IBinderService {
     if (!this._binderService) {
-      if (this._dbProvider === 'postgres') {
-        this._binderService = new PostgresBinderService();
-      } else {
-        throw new Error('MongoDB is deprecated. Use DATABASE_PROVIDER=postgres');
-      }
+      this._binderService = new PostgresBinderService();
     }
     return this._binderService;
   }
@@ -186,13 +169,10 @@ class ServiceFactory {
    * Get the Printings Service instance
    *
    * Creates a new PrintingsService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get printingsService(): IPrintingsService {
     if (!this._printingsService) {
-      this._printingsService = this._dbProvider === 'postgres'
-        ? new PostgresPrintingsService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._printingsService = new PostgresPrintingsService();
     }
     return this._printingsService;
   }
@@ -216,9 +196,7 @@ class ServiceFactory {
   /** Get the Facet (content-manager) Service instance. */
   static get facetService(): IFacetService {
     if (!this._facetService) {
-      this._facetService = this._dbProvider === 'postgres'
-        ? new PostgresFacetService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._facetService = new PostgresFacetService();
     }
     return this._facetService;
   }
@@ -233,13 +211,10 @@ class ServiceFactory {
    * Get the Wants Service instance
    *
    * Creates a new WantsService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get wantsService(): IWantsService {
     if (!this._wantsService) {
-      this._wantsService = this._dbProvider === 'postgres'
-        ? new PostgresWantsService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._wantsService = new PostgresWantsService();
     }
     return this._wantsService;
   }
@@ -263,13 +238,10 @@ class ServiceFactory {
    * Get the Inventory Service instance
    *
    * Creates a new InventoryService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get inventoryService(): IInventoryService {
     if (!this._inventoryService) {
-      this._inventoryService = this._dbProvider === 'postgres'
-        ? new PostgresInventoryService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._inventoryService = new PostgresInventoryService();
     }
     return this._inventoryService;
   }
@@ -378,13 +350,10 @@ class ServiceFactory {
    * Get the Deck Service instance
    *
    * Creates a new DeckService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get deckService(): IDeckService {
     if (!this._deckService) {
-      this._deckService = this._dbProvider === 'postgres'
-        ? new PostgresDeckService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._deckService = new PostgresDeckService();
     }
     return this._deckService;
   }
@@ -399,13 +368,10 @@ class ServiceFactory {
    * Get the Article Service instance
    *
    * Creates a new ArticleService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get articleService(): IArticleService {
     if (!this._articleService) {
-      this._articleService = this._dbProvider === 'postgres'
-        ? new PostgresArticleService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._articleService = new PostgresArticleService();
     }
     return this._articleService;
   }
@@ -418,13 +384,10 @@ class ServiceFactory {
    * Get the OAuth Service instance
    *
    * Creates a new OAuthService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get oauthService(): IOAuthService {
     if (!this._oauthService) {
-      this._oauthService = this._dbProvider === 'postgres'
-        ? new PostgresOAuthService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._oauthService = new PostgresOAuthService();
     }
     return this._oauthService;
   }
@@ -437,13 +400,10 @@ class ServiceFactory {
    * Get the Auth Token Service instance
    *
    * Creates a new AuthTokenService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get authTokenService(): IAuthTokenService {
     if (!this._authTokenService) {
-      this._authTokenService = this._dbProvider === 'postgres'
-        ? new PostgresAuthTokenService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._authTokenService = new PostgresAuthTokenService();
     }
     return this._authTokenService;
   }
@@ -459,13 +419,10 @@ class ServiceFactory {
    * Get the OAuth Flow Service instance
    *
    * Creates a new OAuthFlowService on first call, then returns cached instance.
-   * Uses PostgreSQL by default (MongoDB deprecated, reference only).
    */
   static get oauthFlowService(): IOAuthFlowService {
     if (!this._oauthFlowService) {
-      this._oauthFlowService = this._dbProvider === 'postgres'
-        ? new PostgresOAuthFlowService()
-        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+      this._oauthFlowService = new PostgresOAuthFlowService();
     }
     return this._oauthFlowService;
   }

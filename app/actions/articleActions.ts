@@ -92,7 +92,7 @@ export async function createArticle(payload: ArticlePayload) {
     revalidatePath('/guides');
     console.log("Revalidation completed");
 
-    // Return only essential data to avoid serialization issues with Mongoose documents
+    // Return only essential, plain data (server action results must serialize)
     const safeArticle = {
       _id: String(result.data._id),
       title: result.data.title,

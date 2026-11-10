@@ -1,5 +1,5 @@
 // lib/stats/binderStats.ts
-// NOTE: This file now uses the service layer - no direct MongoDB access.
+// NOTE: This file uses the service layer - no direct database access.
 // All functions delegate to binderStatsService for backwards compatibility.
 
 import { binderStatsService } from '@/lib/services';
@@ -41,7 +41,7 @@ export interface InventoryItem {
 
 /**
  * Check if a card rarity should trigger stats recalculation
- * Only recalculate for high-value rarities to reduce MongoDB costs
+ * Only recalculate for high-value rarities to reduce database work
  *
  * @deprecated Prefer using binderStatsService.shouldTriggerImmediateUpdate() directly
  */

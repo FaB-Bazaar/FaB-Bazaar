@@ -381,7 +381,6 @@ export async function showCardPrintings(cardUniqueId, cardName) {
     console.log('[showCardPrintings] 🎯 API RESPONSE STATUS:', response.status);
     console.log('[showCardPrintings] 🎯 API SUCCESS:', data.success);
     console.log('[showCardPrintings] 🎯 TOTAL PRINTINGS FOUND:', data.data?.printings?.length);
-    console.log('[showCardPrintings] 🎯 MONGO QUERY USED:', JSON.stringify(data.debug?.mongoQuery, null, 2));
     
     // 🔍 DEBUG: Log ALL card names that came back
     if (data.data?.printings?.length) {

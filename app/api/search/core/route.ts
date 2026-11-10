@@ -1,5 +1,5 @@
 // app/api/search/core/route.ts
-// ⚠️ MIGRATED: Now uses PostgreSQL printingsService instead of MongoDB printings_core
+// Backed by printingsService (PostgreSQL)
 import { NextRequest, NextResponse } from 'next/server';
 import { printingsService } from '@/lib/services';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';

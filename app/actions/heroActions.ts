@@ -16,7 +16,7 @@ import { HeroMarkdownGenerator } from '@/types/hero-content-framework';
 
 // ============================================================================
 // YOUR ORIGINAL ACTION (Now with a SuperAdmin security check for consistency)
-// This action saves structured data to the 'heroes' collection in MongoDB.
+// This action saves structured data to the hero's content record.
 // ============================================================================
 export async function updateHeroContent(heroSlug: string, formData: FormData) {
   try {
@@ -58,7 +58,6 @@ export async function updateHeroContent(heroSlug: string, formData: FormData) {
     return { success: false, message: `Failed to save: ${message}` };
   }
 }
-
 
 // ============================================================================
 // THE NEW ACTION
@@ -103,37 +102,3 @@ export async function saveHeroContent(heroSlug: string, config: any) {
     return { success: false, message: `Failed to save: ${message}` };
   }
 }
-// "use server";
-
-// import { revalidatePath } from 'next/cache';
-// import connectToDatabase from '@/lib/mongodb';
-// import Hero from '@/models/Hero';
-// // You could add a server-side check here to ensure the caller is a SuperAdmin for extra security
-
-// export async function updateHeroContent(heroSlug: string, formData: FormData) {
-//   try {
-//     await connectToDatabase();
-
-//     const heroData = {
-//       introduction: formData.get('introduction') as string,
-//       generalStrategy: formData.get('generalStrategy') as string,
-//       featuredWeapons: formData.getAll('featuredWeapons').filter(Boolean) as string[],
-//       featuredEquipment: formData.getAll('featuredEquipment').filter(Boolean) as string[],
-//       featuredAttacks: formData.getAll('featuredAttacks').filter(Boolean) as string[],
-//       featuredNonAttacks: formData.getAll('featuredNonAttacks').filter(Boolean) as string[],
-//       supportingCards: formData.getAll('supportingCards').filter(Boolean) as string[],
-//     };
-
-//     await Hero.findOneAndUpdate({ heroSlug }, heroData, { upsert: true });
-
-//     // Revalidate the public hero page so changes are visible immediately
-//     revalidatePath(`/heroes/${heroSlug}`);
-//     // Also revalidate the admin dashboard to update the "Content exists" status
-//     revalidatePath('/admin/heroes');
-    
-//     return { success: true, message: 'Hero content saved!' };
-//   } catch (error) {
-//     const message = error instanceof Error ? error.message : "Unknown error";
-//     return { success: false, message: `Failed to save: ${message}` };
-//   }
-// }

@@ -1,192 +1,105 @@
-# FaB Bazaar - Trading Card Platform Overview
+# FaB Bazaar — Project Overview
 
-## Project Description
-FaB Bazaar is a Next.js-based trading card platform specifically designed for Flesh and Blood (FaB) trading cards. It allows users to manage their card collections, create want lists, find trading partners, and facilitate secure trades.
+FaB Bazaar is a web platform for players and collectors of the Flesh and Blood
+trading card game: track a collection in binders, keep a wants list, build and
+analyze decks, follow card prices, and find people to trade with.
 
-## Tech Stack
-- **Framework**: Next.js 15 with App Router
-- **Database**: MongoDB with Mongoose ODM
-- **Authentication**: NextAuth.js with Discord OAuth + custom JWT
-- **Styling**: Tailwind CSS with shadcn/ui components
-- **Language**: TypeScript
-- **Deployment**: Vercel (based on environment variables)
+This page is the map. For setup, see [`CONTRIBUTING.md`](./CONTRIBUTING.md); for
+the conventions and gotchas you need before changing code, see
+[`CLAUDE.md`](./CLAUDE.md) (and the `CLAUDE.md` files inside individual
+directories).
 
-## Key Features
-1. **User Authentication**: Discord OAuth + custom email/password
-2. **Card Management**: Add cards to binder, create want lists
-3. **Trading System**: Find matches, create trade agreements
-4. **Marketplace**: Browse and create listings
-5. **Admin Panel**: Card import, metadata management
-6. **Real-time Features**: Notifications, trade updates
+## Tech stack
 
-## Project Structure
+| Part | What we use |
+|---|---|
+| Web app | Next.js 15 (App Router), React 19, TypeScript |
+| Styling | Tailwind CSS with shadcn/ui (Radix) components |
+| Database | PostgreSQL, accessed through Drizzle ORM |
+| Cache | Redis (optional locally — every use falls back to the database or to memory) |
+| Sign-in | NextAuth (Discord), plus bot, MCP and OAuth 2.1 tokens for API clients |
+| Card images | Cloudflare Images |
+| Price and card data | A nightly Python pipeline (DuckDB for analytics) |
+| Embeddable widgets | Lit web components (`web-components/`) |
+| Tests | Vitest (unit and database integration), Playwright (end to end) |
+| Hosting | Docker Compose on a single server, behind Caddy |
 
-### Core Directories
-\`\`\`
-app/                    # Next.js App Router pages
-├── api/               # API routes
-├── auth/              # Authentication pages
-├── admin/             # Admin panel pages
-├── (main pages)/      # Trading, marketplace, profile pages
-components/            # Reusable React components
-├── ui/               # shadcn/ui base components
-├── (feature)/        # Feature-specific components
-contexts/             # React contexts (Auth, Cookies)
-lib/                  # Utility libraries and services
-models/               # MongoDB/Mongoose models
-hooks/                # Custom React hooks
-types/                # TypeScript type definitions
-public/               # Static assets
-scripts/              # Database migration/utility scripts
-\`\`\`
+There is no MongoDB. It was removed in March 2026; a few data shapes from that
+era remain on purpose (24-character ids on older users and articles, `_id` in
+some responses).
 
-## Available Models (MongoDB/Mongoose)
-\`\`\`typescript
-// Import paths for models
-import User from "@/models/User"
-import Binder from "@/models/Binder" 
-import WantsList from "@/models/WantsList"
-import Listing from "@/models/Listing"
-import Agreement from "@/models/Agreement"
-import Message from "@/models/Message"
-import Offer from "@/models/Offer"
-import CardMetadata from "@/models/CardMetadata"
-\`\`\`
+## What the app does
 
-## Key Libraries and Services
+- **Collection** — binders of cards with quantities, trade flags and values;
+  a wants list; a card scanner that reads card names from a photo in the browser.
+- **Decks** — a deck builder with legality checks, statistics, matchup plans,
+  price breakdowns, Talishar import/export and game results.
+- **Card search** — filterable search across every printing (`/opt`), with a
+  shorthand query syntax and curated "facet" tags.
+- **Prices** — daily price updates, movers, and value totals. `tcg_low` is the
+  price shown everywhere unless a view names another one.
+- **Community** — public profiles, "who has / who wants" trade matching, stores
+  and events, articles and guides, curated starter kits, reference "Decks to Beat".
+- **Integrations** — a Discord bot, an MCP server for AI assistants, and a
+  hosted AI chat (Volzar).
 
-### Database Connection
-\`\`\`typescript
-import connectToDatabase from "@/lib/mongodb"
-// Always call before database operations
-\`\`\`
+## Repository layout
 
-### Authentication
-\`\`\`typescript
-import { auth } from "@/auth"
-import { getServerSession } from "@/lib/session"
-// For server-side auth checks
-\`\`\`
+```
+app/              Next.js routes: pages and API handlers (app/api)
+components/       React components (components/ui = shared base components)
+hooks/            React hooks
+contexts/         React contexts (auth, cookie consent, dark mode)
+lib/              Business logic
+  services/       The service layer — the ONLY place that talks to the database
+  postgres/       Schema (Drizzle) and hand-written SQL migrations
+  client/         Typed browser-side wrappers around the API
+  fab-constants/  Card metadata: sets, rarities, foilings, heroes, classes
+  deck/, search/, pricing/, scan/, …   Pure logic per feature, mostly unit-tested
+pipeline/         Nightly Python pipeline (card data, prices, images)
+web-components/   Lit components bundled to public/wc/ for embeds and articles
+scripts/          One-off and maintenance scripts
+seeds/            Card data used to seed a fresh local database
+e2e/              Playwright specs
+public/           Static assets
+```
 
-### Metadata Service (Client-side)
-\`\`\`typescript
-import { 
-  fetchMetadata, 
-  getSetName, 
-  getEditionInfo, 
-  getFoilingInfo, 
-  getRarityInfo 
-} from "@/lib/metadata-service"
-// For card metadata (sets, rarities, foilings, etc.)
-\`\`\`
+## How the pieces fit
 
-### Client-side Stores
-\`\`\`typescript
-import { useListingsStore } from "@/lib/listings-store"
-import { useAgreementsStore } from "@/lib/agreements-store"
-// Zustand stores for client state management
-\`\`\`
+```
+Browser ──> Next.js pages ──> lib/client ──> app/api routes ──> lib/services ──> PostgreSQL
+                                                   │
+Discord bot, MCP clients, OAuth apps ──────────────┘
 
-## Available UI Components (shadcn/ui)
-All components are available from `@/components/ui/`:
-- Button, Card, Dialog, Input, Label, Select, Textarea
-- Table, Tabs, Toast, Tooltip, Avatar, Badge
-- Alert, AlertDialog, Accordion, Checkbox, Switch
-- Dropdown, Popover, Sheet, Skeleton, Progress
-- And many more...
+Nightly: card feed + price sources ──> pipeline/ (Python, DuckDB) ──> PostgreSQL
+```
 
-## Custom Components
-Key reusable components in `/components/`:
-- `CardDisplay` - Shows card information with metadata
-- `RarityBadge`, `FoilingBadge` - Card attribute displays  
-- `TradeAgreement` - Trade management interface
-- `SearchInput`, `QuickSearch` - Card search functionality
-- `CountrySelector`, `StateSelector` - Location inputs
-- `ExportDataDialog` - Data export functionality
+- **Pages never query the database.** They call API routes, usually through the
+  typed wrappers in `lib/client`.
+- **API routes authenticate, validate and delegate.** Every route goes through
+  the shared multi-auth helper and then calls a service from `@/lib/services`.
+  Responses are `{ success: true, data }` or `{ error }`.
+- **Services own the SQL.** Each one has a contract in `lib/services/contracts`
+  and a PostgreSQL implementation in `lib/services/postgres`.
+- **The pipeline owns card and price data.** It rebuilds printings and prices
+  every night, so fixes to that data belong in the pipeline (or in the
+  override tables it reads), not in one-off database edits.
+- **Analytics stay out of the app.** The pipeline computes signals in DuckDB and
+  writes small result tables back to PostgreSQL; the app only reads those.
 
-## Authentication Flow
-1. **Discord OAuth**: Primary authentication method
-2. **Custom Auth**: Email/password with encrypted storage
-3. **Session Management**: JWT tokens with secure cookies
-4. **Profile Completion**: New users complete profile after OAuth
+## Working on it
 
-## Card Data Structure
-Cards have these key properties:
-- `name`, `set`, `edition`, `foiling`, `rarity`
-- `artVariation`, `pitch` (for game mechanics)
-- `imageUrl`, `printingId` (unique identifier)
-- Metadata is fetched from `/api/metadata` endpoints
+- **Run it locally:** `bash dev-setup.sh`, then `npm run dev`
+  ([`CONTRIBUTING.md`](./CONTRIBUTING.md), [`DOCKER.md`](./DOCKER.md)).
+- **Tests:** `npx vitest run` for unit and integration tests (integration tests
+  need the local database); Playwright specs live in `e2e/`.
+- **Database changes:** write a numbered SQL file in `lib/postgres/migrations/`
+  by hand. Do not run the Drizzle generator — `CLAUDE.md` explains why.
+- **Secrets:** only through environment variables. `.env.example` lists them;
+  never commit real values.
 
-## API Patterns
-- **Authentication**: Most API routes require authentication
-- **Error Handling**: Consistent error response format
-- **Validation**: Zod schemas for request validation
-- **Database**: Always connect before operations
+## Licensing
 
-## Environment Variables
-Key environment variables (already configured):
-- `MONGODB_URI`, `MONGODB_DB` - Database connection
-- `JWT_SECRET` - Token signing
-- `NEXTAUTH_SECRET`, `NEXTAUTH_URL` - NextAuth config
-- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` - OAuth
-- Various admin and webhook secrets
-
-## Common Patterns
-
-### API Route Structure
-\`\`\`typescript
-import { NextRequest, NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import { getServerSession } from "@/lib/session"
-
-export async function GET(request: NextRequest) {
-  try {
-    await connectToDatabase()
-    const session = await getServerSession()
-    
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-    
-    // Your logic here
-    
-    return NextResponse.json({ success: true, data: result })
-  } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
-\`\`\`
-
-### Component with Metadata
-\`\`\`typescript
-'use client'
-import { useEffect, useState } from 'react'
-import { getSetName, getRarityInfo } from '@/lib/metadata-service'
-
-export function CardComponent({ card }) {
-  const [setName, setSetName] = useState('')
-  const [rarityInfo, setRarityInfo] = useState({ name: '', displayClass: '' })
-  
-  useEffect(() => {
-    getSetName(card.set).then(setSetName)
-    getRarityInfo(card.rarity).then(setRarityInfo)
-  }, [card])
-  
-  // Component JSX
-}
-\`\`\`
-
-## Important Notes
-- **File Locking**: Many core files are locked and cannot be modified
-- **Authentication**: Working correctly, don't modify auth middleware
-- **Database**: MongoDB with encrypted email storage
-- **Responsive Design**: All components should be mobile-friendly
-- **Error Handling**: Always include proper error boundaries
-- **Type Safety**: Use TypeScript interfaces for all data structures
-
-## Debugging
-- Debug routes available under `/debug/` for development
-- Console logging is extensive for troubleshooting
-- Auth debug component available for session testing
-
-This overview should be referenced when making changes to ensure consistency with the existing architecture and patterns.
+Source code is licensed under the GNU AGPL v3 ([`LICENSE`](./LICENSE)).
+Community-contributed card data has its own terms in
+[`DATA-LICENSE.md`](./DATA-LICENSE.md).

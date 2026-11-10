@@ -1,5 +1,5 @@
 // lib/trade-analysis/data-fetcher.ts
-// NOTE: This file now uses the service layer - no direct MongoDB access.
+// NOTE: This file uses the service layer - no direct database access.
 
 import { wantsService, inventoryService } from '@/lib/services';
 import { Card, WantsList as WantsListType } from './types';

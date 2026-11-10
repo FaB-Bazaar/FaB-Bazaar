@@ -4,7 +4,7 @@
  * This interface defines all binder-related data access operations.
  * Implementations must handle database connections and error handling.
  *
- * This is a DATABASE-AGNOSTIC contract - no MongoDB-specific types should appear here.
+ * This is a DATABASE-AGNOSTIC contract - no database-specific types should appear here.
  */
 
 import type { AsyncResult, PaginationOptions } from './common';
@@ -46,7 +46,7 @@ export interface BinderDTO {
   createdAt: Date;
   updatedAt: Date;
 
-  // Binder stats fields (calculated by MongoBinderStatsService)
+  // Binder stats fields (calculated by the binder service)
   totalQuantity?: number;
   quantityForTrade?: number;
   quantityNotForTrade?: number;
@@ -646,7 +646,7 @@ export interface BinderStatsInfo {
  * Binder Service Interface
  *
  * This contract defines the methods for binder data access.
- * Any implementation (MongoDB, PostgreSQL, Supabase, etc.) must implement these methods.
+ * Any implementation must provide these methods (today: PostgreSQL).
  *
  * Phase 2A: Basic CRUD operations ✅
  * Phase 2B: Card management operations (in progress)
@@ -1121,7 +1121,7 @@ export interface IBinderService {
    * Find binder by ID, slug, or discordExternalId
    * Consolidates various binder lookup patterns into a single method
    *
-   * @param identifier - Can be MongoDB ObjectId, slug, or discordExternalId
+   * @param identifier - Can be the binder id, slug, or discordExternalId
    * @param userId - Optional user ID for ownership filtering
    * @returns Result containing binder or null if not found
    *

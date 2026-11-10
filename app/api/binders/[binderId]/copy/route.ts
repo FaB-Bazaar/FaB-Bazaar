@@ -110,7 +110,7 @@ export async function POST(
   } catch (error) {
     console.error('Error copying binder:', error);
 
-    // Handle specific MongoDB errors
+    // A slug/name collision surfaces as a duplicate-key error
     if (error instanceof Error) {
       if (error.message.includes('duplicate key')) {
         return NextResponse.json({

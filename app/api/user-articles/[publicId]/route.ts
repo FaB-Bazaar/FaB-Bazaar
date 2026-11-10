@@ -108,7 +108,7 @@ export async function PATCH(
       );
     }
 
-    // Get article to verify existence and get MongoDB _id
+    // Get article to verify existence and get its internal id
     const articleResult = await articleService.getArticleByPublicId(publicId);
 
     if (!articleResult.success) {
@@ -205,7 +205,7 @@ export async function DELETE(
 
     const { publicId } = await params;
 
-    // Get article to verify existence and get MongoDB _id
+    // Get article to verify existence and get its internal id
     const articleResult = await articleService.getArticleByPublicId(publicId);
 
     if (!articleResult.success) {

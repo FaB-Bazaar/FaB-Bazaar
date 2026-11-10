@@ -17,7 +17,7 @@ export default async function EditArticlePage({ params }: { params: Promise<{ ar
 
   const article = result.data;
 
-  // Create a fully serialized plain object to avoid any Mongoose/BSON issues
+  // Create a fully serialized plain object (safe to pass to a client component)
   const plainArticle = {
     _id: String(article._id),
     title: article.title || '',

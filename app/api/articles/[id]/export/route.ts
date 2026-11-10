@@ -7,7 +7,7 @@ import { articleService } from '@/lib/services';
  * GET /api/articles/:id/export
  * Export an article in a clean, portable JSON format
  *
- * Strips MongoDB-specific fields (_id, __v, createdAt, updatedAt)
+ * Strips internal fields (_id, __v, createdAt, updatedAt)
  * Returns clean JSON ready for import into another environment
  *
  * Authentication: Session (admin only)

@@ -6,7 +6,7 @@
  *
  * This eliminates ~100 lines of duplicated auth code per route file.
  *
- * NOTE: This file now uses the service layer - no direct MongoDB access.
+ * NOTE: This file uses the service layer - no direct database access.
  */
 
 import { NextRequest } from 'next/server';

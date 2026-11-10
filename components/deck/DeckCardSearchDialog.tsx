@@ -102,7 +102,7 @@ export default function DeckCardSearchDialog({
   }, [currentDeck]);
 
   // Auto-populate search when heroNameFilter is provided
-  // Use first name only (before comma) to avoid MongoDB regex issues with long names
+  // Use first name only (before comma) to keep the name search short for long names
   useEffect(() => {
     if (open && heroNameFilter && targetCategory === 'hero') {
       const shortName = heroNameFilter.includes(',')

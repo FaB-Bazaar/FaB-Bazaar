@@ -279,14 +279,14 @@ export interface IArticleService {
 
   /**
    * Get an article by ID or slug
-   * @param idOrSlug - MongoDB ObjectId or slug
+   * @param idOrSlug - Internal id or slug
    * @returns The article or null if not found
    */
   getArticle(idOrSlug: string): AsyncResult<ArticleDTO | null>;
 
   /**
-   * Get an article by MongoDB ID
-   * @param id - MongoDB ObjectId
+   * Get an article by its internal id
+   * @param id - Internal article id
    * @returns The article or null if not found
    */
   getArticleById(id: string): AsyncResult<ArticleDTO | null>;
@@ -439,7 +439,7 @@ export interface IArticleService {
   /**
    * Export an article to clean JSON format
    * @param idOrSlug - Article ID or slug
-   * @returns Export data without MongoDB-specific fields
+   * @returns Export data without internal fields
    */
   exportArticle(idOrSlug: string): AsyncResult<ArticleExportDTO>;
 

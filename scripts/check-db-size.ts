@@ -144,7 +144,7 @@ async function checkDatabaseSize() {
     console.log('   - Deck Cards: ~0.9 per user');
     console.log('');
     console.log('3. Normalized structure benefits:');
-    console.log('   - No data duplication (vs MongoDB embedded documents)');
+    console.log('   - No data duplication');
     console.log('   - Efficient indexing on foreign keys');
     console.log('   - Updates to card metadata don\'t require updating user data');
     console.log('');

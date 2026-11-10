@@ -181,7 +181,7 @@ function buildTalisharIdentifier(printing: any, fallbackId: string): string {
   const cardName = printing.printingDetails?.name || '';
   const baseIdentifier = toTalisharIdentifier(cardName) || fallbackId;
 
-  // Handle pitch value - can be direct number or MongoDB $numberInt wrapper
+  // Handle pitch value - can be a direct number or the legacy $numberInt wrapper
   const pitchValue = printing.printingDetails?.pitch;
   let pitch: number | null = null;
 

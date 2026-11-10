@@ -1,6 +1,6 @@
 // lib/fab-printings-search.ts
 // Compatibility shim — delegates to printingsService (PostgreSQL).
-// Previously contained direct MongoDB/Atlas Search implementation (~2000 lines).
+// Previously contained a direct database search implementation (~2000 lines).
 // Migrated 2026-03-09: all query logic is now handled by PostgresPrintingsService.
 
 import { printingsService } from '@/lib/services';

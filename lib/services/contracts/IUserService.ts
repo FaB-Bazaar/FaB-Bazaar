@@ -4,7 +4,7 @@
  * This interface defines all user-related data access operations.
  * Implementations must handle database connections and error handling.
  *
- * This is a DATABASE-AGNOSTIC contract - no MongoDB-specific types should appear here.
+ * This is a DATABASE-AGNOSTIC contract - no database-specific types should appear here.
  */
 
 import type { AsyncResult } from './common';
@@ -209,7 +209,7 @@ export interface MetafyCommunityDTO {
  * User Service Interface
  *
  * This contract defines the methods for user data access.
- * Any implementation (MongoDB, PostgreSQL, Supabase, etc.) must implement these methods.
+ * Any implementation must provide these methods (today: PostgreSQL).
  *
  * NOTE: Starting with just one method (getLocation) for the initial implementation.
  * More methods will be added as we migrate additional routes.
@@ -312,7 +312,7 @@ export interface IUserService {
   /**
    * Find user by ID
    *
-   * @param userId - The user's MongoDB ObjectId as string
+   * @param userId - The user's id
    * @returns Result containing user data or null if not found
    */
   findById(userId: string): AsyncResult<UserAuthDTO | null>;
@@ -509,7 +509,7 @@ export interface IUserService {
    * - All MCP clients
    * - All hero pages
    *
-   * Uses MongoDB transactions to ensure all-or-nothing deletion.
+   * Runs in one transaction so the deletion is all-or-nothing.
    * If any deletion fails, the entire operation rolls back.
    *
    * Used by /user/delete-account endpoint.

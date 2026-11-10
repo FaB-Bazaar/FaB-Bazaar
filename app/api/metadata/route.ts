@@ -1,7 +1,7 @@
 /**
  * Metadata API Route - Returns static card metadata
  *
- * MIGRATED: Now uses @/lib/fab-constants instead of MongoDB
+ * Served from @/lib/fab-constants (no database read)
  * No database connection required - all data is TypeScript constants
  */
 

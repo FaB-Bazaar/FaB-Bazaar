@@ -31,7 +31,6 @@ export async function updateUserFlag(userId: string, field: string, value: boole
     }
     // --- END SECURITY CHECK ---
 
-
     // --- 2. UPDATE USER FIELD VIA SERVICE ---
     // Using the service layer to update the field with dot notation support
     const updateResult = await userService.updateUserField(userId, field, value);
@@ -54,30 +53,3 @@ export async function updateUserFlag(userId: string, field: string, value: boole
     return { success: false, message: `Failed to update user: ${message}` };
   }
 }
-// "use server";
-
-// import connectToDatabase from '@/lib/mongodb';
-// import User from '@/models/User';
-// import { revalidatePath } from 'next/cache';
-
-// // Renamed to be more generic, as it now handles more than just roles.
-// export async function updateUserFlag(userId: string, field: string, value: boolean) {
-//   try {
-//     await connectToDatabase();
-    
-//     // Using a dynamic key with $set allows us to update any field,
-//     // including nested ones using dot notation like "roles.isAdmin".
-//     // This is powerful and secure.
-//     await User.updateOne(
-//       { _id: userId },
-//       { $set: { [field]: value } }
-//     );
-
-//     revalidatePath('/admin/user-access');
-//     return { success: true };
-//   } catch (error) {
-//     console.error("Error updating user flag:", error);
-//     const message = error instanceof Error ? error.message : "An unknown error occurred.";
-//     return { success: false, message };
-//   }
-// }

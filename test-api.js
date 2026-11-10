@@ -15,9 +15,9 @@ const SESSION_COOKIE = 'YOUR_SESSION_COOKIE_HERE'; // Replace with your actual s
 
 // Test configuration
 const TEST_CONFIG = {
-  cardId: '507f1f77bcf86cd799439011', // Example MongoDB ObjectId
+  cardId: '507f1f77bcf86cd799439011', // Example legacy 24-hex id
   printingId: 'printing-123',
-  otherUserId: '507f1f77bcf86cd799439012', // Example MongoDB ObjectId
+  otherUserId: '507f1f77bcf86cd799439012', // Example legacy 24-hex id
 };
 
 // Helper function to make requests

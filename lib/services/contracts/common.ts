@@ -55,7 +55,7 @@ export interface QueryOptions {
    * Database transaction session
    * Used for atomic operations across multiple queries
    */
-  session?: any; // Mongoose ClientSession or equivalent
+  session?: any; // a database transaction/session handle
 }
 
 /**

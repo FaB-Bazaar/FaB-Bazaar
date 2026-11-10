@@ -9,7 +9,6 @@
  * - Refresh token grant
  * - Dynamic client registration
  *
- * Migrated from MongoOAuthFlowService on 2026-02-15
  */
 
 import { db } from '@/lib/postgres/db';

@@ -164,7 +164,7 @@ Workflow: search_printings → pick printing_id(s) → add_to_binder.
         }))
       };
       
-      // STEP 3: Make the cards API call using the actual MongoDB ObjectId
+      // STEP 3: Make the cards API call using the binder's internal id
       const cardsEndpoint = `${API_BASE_URL}/api/binders/${actualBinderId}/cards`;
 
       const response = await mcpFetch(cardsEndpoint, {

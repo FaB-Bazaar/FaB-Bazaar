@@ -6,7 +6,6 @@
  * - Bearer tokens (simple random tokens)
  * - OAuth 2.1 tokens (JWT-based)
  *
- * Migrated from MongoAuthTokenService on 2026-02-15
  */
 
 import { db } from '@/lib/postgres/db';

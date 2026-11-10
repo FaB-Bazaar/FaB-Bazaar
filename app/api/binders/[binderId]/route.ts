@@ -115,7 +115,6 @@ export async function PUT(
     }
 
     // PostgreSQL: No denormalization needed - data stays normalized, use JOINs when querying
-    // MongoDB denormalization sync removed - not applicable for PostgreSQL architecture
 
     return NextResponse.json({
       success: true,

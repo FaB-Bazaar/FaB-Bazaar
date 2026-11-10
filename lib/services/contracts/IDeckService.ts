@@ -722,7 +722,7 @@ export interface IDeckService {
    * Find a deck by publicId
    *
    * The primary lookup method for external access. Uses the globally unique
-   * publicId (nanoid) rather than MongoDB _id.
+   * publicId (nanoid) rather than the internal id.
    *
    * @param publicId - The deck's public identifier (21-char nanoid)
    * @param userId - Optional user ID for ownership verification

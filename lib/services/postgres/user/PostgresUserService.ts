@@ -875,7 +875,7 @@ export class PostgresUserService implements IUserService {
    */
   async updateUserField(userId: string, field: string, value: any): AsyncResult<void> {
     try {
-      // Strip MongoDB-style dot notation (e.g. 'roles.isCurator' → 'isCurator')
+      // Strip dot notation from legacy callers (e.g. 'roles.isCurator' → 'isCurator')
       const columnKey = field.includes('.') ? field.split('.')[1] : field;
       const updateData: any = { [columnKey]: value, updatedAt: new Date() };
 

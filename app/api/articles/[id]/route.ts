@@ -65,7 +65,7 @@ export async function GET(
 
     const { id } = await params;
 
-    // Enforce publicId-only (or MongoDB ObjectId for internal admin operations)
+    // Enforce publicId-only (or a legacy 24-hex internal id for admin operations)
     // Slug parameter no longer supported as of 2026-02
     const result = isLegacyHexId(id)
       ? await articleService.getArticleById(id)
@@ -129,7 +129,7 @@ export async function PATCH(
     const { id } = await params;
 
     // Get article to check ownership using service layer
-    // Enforce publicId-only (or MongoDB ObjectId for internal admin operations)
+    // Enforce publicId-only (or a legacy 24-hex internal id for admin operations)
     const articleResult = isLegacyHexId(id)
       ? await articleService.getArticleById(id)
       : await articleService.getArticleByPublicId(id);

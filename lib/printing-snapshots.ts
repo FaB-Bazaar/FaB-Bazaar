@@ -1,5 +1,5 @@
 // lib/printing-snapshots.ts
-// NOTE: This file now uses the service layer - no direct MongoDB access.
+// NOTE: This file uses the service layer - no direct database access.
 // All functions delegate to printingsService and tradeService.
 
 import { printingsService, tradeService } from '@/lib/services';

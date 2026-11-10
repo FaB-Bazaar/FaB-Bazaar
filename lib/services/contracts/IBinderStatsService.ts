@@ -127,8 +127,8 @@ export interface BinderStatsTrackingResultDTO {
  * 2. High-value cards (M, L, F, V rarities) trigger immediate updates
  * 3. Other cards rely on background job to process dirty binders
  *
- * Performance optimization: Uses client-side aggregation instead of
- * MongoDB aggregation pipeline (tested 50% faster due to better index usage).
+ * Performance optimization: aggregates in application code instead of in
+ * the database (tested 50% faster due to better index usage).
  *
  * @example
  * ```typescript

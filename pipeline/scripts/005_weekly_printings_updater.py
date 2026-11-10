@@ -124,7 +124,7 @@ PRINTING_FIELDS: List[str] = [
     'fab_cube_printing_id',
 ]
 
-# Fields from the JSON that do not exist in PostgreSQL (MongoDB-only)
+# Fields from the JSON that do not exist in PostgreSQL (legacy feed-only fields)
 EXCLUDE_FIELDS = {'_id', 'printing_data', 'printing_card_id', 'set_name'}
 
 # Timestamp fields that may arrive as ISO strings from the JSON seed

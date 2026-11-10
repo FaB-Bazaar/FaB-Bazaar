@@ -32,7 +32,7 @@ const FORMAT_MAP: Record<string, string> = {
 
 /**
  * Maps pitch values to Talishar color names
- * MongoDB stores pitch as number or { $numberInt: "1" }
+ * Pitch is a number, or the legacy { $numberInt: "1" } wrapper on old rows
  */
 const PITCH_COLOR_MAP: Record<number, string> = {
   1: 'red',
@@ -58,7 +58,7 @@ function buildTalisharIdentifier(printing: any, fallbackId: string): string {
   const baseIdentifier =
     parts.map((p: string) => toTalisharIdentifier(p)).filter(Boolean).join('__') || fallbackId;
 
-  // Handle pitch value - can be direct number or MongoDB $numberInt wrapper
+  // Handle pitch value - can be a direct number or the legacy $numberInt wrapper
   const pitchValue = printing.printingDetails?.pitch;
   let pitch: number | null = null;
 

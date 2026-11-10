@@ -2,7 +2,6 @@
  * PostgreSQL implementation of OAuth Service
  *
  * Handles OAuth 2.1 client management for user API access.
- * Migrated from MongoOAuthService on 2026-02-15.
  */
 
 import { db } from '@/lib/postgres/db';

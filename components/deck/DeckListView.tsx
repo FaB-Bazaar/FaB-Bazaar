@@ -257,7 +257,7 @@ export default function DeckListView({
     };
 
     categoryPrintings.forEach((printing) => {
-      // Extract pitch value - handle MongoDB $numberInt wrapper
+      // Extract pitch value - handle the legacy $numberInt wrapper
       const pitchValue = printing.printingDetails?.pitch?.$numberInt || printing.printingDetails?.pitch;
 
       let pitchKey = 'no-pitch';

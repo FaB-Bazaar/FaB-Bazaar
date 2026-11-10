@@ -1,6 +1,3 @@
-// import mongoose from 'mongoose';
-// import connectToDatabase from '@/lib/mongodb';
-
 // Original function - keep for backwards compatibility
 export function recalculateRarityCounts(cards: any[]) {
   const counts = { C: 0, R: 0, S: 0, M: 0, L: 0, F: 0, T: 0, B: 0, V: 0, P: 0 }
@@ -13,4 +10,3 @@ export function recalculateRarityCounts(cards: any[]) {
   }
   return counts
 }
-

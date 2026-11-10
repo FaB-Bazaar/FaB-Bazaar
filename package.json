@@ -29,7 +29,6 @@
     "db:dump-seed": "bash scripts/dump-seed-data.sh",
     "test:postgres": "tsx --env-file=.env.local scripts/test-postgres.ts",
     "test:cards-printings": "tsx --env-file=.env.local scripts/test-cards-printings.ts",
-    "migrate:mongo-to-postgres": "tsx --env-file=.env.local scripts/migrate-mongo-to-postgres.ts",
     "ga:events": "tsx --env-file=.env.local scripts/ga-report.ts events",
     "ga:pages": "tsx --env-file=.env.local scripts/ga-report.ts pages",
     "ga:sources": "tsx --env-file=.env.local scripts/ga-report.ts sources",

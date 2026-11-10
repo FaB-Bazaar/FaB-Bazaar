@@ -4,7 +4,7 @@
 Transforms cards JSON with printings arrays into individual printing documents.
 
 Input: Cards JSON with nested printings arrays
-Output: Individual printing documents ready for MongoDB import
+Output: Individual printing documents (JSON Lines) that step 005 loads into PostgreSQL
 
 # Basic usage with your specific file
 python cards_to_printings_transformer.py /Users/eko/cards_to_printings/data_prep_for_db/api_enhanced_json/my_enhanced_cards_with_tcg_prices.json
@@ -340,8 +340,8 @@ class CardsToPrintingsTransformer:
         return found_keywords
 
     def create_content_hash(self, printing_data):
-        """Create a content hash for the printing document (excluding timestamps and MongoDB-specific fields)"""
-        # Create a copy without timestamp and MongoDB fields
+        """Create a content hash for the printing document (excluding timestamps and internal fields)"""
+        # Create a copy without timestamp and internal fields
         hash_data = printing_data.copy()
         hash_data.pop('_id', None)
         hash_data.pop('created_at', None)
@@ -590,7 +590,7 @@ class CardsToPrintingsTransformer:
             'll_restricted': bool(card.get('ll_restricted', False)),
             'searchable_text': self.create_searchable_text(card),
             'played_horizontally': bool(card.get('played_horizontally', False)),
-            'created_at': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # MongoDB format
+            'created_at': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # millisecond precision
         }
 
         # Ban/suspend/restrict state is NOT sourced here anymore. The banned_cards
@@ -767,7 +767,7 @@ class CardsToPrintingsTransformer:
         
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
-                # Save as JSON Lines format (one JSON object per line) for easier MongoDB import
+                # Save as JSON Lines format (one JSON object per line) so the updater can stream it
                 for printing in all_printings:
                     json.dump(printing, f, default=str, ensure_ascii=False)
                     f.write('\n')
@@ -820,9 +820,7 @@ class CardsToPrintingsTransformer:
             
             print(f"\n🎯 TRANSFORMATION COMPLETED SUCCESSFULLY!")
             print(f"Output file: {output_file}")
-            print("✅ Ready for MongoDB import using mongoimport")
-            print(f"\n📝 To import into MongoDB:")
-            print(f"   mongoimport --db your_db --collection printings --file {output_file}")
+            print("✅ Ready for the printings updater (step 005 loads it into PostgreSQL)")
             
             return True
         else:

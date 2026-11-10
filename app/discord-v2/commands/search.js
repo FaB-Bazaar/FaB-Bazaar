@@ -142,17 +142,7 @@ export async function handleSearchCommand(body, options) {
     console.log('[Discord Search] ===== API RESPONSE QUERY ANALYSIS =====');
     console.log('[Discord Search] Response success:', data.success);
     console.log('[Discord Search] Debug filters received:', JSON.stringify(data.debug?.receivedFilters));
-    console.log('[Discord Search] MongoDB query generated:', JSON.stringify(data.debug?.mongoQuery, null, 2));
     console.log('[Discord Search] Query execution time:', data.debug?.executionTime, 'ms');
-    
-    if (data.debug?.mongoQuery?.name) {
-      if (typeof data.debug.mongoQuery.name === 'string') {
-        console.log('[Discord Search] 🎯 EXACT MATCH for:', data.debug.mongoQuery.name);
-      } else {
-        console.log('[Discord Search] 🎯 Regex pattern:', data.debug.mongoQuery.name.$regex);
-        console.log('[Discord Search] 🎯 Regex options:', data.debug.mongoQuery.name.$options);
-      }
-    }
     
     console.log('[Discord Search] Total printings found:', data.data?.printings?.length || 0);
     console.log('[Discord Search] =======================================');

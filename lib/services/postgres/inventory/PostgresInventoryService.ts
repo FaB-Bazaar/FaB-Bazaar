@@ -466,7 +466,7 @@ export class PostgresInventoryService implements IInventoryService {
 
   /**
    * Group inventory items into 3-level structure: owners → binders → cards
-   * This replaces MongoDB's aggregation pipeline with in-memory grouping
+   * Groups in memory (one query, then grouped in code)
    */
   private groupWhoHasResults(items: any[]): {
     owners: OwnerDTO[];
