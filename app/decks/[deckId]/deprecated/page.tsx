@@ -242,7 +242,7 @@ export default function DeckEditorPage() {
 
   // Add / remove / move / quantity for saved deck cards — shared with the rail
   // page. `optimisticDeck` shows a quantity change before the server answers.
-  const mutations = useDeckMutations({ deckId, deck: state.deck, refreshDeck: handlers.refreshDeck });
+  const mutations = useDeckMutations({ deckId, deck: state.deck, refreshDeck: handlers.refreshDeck, applyDeck: handlers.applyDeck, refreshOwnership: handlers.refreshOwnership });
   const optimisticDeck = mutations.deck;
 
   // Binder state

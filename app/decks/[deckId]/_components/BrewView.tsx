@@ -26,6 +26,7 @@ import {
 } from "@/lib/deck/brew";
 import type { Lens } from "@/lib/deck/deck-table";
 import { RulesText } from "@/components/cards/CardDetailsLightbox";
+import { BREW_TILE_SIZES, BREW_TILE_SIZE_KEY, DEFAULT_BREW_TILE_SIZE, parseBrewTileSize } from "@/lib/deck/brew-tile-size";
 
 /** id of the page's right-hand column the details panel renders into. */
 export const BREW_DETAILS_SLOT = "brew-details-slot";
@@ -46,7 +47,10 @@ type Card = CardResultWithCount;
 const cardLabel = (c: Card) => (c.pitch && PITCH_NAME[c.pitch] ? `${c.name} (${PITCH_NAME[c.pitch]})` : c.name);
 const printingOf = (c: Card) => c.printings[0] as any;
 
-export default function BrewView({ deck, active, facets, kitId, onKitChange, canEdit, onAdd, onRemoveOne }: {
+export default function BrewView({ visible = true, deck, active, facets, kitId, onKitChange, canEdit, onAdd, onRemoveOne }: {
+  /** False while another deck view shows: Brew stays mounted (so coming back is
+   *  instant) but must do nothing — no searches, no details column. */
+  visible?: boolean;
   deck: DeckDTO;
   active: Lens | null;
   facets: BrewFacets;
@@ -88,7 +92,7 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
 
   // A typed name searches every legal card; the kit and panel filters only narrow browsing.
   const pool = brewPool(debouncedName, { lens: active, facets, kit });
-  const filters = useMemo(
+  const liveFilters = useMemo(
     () => ({
       ...buildDeckAddFilters(DEFAULT_OPT_STATE, debouncedName, { hero, deckFormat: deck.format, targetCategory: "maindeck", heroName }),
       ...pool.filters,
@@ -96,6 +100,11 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hero is keyed by content
     [heroKey, heroName, deck.format, active, facets, kit, debouncedName],
   );
+  // The search follows the panel only while Brew is on screen: a row clicked
+  // in the Cards view must not run a Brew search in the background. Whatever
+  // changed meanwhile is picked up when Brew shows again.
+  const [filters, setFilters] = useState(liveFilters);
+  useEffect(() => { if (visible) setFilters(liveFilters); }, [visible, liveFilters]);
   const hasLegality = Object.keys(filters).length > 0;
 
   const search = useCardSearch({
@@ -115,6 +124,17 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
   const allLoaded = useMemo(() => groupSearchPrintingsToCards(search.results as any), [search.results]);
   const cards = useMemo(() => (pool.hideInDeck ? notInDeck(allLoaded, deck, kept) : allLoaded), [pool.hideInDeck, allLoaded, deck, kept]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Card size (S / M / L / XL) — remembered per browser.
+  const [sizeIdx, setSizeIdx] = useState(DEFAULT_BREW_TILE_SIZE);
+  useEffect(() => {
+    try { setSizeIdx(parseBrewTileSize(localStorage.getItem(BREW_TILE_SIZE_KEY))); } catch { /* storage blocked — small */ }
+  }, []);
+  const chooseSize = (idx: number) => {
+    setSizeIdx(idx);
+    try { localStorage.setItem(BREW_TILE_SIZE_KEY, String(idx)); } catch { /* this visit only */ }
+  };
+  const tileWidth = BREW_TILE_SIZES[sizeIdx].width;
   // The details panel lives in the page's full-height right column (so its add
   // buttons sit near the top of the window, not below the card grid's header).
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -171,6 +191,25 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
           )}
         </div>
       )}
+        {/* Card size — plain text choices, the active one underlined (same idiom as the deck's layout picker). */}
+        <div role="group" aria-label="Card size" className="flex items-center gap-3">
+          <span className="font-semibold">Card size</span>
+          {BREW_TILE_SIZES.map((size, idx) => (
+            <button
+              key={size.label}
+              type="button"
+              aria-pressed={sizeIdx === idx}
+              aria-label={size.name}
+              title={size.name}
+              onClick={() => chooseSize(idx)}
+              className={`border-b-2 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${sizeIdx === idx
+                ? "border-gray-900 font-semibold text-gray-900 dark:border-white dark:text-white"
+                : "border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"}`}
+            >
+              {size.label}
+            </button>
+          ))}
+        </div>
       </div>
       <section aria-label={label} className="border border-gray-300 dark:border-gray-700">
         <div className="flex items-center justify-between border-b border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
@@ -202,6 +241,7 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
                 <BrewTile
                   key={c.unique_id}
                   card={c}
+                  width={tileWidth}
                   inDeck={deckCopiesByZone(deck, c.unique_id)}
                   selected={c.unique_id === selectedId}
                   canEdit={canEdit}
@@ -218,7 +258,7 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
         )}
       </section>
 
-      {selected && slot && createPortal(
+      {visible && selected && slot && createPortal(
         <BrewDetails
           card={selected}
           siblings={pitchSiblings(allLoaded, selected)}
@@ -234,8 +274,10 @@ export default function BrewView({ deck, active, facets, kitId, onKitChange, can
   );
 }
 
-function BrewTile({ card, inDeck, selected, canEdit, onOpen, onAdd, onUndo }: {
+function BrewTile({ card, width, inDeck, selected, canEdit, onOpen, onAdd, onUndo }: {
   card: Card;
+  /** Tile width in px (Card size). */
+  width: number;
   inDeck: ReturnType<typeof deckCopiesByZone>;
   selected: boolean;
   canEdit: boolean;
@@ -245,7 +287,7 @@ function BrewTile({ card, inDeck, selected, canEdit, onOpen, onAdd, onUndo }: {
 }) {
   const name = cardLabel(card);
   return (
-    <li className="group relative w-[120px]">
+    <li className="group relative max-w-full" style={{ width }}>
       <button
         type="button"
         aria-label={`Show details for ${name}`}
@@ -257,7 +299,9 @@ function BrewTile({ card, inDeck, selected, canEdit, onOpen, onAdd, onUndo }: {
         }}
         className={`block w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? "ring-2 ring-blue-600" : ""}`}
       >
-        <img src={printingOf(card)?.image_url || "/cardback.webp"} alt="" loading="lazy" className="w-full rounded-md" />
+        {/* The card's shape is reserved before the art arrives: a 0px-tall tile puts
+            every lazy image and the paging sentinel in the viewport at once. */}
+        <img src={printingOf(card)?.image_url || "/cardback.webp"} alt="" loading="lazy" decoding="async" className="w-full rounded-md" style={{ aspectRatio: "63/88" }} />
       </button>
       {/* Zone buttons on the art — the Cards view's overlay style (faint at rest,
           full on hover/focus; no transition). No remove: it isn't in the deck yet. */}

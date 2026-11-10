@@ -28,7 +28,7 @@ import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
 import { deckSizeLabel as formatDeckSizeLabel } from "@/lib/deck/deck-size-label";
-import { resolveDefaultDeckViewMode } from "@/lib/deck/deckViewMode";
+import { resolveDefaultDeckViewMode, type DeckViewMode } from "@/lib/deck/deckViewMode";
 import { pitchSplit, playableCount } from "@/lib/deck/deck-lens";
 import { cn } from "@/lib/utils";
 import FindPanel, { type Active } from "./_components/FindPanel";
@@ -90,7 +90,7 @@ function DeckV2Page() {
   const { state, handlers } = useDeckEditor(deckId);
   const deck = state.deck;
   // Add / remove / move / quantity — shared with the classic page.
-  const mutations = useDeckMutations({ deckId, deck, refreshDeck: handlers.refreshDeck });
+  const mutations = useDeckMutations({ deckId, deck, refreshDeck: handlers.refreshDeck, applyDeck: handlers.applyDeck, refreshOwnership: handlers.refreshOwnership });
 
   const canEdit = !!(user && deck && (deck.userId === user.id || (deck.coOwners ?? []).includes(user.id)));
   const [panel, setPanel] = useState<PanelId | null>("find");
@@ -162,7 +162,13 @@ function DeckV2Page() {
   // to the top). Every visit opens on Cards — by owner call, the pick is not
   // remembered (the /v2 trial's saved "deckV2View" key is ignored).
   const [view, setView] = useState<View>("cards");
-  const chooseView = (v: View) => setView(v);
+  // Brew is mounted on first use and then kept (hidden) while Table / Cards
+  // show, so coming back is instant — no second search or starter-kit fetch.
+  const [brewOpened, setBrewOpened] = useState(false);
+  const chooseView = (v: View) => {
+    if (v === "brew") setBrewOpened(true);
+    setView(v);
+  };
   // The card views only hear highlight events while mounted — replay the active
   // one when they appear (child listeners attach before this parent effect runs).
   useEffect(() => {
@@ -273,7 +279,7 @@ function DeckV2Page() {
 
   // Classic right rail (hover preview + owned progress) beside the card grid,
   // only in the grid's Tiles / Game modes.
-  const [gridMode, setGridMode] = useState<"list" | "tile" | "game">("tile");
+  const [gridMode, setGridMode] = useState<DeckViewMode>("tile");
   const [hoveredCard, setHoveredCard] = useState<ComponentProps<typeof DeckRightRail>["hoveredCard"]>(null);
   const railCounts = useMemo(() => {
     let owned = 0, total = 0;
@@ -570,8 +576,10 @@ function DeckV2Page() {
           {compareRatio && view !== "brew" && (
             <RatioCompare deck={deck} ratio={compareRatio} style={view === "table" ? "list" : "tiles"} onClose={() => setCompareId(null)} />
           )}
-          {view === "brew" ? (
+          {brewOpened && (
+            <div hidden={view !== "brew"}>
             <BrewView
+              visible={view === "brew"}
               deck={deck}
               active={active}
               facets={facets}
@@ -581,7 +589,9 @@ function DeckV2Page() {
               onAdd={async (printingId, zone, quantity) => { await mutations.add(printingId, zone, quantity); }}
               onRemoveOne={(printingId, zone) => bumpQty(printingId, zone, -1)}
             />
-          ) : view === "table" ? (
+            </div>
+          )}
+          {view === "brew" ? null : view === "table" ? (
             <DeckTable
               deck={mutations.deck ?? deck}
               active={active}

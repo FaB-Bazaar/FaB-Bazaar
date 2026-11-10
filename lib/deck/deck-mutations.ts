@@ -9,7 +9,7 @@ import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/cont
 
 type AddRow = { printingId: string; quantity: number; category: DeckCategory };
 type AddResult =
-  | { success: true; data?: { results?: Array<{ printingId: string; success: boolean; error?: string }> } }
+  | { success: true; data?: { results?: Array<{ printingId: string; success: boolean; error?: string }>; deck?: DeckDTO } }
   | { success: false; error?: string };
 type RemoveResult = { success: true } | { success: false; error?: string };
 
@@ -18,7 +18,8 @@ export interface DeckMutationClient {
   removePrinting(deckId: string, printingId: string, category: DeckCategory, quantity?: number): Promise<RemoveResult>;
 }
 
-export type MutationOutcome = { ok: true } | { ok: false; error: string };
+/** `deck` = the updated deck when the server sent one back (adds do; removes don't). */
+export type MutationOutcome = { ok: true; deck?: DeckDTO } | { ok: false; error: string };
 
 /** The remove route deletes the row when asked for more copies than it holds. */
 const WHOLE_ROW = 999999;
@@ -31,7 +32,9 @@ export async function addCopies(
   const result = await client.addPrintings(deckId, [{ printingId, quantity, category }]);
   if (!result.success) return failed(result.error, "Could not add the card.");
   const row = result.data?.results?.find(r => r.printingId === printingId && !r.success);
-  return row ? failed(row.error, "Could not add the card.") : { ok: true };
+  if (row) return failed(row.error, "Could not add the card.");
+  const deck = result.data?.deck;
+  return deck ? { ok: true, deck } : { ok: true };
 }
 
 export async function removeCopies(
@@ -66,4 +69,37 @@ export function withQuantity(deck: DeckDTO, printingId: string, category: DeckCa
   if (quantity <= 0) cards.splice(idx, 1);
   else cards[idx] = { ...cards[idx], quantity };
   return { ...deck, [category]: cards };
+}
+
+/**
+ * The deck a mutation returned, laid over the one on screen. GET /api/decks/[id]
+ * adds viewer fields (canEdit, isCoOwner, ownerUsername) that the add route's
+ * bare DTO lacks — those are kept.
+ */
+export function mergeServerDeck(current: DeckDTO | null | undefined, fresh: DeckDTO): DeckDTO {
+  return current ? { ...current, ...fresh } : fresh;
+}
+
+/**
+ * How a mutation should finish, given what else is in flight. On its own it
+ * can `apply` the deck its response carried. When several overlap (three fast
+ * +1 clicks) their responses can land out of order, so each `wait`s and the
+ * last one to finish does a single `refetch`.
+ */
+export function createSettleTracker() {
+  let inFlight = 0;
+  let overlapped = false;
+  return {
+    begin() {
+      if (inFlight > 0) overlapped = true;
+      inFlight++;
+    },
+    end(): "apply" | "wait" | "refetch" {
+      inFlight--;
+      if (!overlapped) return "apply";
+      if (inFlight > 0) return "wait";
+      overlapped = false;
+      return "refetch";
+    },
+  };
 }

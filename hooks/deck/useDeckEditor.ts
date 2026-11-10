@@ -10,6 +10,7 @@ import { getSetName } from "@/lib/fab-formatters";
 import { decksClient, searchClient, wantsClient } from "@/lib/client";
 import { buildWantsMap } from "@/components/deck/editor/collector-mode";
 import { buildCardOwnershipMap } from "@/lib/deck/ownership-map";
+import { mergeServerDeck } from "@/lib/deck/deck-mutations";
 import { deckFormatToBannedFormat, fetchBannedCardsForFormat } from "@/lib/client/banned-cards-client";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
@@ -142,6 +143,10 @@ export function useDeckEditor(deckId: string) {
     } catch {}
     fetchOwnership();
   };
+
+  // A mutation that returns the updated deck (adds do) hands it over here, so
+  // the page doesn't request the deck again.
+  const applyDeck = (fresh: DeckDTO) => setDeck(current => mergeServerDeck(current, fresh));
 
   const handleBulkSearch = async (e: React.FormEvent, inputOverride?: string) => {
     e.preventDefault();
@@ -443,6 +448,8 @@ export function useDeckEditor(deckId: string) {
       removeCard,
       duplicateCard,
       refreshDeck,
+      applyDeck,
+      refreshOwnership: fetchOwnership,
       refreshWants: fetchWants,
     },
   };
