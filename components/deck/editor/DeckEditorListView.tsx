@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, RectangleVertical, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check } from "lucide-react";
 import { deckTileWidth, isCardGridMode, type DeckViewMode } from "@/lib/deck/deckViewMode";
+import { isEquipmentCompatible, isLibraryCompatible } from "@/lib/deck/zone-compat";
 import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
 import RetryingImg from "@/components/shared/RetryingImg";
@@ -668,18 +669,6 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
 }
 
 // ─── Drag-and-drop validation ─────────────────────────────────────────────────
-
-function isEquipmentCompatible(types: string[]): boolean {
-  const isEvo = types.includes('evo');
-  return types.includes('weapon') || (!isEvo && types.includes('equipment'));
-}
-
-function isLibraryCompatible(types: string[]): boolean {
-  const isEvo = types.includes('evo');
-  if (types.includes('weapon')) return false;
-  if (!isEvo && types.includes('equipment')) return false;
-  return true;
-}
 
 function sectionToCategory(sectionKey: TileSectionKey): DeckCategory | null {
   if (sectionKey === 'equipment') return 'equipment';

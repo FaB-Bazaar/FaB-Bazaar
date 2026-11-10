@@ -4,7 +4,7 @@
 // zone. With a highlight active the matching rows are lifted into a "Matches"
 // group directly under the header, so the reader never scans for them.
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Minus, Plus } from "lucide-react";
 import type { DeckCategory, DeckDTO } from "@/lib/services/contracts/IDeckService";
 import {
@@ -14,6 +14,9 @@ import {
 import { cn } from "@/lib/utils";
 import { matchesHighlight, type HighlightFilter } from "@/lib/deck/highlight-filters";
 import { chipLabel } from "@/components/deck/editor/HighlightFiltersPopover";
+import { CardDetailsLightbox, type LightboxCard } from "@/components/cards/CardDetailsLightbox";
+import { fetchPrintingsForCard, type PrintingResult } from "@/lib/client/hero-pool-cache";
+import { moveTargets } from "@/lib/deck/zone-compat";
 
 const ZONE_LABEL: Record<TableZone, string> = {
   hero: "Hero",
@@ -24,6 +27,9 @@ const ZONE_LABEL: Record<TableZone, string> = {
 };
 
 const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
+const PITCH_NAME: Record<number, string> = { 1: "red", 2: "yellow", 3: "blue" };
+// Pitch variants share a name — control labels say which one ("Mocking Blow (red)").
+const rowLabel = (r: DeckTableRow) => (r.pitch != null && PITCH_NAME[r.pitch] ? `${r.name} (${PITCH_NAME[r.pitch]})` : r.name);
 
 const COLUMNS: Array<{ key: TableSortKey; label: string; align?: "right"; className?: string }> = [
   { key: "qty", label: "Qty", align: "right", className: "w-16" },
@@ -41,7 +47,7 @@ type OwnershipEntry = { owned: number; needed: number };
 // Grid zone names for 'zone' highlight filters.
 const GRID_ZONE: Record<TableZone, string> = { hero: "hero", equipment: "equipment", maindeck: "maindeck", inventory: "inventory", benched: "bench" };
 
-export default function DeckTable({ deck, active, hudFilters = [], ownershipMap, canEdit, onChangeQty }: {
+export default function DeckTable({ deck, active, hudFilters = [], ownershipMap, canEdit, onChangeQty, onMove }: {
   deck: DeckDTO;
   active: Lens | null;
   /** Cmd+K highlight filters (same rules as the card grid); used when no panel lens is active. */
@@ -49,9 +55,34 @@ export default function DeckTable({ deck, active, hudFilters = [], ownershipMap,
   ownershipMap: Map<string, OwnershipEntry>;
   canEdit: boolean;
   onChangeQty: (printingId: string, zone: DeckCategory, delta: 1 | -1) => void;
+  /** Move every copy of a row to another zone (editors). */
+  onMove?: (row: DeckTableRow, to: DeckCategory) => void;
 }) {
   const [sort, setSort] = useState<TableSort>(null);
   const [preview, setPreview] = useState<{ url: string; x: number; y: number } | null>(null);
+
+  // Card details (the same lightbox the card grid opens). The deck row shows
+  // at once; the full printing row fills in the legality line when it arrives.
+  const [detailsCard, setDetailsCard] = useState<LightboxCard | null>(null);
+  // The lightbox leaves Escape to its host (the card grid closes it the same way).
+  useEffect(() => {
+    if (!detailsCard) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDetailsCard(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detailsCard]);
+  const openDetails = (r: DeckTableRow) => {
+    const printingId = r.printingIds[0];
+    const d = r.details;
+    setPreview(null);
+    setDetailsCard({ name: r.name, printing: { ...d, printing_id: printingId, type_text: d.type_text ?? d.type_text_display } as PrintingResult });
+    const uid = d.card_unique_id as string | undefined;
+    if (!uid) return;
+    fetchPrintingsForCard(uid).then(found => {
+      const full = (found as unknown as PrintingResult[]).find(p => p.printing_id === printingId);
+      if (full) setDetailsCard(prev => (prev && prev.printing.printing_id === printingId ? { ...prev, printing: full } : prev));
+    }).catch(() => { /* the deck row is already showing */ });
+  };
 
   const rows = useMemo(() => sortDeckTableRows(buildDeckTableRows(deck), sort), [deck, sort]);
   const showOwned = ownershipMap.size > 0;
@@ -138,8 +169,8 @@ export default function DeckTable({ deck, active, hudFilters = [], ownershipMap,
                       <span className="inline-flex items-center gap-1">
                         {canEdit && (
                           <span className="invisible inline-flex group-hover:visible group-focus-within:visible">
-                            <button type="button" aria-label={`Remove a copy of ${r.name}`} onClick={() => onChangeQty(r.printingIds[0], r.zone, -1)} className="rounded-sm px-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"><Minus className="h-3 w-3" /></button>
-                            <button type="button" aria-label={`Add a copy of ${r.name}`} onClick={() => onChangeQty(r.printingIds[0], r.zone, 1)} className="rounded-sm px-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"><Plus className="h-3 w-3" /></button>
+                            <button type="button" aria-label={`Remove a copy of ${rowLabel(r)}`} onClick={() => onChangeQty(r.printingIds[0], r.zone, -1)} className="rounded-sm px-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"><Minus className="h-3 w-3" /></button>
+                            <button type="button" aria-label={`Add a copy of ${rowLabel(r)}`} onClick={() => onChangeQty(r.printingIds[0], r.zone, 1)} className="rounded-sm px-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"><Plus className="h-3 w-3" /></button>
                           </span>
                         )}
                         {r.qty}
@@ -150,7 +181,14 @@ export default function DeckTable({ deck, active, hudFilters = [], ownershipMap,
                       onMouseMove={e => r.details.image_url && setPreview({ url: r.details.image_url, x: e.clientX, y: e.clientY })}
                       onMouseLeave={() => setPreview(null)}
                     >
-                      {r.name}
+                      <button
+                        type="button"
+                        aria-label={`Show details for ${rowLabel(r)}`}
+                        onClick={() => openDetails(r)}
+                        className="text-left hover:underline focus-visible:underline focus-visible:outline-none"
+                      >
+                        {r.name}
+                      </button>
                     </td>
                     <td className="px-2 py-1">
                       {r.pitch != null && (
@@ -164,7 +202,24 @@ export default function DeckTable({ deck, active, hudFilters = [], ownershipMap,
                     <td className="px-2 py-1 text-right tabular-nums">{r.power ?? ""}</td>
                     <td className="px-2 py-1 text-right tabular-nums">{r.defense ?? ""}</td>
                     <td className="truncate px-2 py-1 max-w-0" title={r.typeText}>{r.typeText}</td>
-                    <td className="px-2 py-1">{ZONE_LABEL[r.zone]}</td>
+                    <td className="px-2 py-1">
+                      {(() => {
+                        const targets = canEdit && onMove ? moveTargets(r.zone, r.details.types ?? []) : [];
+                        if (targets.length === 0) return ZONE_LABEL[r.zone];
+                        // Reads as plain text until used: picking another zone moves the row.
+                        return (
+                          <select
+                            aria-label={`Zone for ${rowLabel(r)}`}
+                            value={r.zone}
+                            onChange={e => onMove?.(r, e.target.value as DeckCategory)}
+                            className="-ml-1 cursor-pointer rounded-sm border-0 bg-transparent py-0 pl-1 pr-5 text-sm text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          >
+                            <option value={r.zone}>{ZONE_LABEL[r.zone]}</option>
+                            {targets.map(z => <option key={z} value={z}>{ZONE_LABEL[z as TableZone]}</option>)}
+                          </select>
+                        );
+                      })()}
+                    </td>
                     {showOwned && (
                       <td className="px-2 py-1 text-right tabular-nums">
                         {own >= r.qty
@@ -179,6 +234,15 @@ export default function DeckTable({ deck, active, hudFilters = [], ownershipMap,
           ))}
         </tbody>
       </table>
+
+      {detailsCard && (
+        <CardDetailsLightbox
+          card={detailsCard}
+          onClose={() => setDetailsCard(null)}
+          onSelectPrinting={printing => setDetailsCard(prev => (prev ? { ...prev, printing } : prev))}
+          deckFormat={deck.format}
+        />
+      )}
 
       {/* Card image follows the cursor over a name — a table has no art otherwise. */}
       {preview && (

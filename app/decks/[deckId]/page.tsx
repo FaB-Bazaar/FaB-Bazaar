@@ -38,6 +38,7 @@ import DeckBulkImport from "@/components/deck/editor/DeckBulkImport";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import DeckTable from "./_components/DeckTable";
+import type { DeckTableRow } from "@/lib/deck/deck-table";
 import { applyHighlightEvent, type HighlightEvent, type HighlightFilter } from "@/lib/deck/highlight-filters";
 import MatchesStrip from "./_components/MatchesStrip";
 import BrewView, { BREW_DETAILS_SLOT } from "./_components/BrewView";
@@ -324,6 +325,13 @@ function DeckV2Page() {
     return mutations.setQuantity(printingId, category, Math.max(0, current + delta));
   };
 
+  // Table: move a whole row (every printing of the card in that zone) to another zone.
+  const moveRow = async (row: DeckTableRow, to: DeckCategory) => {
+    const entries = ((mutations.deck?.[row.zone as keyof typeof deck] as Array<{ printingId: string; quantity?: number }> | undefined) ?? [])
+      .filter(c => row.printingIds.includes(c.printingId));
+    for (const c of entries) await mutations.move(c.printingId, row.zone, to, c.quantity ?? 1);
+  };
+
   const swapPrinting = async (newPrinting: { printing_id: string }) => {
     if (!swapTarget) return;
     const result = await decksClient.swapPrinting(deckId, swapTarget.printingId, newPrinting.printing_id, swapTarget.category);
@@ -557,7 +565,8 @@ function DeckV2Page() {
             </section>
           ) : (
           <>
-          <div role="group" aria-label="Deck view" className="mb-3 inline-flex overflow-hidden rounded-sm border border-gray-300 text-sm dark:border-gray-700">
+          <div className="mb-3 flex items-center gap-3">
+          <div role="group" aria-label="Deck view" className="inline-flex overflow-hidden rounded-sm border border-gray-300 text-sm dark:border-gray-700">
             {VIEWS.map(v => (
               <button
                 key={v}
@@ -572,6 +581,19 @@ function DeckV2Page() {
                 {VIEW_LABEL[v]}
               </button>
             ))}
+          </div>
+          {/* The labelled way to add: opens the add dialog for the main deck (same
+              as the + key). Brew is itself the add view, so it steps aside there. */}
+          {canEdit && view !== "brew" && (
+            <button
+              type="button"
+              onClick={() => setAddTarget("maindeck")}
+              title="Add cards (+)"
+              className="rounded-sm border border-gray-400 bg-gray-100 px-3 py-1 text-sm text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+            >
+              Add cards
+            </button>
+          )}
           </div>
           {compareRatio && view !== "brew" && (
             <RatioCompare deck={deck} ratio={compareRatio} style={view === "table" ? "list" : "tiles"} onClose={() => setCompareId(null)} />
@@ -599,6 +621,7 @@ function DeckV2Page() {
               ownershipMap={state.ownershipMap}
               canEdit={canEdit}
               onChangeQty={bumpQty}
+              onMove={moveRow}
             />
           ) : (
           <>

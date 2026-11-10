@@ -17,6 +17,10 @@ The rail page must reuse the classic page's machinery; a feature that exists on 
 
 Pure logic (all node-tested) sits in `lib/deck/`: `deck-lens` (panel searches), `deck-prices` (Prices view rows + summary: tcg_low value by zone, bench excluded, owned copies cover a card's pricier rows first so the Buy column sums to the cost to finish from `cardOwnershipMap`; "Compare printings" columns = `cheapestByFinish` over `GET /api/decks/[id]/printing-prices`, English only, bench excluded; Promo = cheapest rarity-`p` printing in any finish; one row per printing, merged across zones — no Zone column), `deck-table` (rows), `brew` (pool filters, facets, starter kits), `ratios`, `hand-odds`, `matchup-names`.
 
+## Add cards button + Table actions (2026-11)
+
+A plain **Add cards** button sits beside Table / Cards / Brew (editors; hidden on Brew, which is itself the add view) and opens `QuickAddCardDialog` for the main deck — the dialog names the zone ("Adding to: Library"). In the **Table**, a card's name is a button that opens `CardDetailsLightbox` (the lightbox leaves Escape to its host, so `DeckTable` closes it), and the Zone cell is a borderless `<select>` that moves the whole row (`moveRow` in the page → `mutations.move` per printing). Which zones a card may go to lives in `lib/deck/zone-compat` (`moveTargets`, `isEquipmentCompatible`, `isLibraryCompatible`) — the card grid's move buttons import the same functions. Table control labels carry the pitch ("Mocking Blow (red)") because pitch variants share a name.
+
 ## Highlight sources
 
 Both pages speak the `deck-highlight-filter` / `deck-highlight-clear` window events. The rail page tags panel-driven highlights `source: "panel"` and they apply IN PLACE (matches lift to the top; no overlay); Cmd+K chords keep the classic full-screen focus overlay. The Table view mirrors HUD highlights too (`hudFilters`), so a chord filters whichever view is showing. The rail's **Deck** item resets every filter.
