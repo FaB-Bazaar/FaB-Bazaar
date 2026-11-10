@@ -16,6 +16,7 @@ import { useDebounce } from 'use-debounce';
 // Components
 import BinderCard from "@/components/binder/BinderCard";
 import CardSearchDialog from "@/components/dialogs/cards/card-search-dialog";
+import { reloadLoadedPages } from "@/lib/binder/reload-pages";
 import EditCardDialog from "@/components/binder/EditCardDialog";
 import TransferCardsDialog from "@/components/binder/TransferCardsDialog";
 import PrintingSwapDialog from '@/components/dialogs/cards/printing-swap-dialog';
@@ -210,58 +211,66 @@ export default function BinderPage() {
 
 
 
+  // One page of the binder's cards under the current search / filters / sort.
+  const fetchCardsPage = async (page: number) => {
+    const filters = {
+      search: debouncedSearchQuery || undefined,
+      ...Object.fromEntries(
+        Object.entries(activeFilters).filter(([, value]) => value)
+      ),
+    };
+
+    const options = {
+      page,
+      limit: 200,
+      sortBy: effectiveSort ?? 'tcg-low-desc',
+    };
+
+    const result = await bindersClient.getBinderCards(binderId, filters, options);
+
+    if (!result.success) throw new Error(result.error || 'Failed to fetch cards');
+
+    return result.data;
+  };
+
+  // Counts, filter values, stats and price timestamps ride along with every page.
+  const applyCardsMetadata = (metadata: any) => {
+    if (!metadata) return;
+    if (metadata.counts) setCounts(metadata.counts);
+    if (metadata.uniqueValues) setUniqueValues(metadata.uniqueValues);
+    if (metadata.stats) {
+      const s = metadata.stats;
+      setBinder(prev => ({
+        ...prev,
+        stats: s,
+        totalQuantity: s.totalCards,
+        quantityForTrade: s.forTradeCount,
+        quantityNotForTrade: (s.totalCards - s.forTradeCount),
+        totalValue: s.totalValue,
+        valueForTrade: s.valueForTrade,
+        valueNotForTrade: s.valueNotForTrade,
+        rarityCounts: s.rarityCounts,
+      }));
+    }
+    if (metadata.priceUpdatedAt) {
+      setPriceUpdatedAt(new Date(metadata.priceUpdatedAt));
+    }
+    if (metadata.cardmarketPriceUpdatedAt) {
+      setCardmarketPriceUpdatedAt(new Date(metadata.cardmarketPriceUpdatedAt));
+    }
+  };
+
   const fetchCards = async (page = 1, shouldReset = false) => {
     if (loadingMore || (loading && page > 1)) return;
     if (page > 1) setLoadingMore(true); else setLoading(true);
 
     try {
-      const filters = {
-        search: debouncedSearchQuery || undefined,
-        ...Object.fromEntries(
-          Object.entries(activeFilters).filter(([, value]) => value)
-        ),
-      };
-
-      const options = {
-        page,
-        limit: 200,
-        sortBy: effectiveSort ?? 'tcg-low-desc',
-      };
-
-      const result = await bindersClient.getBinderCards(binderId, filters, options);
-
-      if (!result.success) throw new Error(result.error || 'Failed to fetch cards');
-
-      const data = result.data;
+      const data = await fetchCardsPage(page);
 
       // Update cards directly (server-side filtering)
       setCards(prev => (shouldReset ? data.cards : [...prev, ...data.cards]));
       setPagination(data.pagination);
-
-      if (data.metadata) {
-        if (data.metadata.counts) setCounts(data.metadata.counts);
-        if (data.metadata.uniqueValues) setUniqueValues(data.metadata.uniqueValues);
-        if (data.metadata.stats) {
-          const s = data.metadata.stats;
-          setBinder(prev => ({
-            ...prev,
-            stats: s,
-            totalQuantity: s.totalCards,
-            quantityForTrade: s.forTradeCount,
-            quantityNotForTrade: (s.totalCards - s.forTradeCount),
-            totalValue: s.totalValue,
-            valueForTrade: s.valueForTrade,
-            valueNotForTrade: s.valueNotForTrade,
-            rarityCounts: s.rarityCounts,
-          }));
-        }
-        if (data.metadata.priceUpdatedAt) {
-          setPriceUpdatedAt(new Date(data.metadata.priceUpdatedAt));
-        }
-        if (data.metadata.cardmarketPriceUpdatedAt) {
-          setCardmarketPriceUpdatedAt(new Date(data.metadata.cardmarketPriceUpdatedAt));
-        }
-      }
+      applyCardsMetadata(data.metadata);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -479,7 +488,20 @@ export default function BinderPage() {
   }, [chordMode, activeFilters, setBuffer]);
 
   // --- ACTION HANDLERS ---
-  const refreshCurrentView = () => fetchCards(1, true);
+  // After an add / edit / delete: reload every page already on screen, so the
+  // pages the viewer scrolled through are kept (a page-1-only reload dropped
+  // them and the list jumped). A filter or sort change still starts at page 1.
+  const refreshCurrentView = async () => {
+    if (pagination.page <= 1) return fetchCards(1, true);
+    try {
+      const data = await reloadLoadedPages(fetchCardsPage, pagination.page);
+      setCards(data.cards);
+      setPagination(data.pagination);
+      applyCardsMetadata(data.metadata);
+    } catch {
+      fetchCards(1, true);
+    }
+  };
 
   const handleRefreshStats = async () => {
     // Re-fetch binder to get updated stats
