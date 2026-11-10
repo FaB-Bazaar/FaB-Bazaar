@@ -13,21 +13,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Pagination } from "@/components/ui/pagination"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { QuantityStepper } from "@/components/QuantityStepper"; 
-import { fetchMetadata } from "@/lib/metadata-service"
+import { editionLabel, foilingLabel, rarityLabel, setLabel } from "@/lib/cards/printing-labels"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import {
-  SET_MAP,
-  FOILING_MAP,
-  EDITION_MAP,
-  RARITY_MAP,
-  sortPrintings,
-  type SetCode,
-  type FoilingCode,
-  type EditionCode,
-  type RarityCode
-} from "@/lib/fab-constants"
+import { sortPrintings } from "@/lib/fab-constants"
 import { sortPrintingsByLanguage, languageFlag } from "@/lib/utils/printing-language"
 import { FoilingChip } from "@/components/shared/FoilingChip"
 import { TcgAffiliateLink } from '@/components/tracking'
@@ -54,6 +44,9 @@ const fabShorthandParser = new FABShorthandParser();
 // --- MODIFICATION END ---
 
 
+// Pause after the last keystroke before searching.
+const SEARCH_DEBOUNCE_MS = 250
+
 export default function CardSearchDialog({ open, onOpenChange, onSelectCard, destination, initialQuery }: CardSearchDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
@@ -72,26 +65,8 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
   const [lastAdded, setLastAdded] = useState<string | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const [metadata, setMetadata] = useState<any>(null)
-  const [metadataLoading, setMetadataLoading] = useState(true)
-
   useEffect(() => {
-    const loadMetadata = async () => {
-      try {
-        setMetadataLoading(true)
-        const data = await fetchMetadata()
-        setMetadata(data)
-      } catch (err) {
-        console.error("Error loading metadata:", err)
-      } finally {
-        setMetadataLoading(false)
-      }
-    }
-    loadMetadata()
-  }, [])
-
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedQuery(searchQuery), 500)
+    const handler = setTimeout(() => setDebouncedQuery(searchQuery), SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(handler)
   }, [searchQuery])
 
@@ -121,6 +96,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
   useEffect(() => {
     if (!debouncedQuery || debouncedQuery.trim().length < 3) {
       setCards([]); // Clear cards for short queries
+      setLoading(false); // a cancelled search never clears its own spinner
       return;
     }
     setLoading(true)
@@ -158,9 +134,13 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     params.append('show', 'summary');
     params.append('searchMode', 'strict'); // Use strict mode for card-search-dialog
 
-    fetch(`/api/printings/search?${params.toString()}`)
+    // A newer query (or closing the dialog) cancels this one, so a slow answer
+    // to an older query can never replace the newer results.
+    const controller = new AbortController()
+    fetch(`/api/printings/search?${params.toString()}`, { signal: controller.signal })
       .then(res => res.json())
       .then(data => {
+        if (controller.signal.aborted) return
         if (data.success && data.data?.printings) {
           const groupedByCard = data.data.printings.reduce((acc: any, printing: any) => {
             const cardName = printing.display_name || printing.name || 'Unknown';
@@ -202,10 +182,12 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
         }
       })
       .catch(() => {
+        if (controller.signal.aborted) return
         setError("Failed to search printings. Please try again.")
         setCards([]); // Clear cards on network failure
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
   }, [debouncedQuery])
 
   const handleCardSelect = (card: any) => {
@@ -246,43 +228,12 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     setDefaultForTrade(true); setLastAdded(null);
   }
 
-  const getSetDisplayName = (setCode: string): string => {
-    if (!setCode) return "Unknown Set";
-    if (metadata?.sets) {
-      const setInfo = metadata.sets.find((s: any) => s.code === setCode?.toUpperCase() || s.code === setCode?.toLowerCase() || s.code === setCode);
-      if (setInfo) return setInfo.name;
-    }
-    const upperCode = setCode.toUpperCase() as SetCode;
-    const lowerCode = setCode.toLowerCase() as SetCode;
-    return SET_MAP[lowerCode] || SET_MAP[upperCode] || setCode.toUpperCase();
-  }
-
-  const getFoilingDisplayName = (foilingCode: string): string => {
-    if (!foilingCode) return "Non-foil";
-    if (metadata?.foilings) {
-      const foilingInfo = metadata.foilings.find((f: any) => f.code === foilingCode);
-      if (foilingInfo) return foilingInfo.name;
-    }
-    return FOILING_MAP[foilingCode.toLowerCase() as FoilingCode] || foilingCode;
-  }
-
-  const getEditionDisplayName = (editionCode: string): string => {
-    if (!editionCode) return "";
-    if (metadata?.editions) {
-      const editionInfo = metadata.editions.find((e: any) => e.code === editionCode);
-      if (editionInfo) return editionInfo.name;
-    }
-    return EDITION_MAP[editionCode.toLowerCase() as EditionCode] || editionCode;
-  }
-
-  const getRarityDisplayName = (rarityCode: string): string => {
-    if (!rarityCode) return "";
-    if (metadata?.rarities) {
-      const rarityInfo = metadata.rarities.find((r: any) => r.code === r.code);
-      if (rarityInfo) return rarityInfo.name;
-    }
-    return RARITY_MAP[rarityCode.toLowerCase() as RarityCode] || rarityCode;
-  }
+  // Names come from the compiled constants (lib/cards/printing-labels) — no
+  // /api/metadata request.
+  const getSetDisplayName = setLabel
+  const getFoilingDisplayName = foilingLabel
+  const getEditionDisplayName = editionLabel
+  const getRarityDisplayName = rarityLabel
 
   function getCheapestPrinting(printings: any[]) {
     if (!printings || printings.length === 0) return null;
