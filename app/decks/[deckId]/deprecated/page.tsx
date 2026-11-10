@@ -18,6 +18,7 @@ import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-
 import { DeckStatsPopover } from "@/components/deck/editor/DeckStatsPopover";
 import { useDeckCommandHud } from "@/components/deck/editor/useDeckCommandHud";
 import { useBinderWantsActions } from "@/hooks/deck/useBinderWantsActions";
+import { useDeckMutations } from "@/hooks/deck/useDeckMutations";
 import { useDeckOptions } from "@/hooks/deck/useDeckOptions";
 import DeckBulkImport from "@/components/deck/editor/DeckBulkImport";
 import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
@@ -239,8 +240,10 @@ export default function DeckEditorPage() {
     } else setQuickAddTarget(action.target);
   };
 
-  // Optimistic deck state for instant qty feedback in sidebar
-  const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
+  // Add / remove / move / quantity for saved deck cards — shared with the rail
+  // page. `optimisticDeck` shows a quantity change before the server answers.
+  const mutations = useDeckMutations({ deckId, deck: state.deck, refreshDeck: handlers.refreshDeck });
+  const optimisticDeck = mutations.deck;
 
   // Binder state
 
@@ -407,22 +410,11 @@ export default function DeckEditorPage() {
 
   const handleQuickAddCard = async (printing: any, quantity: number) => {
     if (!quickAddTarget) return;
-    const result = await decksClient.addPrintings(deckId, [{ printingId: printing.printing_id, quantity, category: quickAddTarget.category }]);
-    // The bulk route answers 200 with per-row outcomes: a legality/copy-cap
-    // rejection lives in results[i].error, not the envelope.
-    const rowError = result.success
-      ? result.data?.results?.find(r => r.printingId === printing.printing_id && !r.success)?.error
-      : result.error;
-    if (rowError) {
-      toast({ title: "Add failed", description: rowError, variant: "destructive" });
-      throw new Error(rowError);
-    }
-    await handlers.refreshDeck();
+    // A rejected add (legality, copy cap) throws so the dialog reports it.
+    const outcome = await mutations.add(printing.printing_id, quickAddTarget.category, quantity);
+    if (!outcome.ok) throw new Error(outcome.error);
     // Keep dialog open so user can add more cards
   };
-
-  // Clear optimistic deck once the real deck refreshes from the server
-  useEffect(() => { setOptimisticDeck(null); }, [state.deck]);
 
   // Fire GA deck_view once per page load, when the deck is loaded
   const deckViewTrackedRef = useRef(false);
@@ -498,14 +490,7 @@ export default function DeckEditorPage() {
 
   // Remove a card from the saved deck — passes a large quantity so the service
   // always deletes the row entirely regardless of how many copies are stored.
-  const handleRemoveDeckCard = async (printingId: string, category: DeckCategory) => {
-    const result = await decksClient.removePrinting(deckId, printingId, category, 999999);
-    if (result.success) {
-      await handlers.refreshDeck();
-    } else {
-      toast({ title: "Remove failed", description: result.error, variant: "destructive" });
-    }
-  };
+  const handleRemoveDeckCard = mutations.remove;
 
   // Remove every printing of a card group from the deck at once
   const handleRemoveGroupFromDeck = async (printingIds: string[], category: DeckCategory) => {
@@ -515,103 +500,17 @@ export default function DeckEditorPage() {
     await handlers.refreshDeck();
   };
 
-  // Applies an optimistic qty change to the deck for instant UI feedback
-  const applyOptimisticQty = (deck: DeckDTO, printingId: string, newQty: number, category: DeckCategory): DeckDTO => {
-    const cards = [...((deck[category as keyof DeckDTO] as DeckPrintingDTO[] | undefined) ?? [])];
-    const idx = cards.findIndex(c => c.printingId === printingId);
-    if (idx === -1) return deck;
-    if (newQty <= 0) cards.splice(idx, 1);
-    else cards[idx] = { ...cards[idx], quantity: newQty };
-    return { ...deck, [category]: cards };
-  };
-
-  // Update quantity of a specific printing in the saved deck via a delta —
-  // only add or remove the difference. A previous remove-then-readd approach
-  // would destroy existing rows when the readd hit copy-limit validation
-  // (addPrintings reports per-item failures in results[], not at the top level).
-  const handleUpdateDeckCardQty = async (printingId: string, newQty: number, category: DeckCategory) => {
-    const base = optimisticDeck ?? state.deck;
-    if (!base) return;
-    const cards = (base[category as keyof DeckDTO] as DeckPrintingDTO[] | undefined) ?? [];
-    const currentQty = cards.find(c => c.printingId === printingId)?.quantity ?? 0;
-    const delta = newQty - currentQty;
-    if (delta === 0) return;
-
-    // Optimistic update — instant feedback, no waiting for API
-    setOptimisticDeck(applyOptimisticQty(base, printingId, newQty, category));
-
-    // Always refresh at the end — even on failure, so child views with their
-    // own optimistic state (e.g. DeckEditorListView) clear when the deck prop
-    // changes back to the true server value.
-    let failureMessage: string | null = null;
-    if (delta > 0) {
-      const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: delta, category }]);
-      if (!addResult.success) {
-        failureMessage = addResult.error;
-      } else {
-        const itemError = addResult.data?.results?.find(r => r.printingId === printingId && !r.success)?.error;
-        if (itemError) failureMessage = itemError;
-      }
-    } else {
-      const removeResult = await decksClient.removePrinting(deckId, printingId, category, -delta);
-      if (!removeResult.success) failureMessage = removeResult.error;
-    }
-
-    if (failureMessage) {
-      setOptimisticDeck(null); // revert page-level optimistic state
-      toast({ title: "Update failed", description: failureMessage, variant: "destructive" });
-    }
-    await handlers.refreshDeck();
-  };
+  // Update quantity of a specific printing in the saved deck — only the
+  // difference is added or removed (see useDeckMutations.setQuantity).
+  const handleUpdateDeckCardQty = (printingId: string, newQty: number, category: DeckCategory) =>
+    mutations.setQuantity(printingId, category, newQty);
 
   // Move 1 copy of a printing from one category to another.
-  // To avoid stacking issues: remove all, re-add (qty-1) to source, add 1 to destination.
-  const handleMoveSinglePrinting = async (
-    printingId: string,
-    fromCategory: DeckCategory,
-    toCategory: DeckCategory,
-    currentQty: number
-  ) => {
-    const removeResult = await decksClient.removePrinting(deckId, printingId, fromCategory, 999999);
-    if (!removeResult.success) {
-      toast({ title: "Move failed", description: removeResult.error, variant: "destructive" });
-      return;
-    }
-    if (currentQty - 1 > 0) {
-      const readdResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: currentQty - 1, category: fromCategory }]);
-      if (!readdResult.success) {
-        toast({ title: "Move failed", description: readdResult.error, variant: "destructive" });
-        return;
-      }
-    }
-    const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: 1, category: toCategory }]);
-    if (!addResult.success) {
-      toast({ title: "Move failed", description: addResult.error, variant: "destructive" });
-      return;
-    }
-    await handlers.refreshDeck();
-  };
+  const handleMoveSinglePrinting = (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory) =>
+    mutations.move(printingId, fromCategory, toCategory, 1);
 
-  // Move a card from one category to another (remove + re-add)
-  const handleMoveDeckCard = async (
-    printingId: string,
-    fromCategory: DeckCategory,
-    toCategory: DeckCategory,
-    quantity: number
-  ) => {
-    const removeResult = await decksClient.removePrinting(deckId, printingId, fromCategory, 999999);
-    if (!removeResult.success) {
-      toast({ title: "Move failed", description: removeResult.error, variant: "destructive" });
-      return;
-    }
-    const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity, category: toCategory }]);
-    if (!addResult.success) {
-      toast({ title: "Move failed", description: addResult.error, variant: "destructive" });
-      return;
-    }
-    await handlers.refreshDeck();
-  };
-
+  // Move a card from one category to another; a rejected move puts it back.
+  const handleMoveDeckCard = mutations.move;
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
@@ -796,11 +695,11 @@ export default function DeckEditorPage() {
 
       {canEdit && activeTab === "search" && (
         <DeckEditorSidebar
-          deck={optimisticDeck ?? state.deck}
+          deck={optimisticDeck}
           deckLoading={state.deckLoading}
           stagedCards={stagedCards}
           deckCounts={(() => {
-            const d = optimisticDeck ?? state.deck;
+            const d = optimisticDeck;
             if (!d) return state.deckCounts;
             return {
               hero: d.hero?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
