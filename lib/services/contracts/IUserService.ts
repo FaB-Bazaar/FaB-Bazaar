@@ -81,6 +81,17 @@ export interface UserRolesDTO {
   canManageLocations: boolean;
   canImportCardCollections: boolean;
   canModerateForums: boolean;
+  /** Present on rows read through the user mapper; optional for older callers. */
+  isCurator?: boolean;
+}
+
+/** One page of users for the admin user-access screen. */
+export interface UsersPageDTO {
+  users: UserDTO[];
+  /** Users matching the search term (every user when there is none). */
+  total: number;
+  /** Every user, regardless of the search term. */
+  totalUsers: number;
 }
 
 /**
@@ -566,6 +577,18 @@ export interface IUserService {
     roles?: Partial<UserRolesDTO>;
     searchTerm?: string;
   }): AsyncResult<UserDTO[]>;
+
+  /**
+   * One page of users, newest first, with the matching and overall counts.
+   *
+   * Used by /admin/user-access, which must not load every user at once.
+   * `searchTerm` matches username or email (case-insensitive substring).
+   */
+  listUsersPage(options: {
+    page: number;
+    pageSize: number;
+    searchTerm?: string;
+  }): AsyncResult<UsersPageDTO>;
 
   /**
    * Check if a user has a specific role

@@ -20,6 +20,7 @@ import type {
   UpdateUserDTO,
   UserProfileDTO,
   UserRolesDTO,
+  UsersPageDTO,
   VolzarAccessDTO,
   UserProfileStatsDTO,
   UpdateProfileDTO,
@@ -780,6 +781,54 @@ export class PostgresUserService implements IUserService {
   }
 
   /**
+   * One page of users (newest first) plus the matching and overall counts.
+   */
+  async listUsersPage(options: {
+    page: number;
+    pageSize: number;
+    searchTerm?: string;
+  }): AsyncResult<UsersPageDTO> {
+    try {
+      const pageSize = Math.min(Math.max(Math.floor(options.pageSize) || 1, 1), 200);
+      const page = Math.max(Math.floor(options.page) || 1, 1);
+      const term = options.searchTerm?.trim();
+
+      // Escape LIKE wildcards so a typed % or _ matches itself.
+      const pattern = term ? `%${term.replace(/[\\%_]/g, '\\$&')}%` : null;
+      const where = pattern
+        ? or(sql`${users.username} ILIKE ${pattern}`, sql`${users.email} ILIKE ${pattern}`)
+        : undefined;
+
+      const [rows, [matching], [everyone]] = await Promise.all([
+        db
+          .select()
+          .from(users)
+          .where(where)
+          .orderBy(desc(users.createdAt), users.id)
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db.select({ count: sql<number>`count(*)::int` }).from(users).where(where),
+        db.select({ count: sql<number>`count(*)::int` }).from(users),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          users: rows.map(user => this.mapToUserDTO(user)),
+          total: matching.count,
+          totalUsers: everyone.count,
+        },
+      };
+    } catch (error) {
+      console.error('[PostgresUserService] listUsersPage error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to list users',
+      };
+    }
+  }
+
+  /**
    * Check if a user has a specific role
    */
   async hasRole(userId: string, role: keyof UserRolesDTO | 'isCurator'): AsyncResult<boolean> {
@@ -1124,6 +1173,7 @@ export class PostgresUserService implements IUserService {
         canManageLocations: user.canManageLocations || false,
         canImportCardCollections: user.canImportCardCollections || false,
         canModerateForums: user.canModerateForums || false,
+        isCurator: user.isCurator || false,
       },
       isAdmin: user.isAdmin || false,
       isSuperAdmin: user.isSuperAdmin || false,

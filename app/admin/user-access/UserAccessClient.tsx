@@ -1,7 +1,11 @@
 //app/admin/user-access/UserAccessClient.tsx
 "use client";
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Input } from "@/components/ui/input";
+import { userAccessHref } from '@/lib/admin/user-access-params';
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { updateUserFlag } from '@/app/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
-import { Loader2, Shield, Settings, User, Store, RefreshCw, Sparkles, Package } from 'lucide-react';
+import { Loader2, Shield, Settings, User, Store, RefreshCw, Sparkles, Package, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Define the full user type with all the new fields
 type UserType = {
@@ -109,8 +113,75 @@ const SectionHeader = ({
   </div>
 );
 
-export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] }) {
+const pagerLinkClass =
+  "inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
+
+/** "25–48 of 1,072" plus Previous / Next links. Rendered above and below the grid. */
+const Pager = ({
+  page,
+  pageSize,
+  shown,
+  total,
+  searchTerm,
+}: {
+  page: number;
+  pageSize: number;
+  shown: number;
+  total: number;
+  searchTerm: string;
+}) => {
+  const start = (page - 1) * pageSize + 1;
+  const end = start + shown - 1;
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <nav aria-label="User pages" className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-muted-foreground" data-testid="user-range">
+        {start.toLocaleString('en-US')}–{end.toLocaleString('en-US')} of {total.toLocaleString('en-US')}
+      </p>
+      <div className="flex items-center gap-2">
+        {page > 1 && (
+          <Link href={userAccessHref({ page: page - 1, searchTerm })} aria-label="Previous page" className={pagerLinkClass}>
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            Previous
+          </Link>
+        )}
+        <span className="text-sm text-muted-foreground">
+          Page {page.toLocaleString('en-US')} of {lastPage.toLocaleString('en-US')}
+        </span>
+        {page < lastPage && (
+          <Link href={userAccessHref({ page: page + 1, searchTerm })} aria-label="Next page" className={pagerLinkClass}>
+            Next
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        )}
+      </div>
+    </nav>
+  );
+};
+
+interface UserAccessClientProps {
+  /** The users on this page only. */
+  initialUsers: UserType[];
+  /** Users matching the search (every user when there is no search). */
+  total: number;
+  /** Every user on the site. */
+  totalUsers: number;
+  page: number;
+  pageSize: number;
+  searchTerm: string;
+}
+
+export function UserAccessClient({ initialUsers, total, totalUsers, page, pageSize, searchTerm }: UserAccessClientProps) {
+  const router = useRouter();
   const [users, setUsers] = useState<UserType[]>(initialUsers);
+  const [query, setQuery] = useState(searchTerm);
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
+
+  function handleSearch(event: FormEvent) {
+    event.preventDefault();
+    router.push(userAccessHref({ page: 1, searchTerm: query.trim() }));
+  }
   const [saving, setSaving] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingKits, setRefreshingKits] = useState(false);
@@ -243,8 +314,8 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
             Manage user roles and permissions across the platform
           </p>
         </div>
-        <Badge variant="outline" className="px-3 py-1">
-          {users.length} {users.length === 1 ? 'User' : 'Users'}
+        <Badge variant="outline" className="px-3 py-1" data-testid="user-total">
+          {totalUsers.toLocaleString('en-US')} {totalUsers === 1 ? 'User' : 'Users'}
         </Badge>
       </div>
 
@@ -320,12 +391,51 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
         </CardHeader>
       </Card>
 
+      <form onSubmit={handleSearch} role="search" className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[16rem]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            type="search"
+            aria-label="Search users"
+            placeholder="Search by username or email"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button type="submit">Search</Button>
+        {searchTerm && (
+          <Link href={userAccessHref({ page: 1, searchTerm: '' })} aria-label="Clear search" className={pagerLinkClass}>
+            Clear
+          </Link>
+        )}
+      </form>
+
+      {users.length > 0 ? (
+        <Pager page={page} pageSize={pageSize} shown={users.length} total={total} searchTerm={searchTerm} />
+      ) : total === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {searchTerm ? `No users match “${searchTerm}”.` : 'No users yet.'}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          There is no page {page.toLocaleString('en-US')}.{' '}
+          <Link
+            href={userAccessHref({ page: lastPage, searchTerm })}
+            aria-label="Go to the last page"
+            className="font-medium text-primary underline underline-offset-2"
+          >
+            Go to page {lastPage.toLocaleString('en-US')}
+          </Link>
+        </p>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {users.map((user) => {
           const activeRoles = getActiveRolesCount(user);
           
           return (
-            <Card key={user._id} className="relative overflow-hidden bg-card/80 backdrop-blur-sm border-2 border-border/50 shadow-lg hover:shadow-xl hover:border-border transition-all duration-200">
+            <Card key={user._id} data-testid="user-card" data-user-id={user._id} className="relative overflow-hidden bg-card/80 backdrop-blur-sm border-2 border-border/50 shadow-lg hover:shadow-xl hover:border-border transition-all duration-200">
               {saving?.startsWith(user._id) && (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-md z-10 flex items-center justify-center border-2 border-primary/50 rounded-lg">
                   <div className="flex items-center gap-3 text-sm text-foreground bg-card/90 px-4 py-2 rounded-full shadow-lg border border-border">
@@ -338,7 +448,7 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="text-lg font-semibold text-foreground">
+                    <CardTitle className="text-lg font-semibold text-foreground" data-testid="user-name">
                       {user.username}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -480,6 +590,10 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
           );
         })}
       </div>
+
+      {users.length > 0 && (
+        <Pager page={page} pageSize={pageSize} shown={users.length} total={total} searchTerm={searchTerm} />
+      )}
     </div>
   );
 }
