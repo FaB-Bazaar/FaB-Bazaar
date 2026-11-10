@@ -6,7 +6,8 @@ import HighlightFiltersPopover, { type HighlightFilter as HF } from "./Highlight
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check } from "lucide-react";
+import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, RectangleVertical, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check } from "lucide-react";
+import { deckTileWidth, isCardGridMode, type DeckViewMode } from "@/lib/deck/deckViewMode";
 import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
 import RetryingImg from "@/components/shared/RetryingImg";
@@ -733,6 +734,7 @@ function DeckTileSection({
   wantsMap,
   highlightMatchIds,
   tileWidth = 72,
+  fullCard = false,
   ownershipFilter = 'all',
   isTouchDevice = false,
   libraryTotal,
@@ -771,6 +773,8 @@ function DeckTileSection({
   highlightMatchIds?: Set<string> | null;
   /** Width of each card tile in px — default 72 */
   tileWidth?: number;
+  /** Full view: the whole card face instead of the cropped tile. */
+  fullCard?: boolean;
   /** Whole-library count — library pitch sections render "(n/total)" instead of "(n)" */
   libraryTotal?: number;
   /** When set, shows a binder link below owned tiles */
@@ -1014,7 +1018,17 @@ function DeckTileSection({
               )}
               style={{ width: '100%' }}
             >
-              {tile.imageUrl ? (
+              {tile.imageUrl && fullCard ? (
+                /* Full view: the whole card face, nothing cropped. */
+                // eslint-disable-next-line @next/next/no-img-element
+                <RetryingImg
+                  src={tile.imageUrl}
+                  alt={tile.name}
+                  className="w-full block rounded"
+                  style={{ aspectRatio: '63/88', objectFit: 'cover' }}
+                  draggable={false}
+                />
+              ) : tile.imageUrl ? (
                 <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53', display: 'flex', flexDirection: 'column', gap: '1px', background: '#111827' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <RetryingImg
@@ -1037,7 +1051,7 @@ function DeckTileSection({
               ) : (
                 <div
                   className="w-full bg-gray-700 dark:bg-gray-800 rounded flex items-center justify-center p-1"
-                  style={{ aspectRatio: '63/53' }}
+                  style={{ aspectRatio: fullCard ? '63/88' : '63/53' }}
                 >
                   <span className="text-[7px] text-center text-gray-300 leading-tight">{tile.name}</span>
                 </div>
@@ -1202,7 +1216,7 @@ function DeckTileSection({
             onClick={() => !isDragActive && onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
             title="Add a card here"
             className="rounded border-2 border-dashed border-gray-600 hover:border-blue-500 text-gray-600 hover:text-blue-400 flex items-center justify-center transition-colors flex-shrink-0"
-            style={{ width: tileWidth, aspectRatio: '63/53' }}
+            style={{ width: tileWidth, aspectRatio: fullCard ? '63/88' : '63/53' }}
           >
             <Plus className="h-5 w-5" />
           </button>
@@ -1645,7 +1659,7 @@ interface DeckEditorListViewProps {
   onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   canEdit?: boolean;
   /** Initial view mode. Undefined while auth is still resolving; applied once when it arrives, never over a manual choice. */
-  defaultViewMode?: 'list' | 'tile' | 'game';
+  defaultViewMode?: DeckViewMode;
   /** Binder list for the selector */
   binders?: Array<{ _id: string; name: string }>;
   /** Currently selected binder ID */
@@ -1669,7 +1683,7 @@ interface DeckEditorListViewProps {
    *  chip ×, Escape, a clear event) — lets a page's own highlight UI stay in sync. */
   onHighlightCleared?: () => void;
   /** Reports the grid's Tiles / List / Game choice (deck v2 shows its right rail for Tiles and Game only). */
-  onViewModeChange?: (mode: 'list' | 'tile' | 'game') => void;
+  onViewModeChange?: (mode: DeckViewMode) => void;
 }
 
 export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover, inPlaceHighlight, onHighlightCleared, onViewModeChange }: DeckEditorListViewProps) {
@@ -1708,7 +1722,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
   // After a swap the deck prop refreshes asynchronously; retarget the lightbox
   // onto the new printing once it shows up in the deck.
   const [pendingRetarget, setPendingRetarget] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>(defaultViewMode ?? 'tile');
+  const [viewMode, setViewMode] = useState<DeckViewMode>(defaultViewMode ?? 'tile');
   // eslint-disable-next-line react-hooks/exhaustive-deps -- report changes only
   useEffect(() => { onViewModeChange?.(viewMode); }, [viewMode]);
   // defaultViewMode depends on canEdit, which can resolve after mount (auth
@@ -1728,10 +1742,10 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
   type TileSizeKey = typeof TILE_SIZES[number]['key'];
   const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('compact');
   const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
-  const tileWidth = TILE_SIZES[tileSizeIdx].width;
+  const tileWidth = deckTileWidth(viewMode, tileSizeIdx);
 
   useEffect(() => {
-    if (viewMode !== 'tile' && viewMode !== 'game') return;
+    if (!isCardGridMode(viewMode)) return;
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -2274,6 +2288,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     wantsMap,
     highlightMatchIds: matchingPrintingIds,
     tileWidth,
+    fullCard: viewMode === 'full',
     ownershipFilter,
     isTouchDevice,
   };
@@ -2360,38 +2375,41 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     <>
       {/* Display controls — view mode, hover preview, tile density, and highlight popover */}
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <div className="inline-flex items-center rounded border border-gray-300 dark:border-gray-700 overflow-hidden text-sm bg-white dark:bg-gray-900/40">
-          {/* View mode */}
+        {/* View mode — plain text tabs, the active one underlined. Deliberately not a
+            second boxed control: on the rail page it sits right under Table / Cards / Brew. */}
+        <div role="group" aria-label="Card layout" className="flex items-center gap-4 text-sm">
           {([
             { key: 'list', icon: List,       label: 'List'  },
             { key: 'tile', icon: LayoutGrid, label: 'Tiles' },
+            { key: 'full', icon: RectangleVertical, label: 'Full'  },
             { key: 'game', icon: Layers,     label: 'Game'  },
-          ] as const).map((m, idx) => (
+          ] as const).map(m => (
             <button
               key={m.key}
               type="button"
               onClick={() => { viewModeLocked.current = true; setViewMode(m.key); }}
               aria-pressed={viewMode === m.key}
               className={cn(
-                "px-3 py-1.5 flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
-                idx > 0 && "border-l border-gray-300 dark:border-gray-700",
+                "py-1.5 flex items-center gap-1.5 border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                 viewMode === m.key
-                  ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
+                  ? "border-gray-900 dark:border-white font-semibold text-gray-900 dark:text-white"
+                  : "border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white",
               )}
             >
               <m.icon className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{m.label}</span>
             </button>
           ))}
+        </div>
 
-          {/* Hover preview toggle (only meaningful in tile / game views) */}
-          {(viewMode === 'tile' || viewMode === 'game') && (
+        {/* Hover preview + card size (only meaningful in the card-grid views) */}
+        {isCardGridMode(viewMode) && (
+        <div className="inline-flex items-center rounded border border-gray-300 dark:border-gray-700 overflow-hidden text-sm bg-white dark:bg-gray-900/40">
             <button
               type="button"
               onClick={() => { setHoverMode(m => { setHighlightFilters([]); return !m; }); setHoveredImage(null); }}
               className={cn(
-                "px-3 py-1.5 border-l border-gray-300 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+                "px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
                 hoverMode
                   ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
                   : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
@@ -2402,10 +2420,8 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
             >
               <Eye className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
-          )}
 
-          {/* Tile density */}
-          {(viewMode === 'tile' || viewMode === 'game') && (
+            {/* Tile density */}
             <div className="flex items-center border-l border-gray-300 dark:border-gray-700">
               <button
                 type="button"
@@ -2423,10 +2439,10 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                 aria-label="Larger tiles"
               >+</button>
             </div>
-          )}
         </div>
+        )}
 
-        {(viewMode === 'tile' || viewMode === 'game') && (
+        {isCardGridMode(viewMode) && (
           <div className="hidden md:block text-sm">
             {highlightFiltersBlock}
           </div>
@@ -2456,7 +2472,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
           </Link>
         )}
 
-        {(viewMode === 'tile' || viewMode === 'game') && onAddToBinder && binders && binders.length > 0 && (
+        {isCardGridMode(viewMode) && onAddToBinder && binders && binders.length > 0 && (
           <div className={cn(
             "hidden sm:flex flex-col items-end gap-0.5 ml-auto rounded-lg px-2 py-1 -my-1",
             showCollectorHint && "ring-2 ring-blue-400/60 animate-pulse"
@@ -2555,7 +2571,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
       </div>
 
       {/* Highlight filter bar */}
-      {(viewMode === 'tile' || viewMode === 'game') && (
+      {isCardGridMode(viewMode) && (
         <>
           {/* ── Mobile highlight strips: two swipeable rows ── */}
           <div className="md:hidden mb-3 -mx-4 flex flex-col gap-0">
@@ -2706,7 +2722,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
             );
           })()
         )
-      ) : viewMode === 'tile' ? (
+      ) : viewMode === 'tile' || viewMode === 'full' ? (
         <div className="rounded border border-gray-300 dark:border-gray-700/50 p-2">
           {tileTopSections.map(s => (
             <DeckTileSection
@@ -2930,7 +2946,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
 
       {/* Filter focus overlay — dims the deck and shows matching cards floating in from their positions */}
       {/* In hover mode, skip the overlay — tiles show highlight/dim in-place instead */}
-      {focusCards.length > 0 && !hoverMode && !inPlaceHighlight && (viewMode === 'tile' || viewMode === 'game') && (
+      {focusCards.length > 0 && !hoverMode && !inPlaceHighlight && isCardGridMode(viewMode) && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex flex-col"
