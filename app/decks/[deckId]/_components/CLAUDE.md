@@ -1,12 +1,13 @@
 # The rail deck page (`/decks/[deckId]`, components in `_components/`)
 
-The desktop deck page since 2026-09 (trialled at `/v2`, which now redirects here; the classic page lives on at `/decks/[deckId]/deprecated`): a left rail (Deck · Stats · Matchups · Import list · Results · Notes · Present · Prices · Tools ⌘K · Classic view · Options) and three views — **Cards** (the classic tile/game grid; EVERY visit opens here — the pick is deliberately not remembered, and the /v2 trial's `deckV2View` localStorage key is ignored), **Table** (one row per card, sortable) and **Brew** (the deck's legal pool minus what's already in it, with add-to-zone buttons). The rail's **Classic view** links to `/deprecated`. Phones (`useIsMobile`) render the classic page instead — resolved after the viewport is known, same timing rule as the classic page.
+The desktop deck page since 2026-09 (trialled at `/v2`, which now redirects here; the classic page lives on at `/decks/[deckId]/deprecated`): a left rail (Deck · Stats · Prices · Import list · Results · Notes, then after a gap Matchups · Present · Tools ⌘K, and Classic view · Options at the bottom — this page's views first, the links that open another page after the gap) and three views — **Cards** (the classic tile/game grid; EVERY visit opens here — the pick is deliberately not remembered, and the /v2 trial's `deckV2View` localStorage key is ignored), **Table** (one row per card, sortable) and **Brew** (the deck's legal pool minus what's already in it, with add-to-zone buttons). The rail's **Classic view** links to `/deprecated`. Phones (`useIsMobile`) render the classic page instead — resolved after the viewport is known, same timing rule as the classic page.
 
 ## Share, don't duplicate
 
 The rail page must reuse the classic page's machinery; a feature that exists on both pages lives in ONE module both import:
 
 - `useDeckEditor` — deck state, add/remove, printing swaps.
+- `hooks/deck/useDeckMutations` — add / remove / move / set-quantity for saved deck cards (toast + refresh + optimistic quantity). The rules are in `lib/deck/deck-mutations` (node-tested): every add reads the bulk route's PER-ROW outcome (it answers 200 with `results[i].error` for copy caps / legality), and a move is remove-then-add that puts the copies back when the target zone rejects them — the hand-rolled versions on both pages dropped the cards silently. Never call `decksClient.addPrintings` / `removePrinting` for a deck row from a page.
 - `components/deck/editor/DeckEditorListView` — the Cards grid (optional `inPlaceHighlight`, `onHighlightCleared`, `onViewModeChange` props exist for the rail page).
 - `components/deck/editor/useDeckCommandHud` — the Cmd+K chord HUD + full-screen focus overlay.
 - `hooks/deck/useBinderWantsActions` — collector mode's add-to-binder / add-to-wants.
@@ -22,7 +23,7 @@ Both pages speak the `deck-highlight-filter` / `deck-highlight-clear` window eve
 
 ## Main views and deep links
 
-Results, Notes, Import list and Prices (every viewer; `_components/PricesView`) replace the deck views in the main area (`mainMode`), embedding the same components as the classic tabs (`DeckResultsTab`, `DeckNotesTab`). `?tab=notes` / `?tab=results` open them for editors — `/decks/[id]/notes` redirects to `?tab=notes`, which works on both pages (phones get the classic page, which reads the same param).
+Results, Notes, Import list and Prices (every viewer; `_components/PricesView`) replace the deck views in the main area, embedding the same components as the classic tabs (`DeckResultsTab`, `DeckNotesTab`). `mainMode` is DERIVED from `?tab=` (`lib/deck/deck-page-url`: `resolveMainMode` / `mainModeHref`; rail clicks `history.pushState`, so a view is linkable, survives a reload and Back returns to the deck) — don't add state for it. The Cards / Table / Brew pick is deliberately NOT in the URL (every visit opens on Cards, owner call). The side panels (Deck, Stats) show only beside the deck views (`visiblePanel`); Stats clicked from another view brings the deck back. The panel's **Hide** closes it and keeps the highlight; the **Deck** rail button reopens it as it was, and otherwise resets (or collapses when nothing is highlighted). Below 1200px the panel starts closed. `?tab=notes` / `?tab=results` / `?tab=import` open for editors only — `/decks/[id]/notes` redirects to `?tab=notes`, which works on both pages (phones get the classic page, which reads the same param).
 
 ## Brew pool
 
