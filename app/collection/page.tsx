@@ -370,14 +370,19 @@ export default function CollectionPage() {
 
     const loadData = async () => {
       try {
-        const overviewResult = await bindersClient.getCollectionOverview()
+        // Asked for together — neither depends on the other. Both are awaited
+        // so the summary and the binders still appear at once (the summary
+        // sits above the list; arriving late it would push the list down).
+        const [overviewResult, result] = await Promise.all([
+          bindersClient.getCollectionOverview(),
+          bindersClient.getUserBinders({ includeStats: true }),
+        ])
         if (overviewResult.success) {
           setCollectionOverview(overviewResult.data as CollectionOverview)
         } else {
           console.warn('[Collection] Failed to load collection overview:', overviewResult.error)
         }
 
-        const result = await bindersClient.getUserBinders({ includeStats: true })
         if (result.success) {
           setBinders(result.data.binders || [])
         } else {

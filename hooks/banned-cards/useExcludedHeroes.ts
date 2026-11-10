@@ -70,3 +70,44 @@ export function useExcludedHeroes(format: string): Map<string, RestrictionType> 
 
   return map
 }
+
+/**
+ * Every listed format's hero restrictions in ONE request, as
+ * { [displayFormat]: Map<cardUniqueId, status> }. Pass a stable array (a
+ * module constant). Formats without a registry entry, a failed request and
+ * the time before it resolves all give empty maps — never hides a hero.
+ */
+export function useExcludedHeroesByFormat<F extends string>(formats: readonly F[]): Record<F, Map<string, RestrictionType>> {
+  const empty = () => Object.fromEntries(formats.map(f => [f, new Map()])) as Record<F, Map<string, RestrictionType>>
+  const [byFormat, setByFormat] = useState(empty)
+  const key = formats.join('|')
+
+  useEffect(() => {
+    const registry = formats.map(f => [f, toRegistryFormat(f)] as const).filter((pair): pair is readonly [F, string] => !!pair[1])
+    if (registry.length === 0) return
+
+    let cancelled = false
+    fetch(`/api/banned-cards/heroes?formats=${[...new Set(registry.map(([, r]) => r))].join(',')}`)
+      .then(r => r.json())
+      .then(body => {
+        if (cancelled) return
+        const data = body?.data?.byFormat as Record<string, Array<{ cardUniqueId: string; status: RestrictionType }>> | undefined
+        if (!data) return
+        const next = empty()
+        for (const [display, reg] of registry) {
+          if (Array.isArray(data[reg])) next[display] = new Map(data[reg].map(h => [h.cardUniqueId, h.status]))
+        }
+        setByFormat(next)
+      })
+      .catch(() => {
+        // Swallow — empty maps mean "no chips", a safe failure mode.
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the format names
+  }, [key])
+
+  return byFormat
+}

@@ -99,3 +99,38 @@ describe('GET /api/banned-cards/heroes', () => {
     expect(res.status).toBe(200)
   })
 })
+
+// ?formats=a,b,c answers several formats in ONE request (the create-deck dialog
+// used to make five).
+describe('GET /api/banned-cards/heroes?formats=', () => {
+  it('returns the heroes of every requested format, keyed by format', async () => {
+    mockListExcludedHeroes.mockImplementation(async (format: string) => ({
+      success: true,
+      data: format === 'blitz' ? [{ cardUniqueId: 'hero-kano', status: 'banned' }] : [],
+    }) as any)
+
+    const res = await GET(makeRequest('?formats=classic_constructed,blitz'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({
+      success: true,
+      data: { byFormat: { classic_constructed: [], blitz: [{ cardUniqueId: 'hero-kano', status: 'banned' }] } },
+    })
+    expect(mockListExcludedHeroes).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects an unknown format in the list', async () => {
+    const res = await GET(makeRequest('?formats=blitz,nonsense'))
+    expect(res.status).toBe(400)
+    expect(mockListExcludedHeroes).not.toHaveBeenCalled()
+  })
+
+  it('fails as a whole when one format cannot be read', async () => {
+    mockListExcludedHeroes.mockImplementation(async (format: string) => (
+      format === 'blitz' ? { success: false, error: 'db down' } : { success: true, data: [] }
+    ) as any)
+    const res = await GET(makeRequest('?formats=classic_constructed,blitz'))
+    expect(res.status).toBe(500)
+  })
+})

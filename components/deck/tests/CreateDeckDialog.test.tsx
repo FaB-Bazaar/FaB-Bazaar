@@ -16,6 +16,7 @@ import CreateDeckDialog from '../CreateDeckDialog';
 
 vi.mock('@/hooks/banned-cards/useExcludedHeroes', () => ({
   useExcludedHeroes: () => new Map(),
+  useExcludedHeroesByFormat: (formats: readonly string[]) => Object.fromEntries(formats.map(f => [f, new Map()])),
 }));
 
 const HEROES = [

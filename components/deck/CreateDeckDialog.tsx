@@ -13,7 +13,9 @@ import { ArrowLeft, Globe, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import type { HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
-import { useExcludedHeroes } from "@/hooks/banned-cards/useExcludedHeroes";
+import { useExcludedHeroesByFormat } from "@/hooks/banned-cards/useExcludedHeroes";
+
+const RESTRICTION_FORMATS = ['Classic Constructed', 'Silver Age', 'Blitz', 'Commoner', 'Living Legend'] as const;
 import { useIsTouchDevice } from "@/components/ui/use-client-env";
 import { formatOptionsForHero, formatShortLabel, resolveDeckFormat, heroRestrictions, restrictionChipLabel, type HeroRestrictionsByFormat } from "./hero-format-utils";
 
@@ -116,20 +118,10 @@ export default function CreateDeckDialog({
   }, [heroes, ageFilter]);
 
   // Hero restriction status per format so the picker can flag (not block) heroes
-  // with their real status — banned / benched / Living Legend. Each call is
-  // cached server-side; empty maps are a safe fallback that never hides a hero.
-  const ccR = useExcludedHeroes('Classic Constructed');
-  const sageR = useExcludedHeroes('Silver Age');
-  const blitzR = useExcludedHeroes('Blitz');
-  const commonerR = useExcludedHeroes('Commoner');
-  const llR = useExcludedHeroes('Living Legend');
-  const restrictionsByFormat: HeroRestrictionsByFormat = useMemo(() => ({
-    'Classic Constructed': ccR,
-    'Silver Age': sageR,
-    'Blitz': blitzR,
-    'Commoner': commonerR,
-    'Living Legend': llR,
-  }), [ccR, sageR, blitzR, commonerR, llR]);
+  // with their real status — banned / benched / Living Legend. One request for
+  // all formats (cached server-side); empty maps are a safe fallback that never
+  // hides a hero.
+  const restrictionsByFormat: HeroRestrictionsByFormat = useExcludedHeroesByFormat(RESTRICTION_FORMATS);
 
   const selectedHero = hero === 'none' ? undefined : heroesByName.get(hero.toLowerCase());
   const formatOptions = formatOptionsForHero(selectedHero);
