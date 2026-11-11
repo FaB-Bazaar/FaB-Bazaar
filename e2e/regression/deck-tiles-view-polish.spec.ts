@@ -53,9 +53,12 @@ async function openTiles(page: Page) {
 test('the binder dropdown is labelled as the add target; dots compare to the whole collection', async ({ page }) => {
   await openTiles(page)
   await expect(page.getByText('Compare to', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('combobox', { name: /add cards to/i })).toBeVisible()
   await expect(page.getByText('in your collection', { exact: true })).toBeVisible()
   await expect(page.getByText('not owned', { exact: true })).toBeVisible()
+  // The picker only matters with the add buttons, so it shows with Collector Mode (2026-11).
+  await expect(page.getByRole('combobox', { name: /add cards to/i })).toHaveCount(0)
+  await page.getByRole('group', { name: 'Collection' }).getByRole('button', { name: 'Collector Mode', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: /add cards to/i })).toBeVisible()
 })
 
 test('empty zones collapse to a slim header with an always-visible add button', async ({ page }) => {

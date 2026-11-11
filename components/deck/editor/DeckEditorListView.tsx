@@ -2461,48 +2461,47 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
           </Link>
         )}
 
+        {/* Collection controls — ONE row (they were a five-row stack that pushed the
+            cards down the page): the dot legend, then Collector Mode and its help.
+            The binder picker only matters once Collector Mode shows the add
+            buttons, so it appears with it. */}
         {isCardGridMode(viewMode) && onAddToBinder && binders && binders.length > 0 && (
-          <div className={cn(
-            "hidden sm:flex flex-col items-end gap-0.5 ml-auto rounded-lg px-2 py-1 -my-1",
+          <div role="group" aria-label="Collection" className={cn(
+            "hidden sm:flex items-center gap-3 ml-auto rounded-lg px-2 py-1 -my-1",
             showCollectorHint && "ring-2 ring-blue-400/60 animate-pulse"
           )}>
-            <div className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-600 dark:text-gray-400">
-              <button
-                type="button"
-                title="Turn on Collector Mode to add this deck's cards to a binder"
-                onClick={() => {
-                  const next = ownershipFilter === 'unowned' ? 'all' : 'unowned';
-                  window.dispatchEvent(new CustomEvent('deck-ownership-filter', {
-                    detail: { filter: next, setExplicit: true }
-                  }));
-                }}
-                className="flex items-center gap-1 uppercase tracking-wide hover:text-gray-900 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
-              >
-                <BookOpen className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span>Add to Binder</span>
-              </button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="How does Add to Binder work?"
-                    className="rounded-full p-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  >
-                    <Info className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 text-sm text-gray-700 dark:text-gray-200">
-                  <p className="font-semibold mb-2 text-gray-900 dark:text-white">Add to Binder</p>
-                  <p className="mb-2">
-                    Pick a target binder, then turn on <strong>Collector Mode</strong> (or press <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">⌘K</kbd> then <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">U</kbd>). Cards you already own — any printing counts — are hidden, leaving only what&apos;s missing. Each remaining card gets a small <BookOpen className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden="true" /> button — click it to add <strong>1× NM</strong> of that printing.
-                  </p>
-                  <p className="mb-2 text-xs text-gray-700 dark:text-gray-300">Your binder selection is remembered across sessions.</p>
-                  <p className="text-xs text-gray-700 dark:text-gray-300">
-                    List markers: <span className="text-emerald-700 dark:text-emerald-400 font-semibold">✓</span> all copies in your binders · <span className="text-amber-700 dark:text-amber-300 font-semibold tabular-nums">1/2</span> copies owned / needed.
-                  </p>
-                </PopoverContent>
-              </Popover>
+            {/* Legend for the per-card ownership dots (JoseR's suggestion). "Missing" is an outline
+                on purpose: on a deck you mostly don't own it sits on nearly every tile, so a solid
+                red dot drowned the green one that actually carries the signal. */}
+            <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20" aria-hidden="true" />
+                in your collection
+              </span>
+              <span className="flex items-center gap-1">
+                <span data-testid="legend-missing" className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-red-500" aria-hidden="true" />
+                not owned
+              </span>
             </div>
+            {ownershipFilter === 'unowned' && (
+            <div className="flex items-center gap-1.5">
+              {/* The binder the 📖 add buttons put cards into. NOT what the dots compare
+                  against — ownership is checked across every binder (binderMode 'all'). */}
+              <span id="deck-add-binder-label" className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">Add cards to</span>
+              <Select value={selectedBinderId} onValueChange={onBinderChange}>
+                <SelectTrigger aria-labelledby="deck-add-binder-label" className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[160px] gap-1">
+                  <SelectValue placeholder="Select binder" />
+                </SelectTrigger>
+              <SelectContent>
+                {binders.map(b => (
+                  <SelectItem key={b._id} value={b._id} className="text-sm">
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+              </Select>
+            </div>
+            )}
             <button
               type="button"
               aria-pressed={ownershipFilter === 'unowned'}
@@ -2525,36 +2524,27 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                 : <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
               <span>Collector Mode</span>
             </button>
-            <div className="flex items-center gap-1.5">
-              {/* The binder the 📖 add buttons put cards into. NOT what the dots compare
-                  against — ownership is checked across every binder (binderMode 'all'). */}
-              <span id="deck-add-binder-label" className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">Add cards to</span>
-              <Select value={selectedBinderId} onValueChange={onBinderChange}>
-                <SelectTrigger aria-labelledby="deck-add-binder-label" className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[160px] gap-1">
-                  <SelectValue placeholder="Select binder" />
-                </SelectTrigger>
-              <SelectContent>
-                {binders.map(b => (
-                  <SelectItem key={b._id} value={b._id} className="text-sm">
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-              </Select>
-            </div>
-            {/* Legend for the per-card ownership dots (JoseR's suggestion). "Missing" is an outline
-                on purpose: on a deck you mostly don't own it sits on nearly every tile, so a solid
-                red dot drowned the green one that actually carries the signal. */}
-            <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20" aria-hidden="true" />
-                in your collection
-              </span>
-              <span className="flex items-center gap-1">
-                <span data-testid="legend-missing" className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-red-500" aria-hidden="true" />
-                not owned
-              </span>
-            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="How adding to a binder works"
+                  className="rounded-full p-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 text-sm text-gray-700 dark:text-gray-200">
+                <p className="font-semibold mb-2 text-gray-900 dark:text-white">Collector Mode</p>
+                <p className="mb-2">
+                  Turn on <strong>Collector Mode</strong> (or press <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">⌘K</kbd> then <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">U</kbd>), then pick the binder to add to. Cards you already own — any printing counts — are hidden, leaving only what&apos;s missing. Each remaining card gets a small <BookOpen className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden="true" /> button — click it to add <strong>1× NM</strong> of that printing.
+                </p>
+                <p className="mb-2 text-xs text-gray-700 dark:text-gray-300">Your binder selection is remembered across sessions.</p>
+                <p className="text-xs text-gray-700 dark:text-gray-300">
+                  List markers: <span className="text-emerald-700 dark:text-emerald-400 font-semibold">✓</span> all copies in your binders · <span className="text-amber-700 dark:text-amber-300 font-semibold tabular-nums">1/2</span> copies owned / needed.
+                </p>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </div>

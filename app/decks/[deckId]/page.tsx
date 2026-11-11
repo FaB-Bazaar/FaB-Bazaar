@@ -45,6 +45,7 @@ import BrewView, { BREW_DETAILS_SLOT } from "./_components/BrewView";
 import RatiosSection from "./_components/RatiosSection";
 import RatioCompare from "./_components/RatioCompare";
 import PricesView from "./_components/PricesView";
+import DeckHeader from "./_components/DeckHeader";
 import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
 import { mainModeHref, resolveMainMode, type MainMode } from "@/lib/deck/deck-page-url";
 import type { BrewFacets } from "@/lib/deck/brew";
@@ -55,7 +56,7 @@ const ClassicDeckPage = dynamic(() => import("./deprecated/page"), {
 });
 
 type PanelId = "find" | "stats";
-const FIND_COLLAPSED_KEY = "deck-find-panel-collapsed";
+const FIND_OPEN_KEY = "deck-find-panel-open";
 type View = "table" | "cards" | "brew";
 const VIEWS: View[] = ["table", "cards", "brew"];
 const VIEW_LABEL: Record<View, string> = { table: "Table", cards: "Cards", brew: "Brew" };
@@ -94,7 +95,8 @@ function DeckV2Page() {
   const mutations = useDeckMutations({ deckId, deck, refreshDeck: handlers.refreshDeck, applyDeck: handlers.applyDeck, refreshOwnership: handlers.refreshOwnership });
 
   const canEdit = !!(user && deck && (deck.userId === user.id || (deck.coOwners ?? []).includes(user.id)));
-  const [panel, setPanel] = useState<PanelId | null>("find");
+  // Every deck opens on its cards; the Find panel is a tool you open (below).
+  const [panel, setPanel] = useState<PanelId | null>(null);
   const [active, setActive] = useState<Active>(null);
   const [facets, setFacets] = useState<BrewFacets>({});
   const [kitId, setKitId] = useState("");
@@ -123,26 +125,29 @@ function DeckV2Page() {
   // The side panels (Find, Stats) describe the deck views only; the pick is
   // kept while another main view shows, so coming back restores it.
   const visiblePanel = mainMode === "deck" ? panel : null;
-  // "Deck" while the panel is open with nothing highlighted collapses it so the
-  // deck gets the full width (user request); remembered per browser.
-  // Below 1200px the rail + panel leave too little room for the cards, so the
-  // panel starts closed there.
+  // The Find panel starts closed (the deck gets the full width) and a browser
+  // that opened it gets it open next time. Below 1200px the rail + panel leave
+  // too little room for the cards, so it always starts closed there.
+  // "Deck" while the panel is open with nothing highlighted collapses it.
   useEffect(() => {
-    let collapsed = window.innerWidth < 1200;
-    try { collapsed = collapsed || localStorage.getItem(FIND_COLLAPSED_KEY) === "1"; } catch { /* storage blocked */ }
-    if (collapsed) setPanel(p => (p === "find" ? null : p));
+    let open = false;
+    try { open = localStorage.getItem(FIND_OPEN_KEY) === "1"; } catch { /* storage blocked */ }
+    if (open && window.innerWidth >= 1200) setPanel(p => p ?? "find");
   }, []);
+  const rememberFindOpen = (open: boolean) => {
+    try {
+      if (open) localStorage.setItem(FIND_OPEN_KEY, "1");
+      else localStorage.removeItem(FIND_OPEN_KEY);
+    } catch { /* storage blocked — this visit only */ }
+  };
   // The panel's own Hide button: closes it and keeps every filter as it is.
   const hidePanel = () => {
-    if (panel === "find") { try { localStorage.setItem(FIND_COLLAPSED_KEY, "1"); } catch { /* this visit only */ } }
+    if (panel === "find") rememberFindOpen(false);
     setPanel(null);
   };
   const onDeckRail = () => {
     const collapse = visiblePanel === "find" && active === null;
-    try {
-      if (collapse) localStorage.setItem(FIND_COLLAPSED_KEY, "1");
-      else localStorage.removeItem(FIND_COLLAPSED_KEY);
-    } catch { /* storage blocked — still toggles for this visit */ }
+    rememberFindOpen(!collapse);
     if (collapse) setPanel(null);
     // Hidden with its filters kept (the panel's Hide): just show it again.
     else if (mainMode === "deck" && panel === null) setPanel("find");
@@ -502,13 +507,7 @@ function DeckV2Page() {
 
         {/* Deck */}
         <main className="min-w-0 flex-1 px-6 py-5">
-          <header className="mb-4 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{deck.name}</h1>
-              <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-                {[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
-              </p>
-            </div>
+          <DeckHeader deck={deck} heroName={heroName} line={[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}>
             {/* Someone else's deck: read only, but you can take a copy (classic parity). */}
             {!canEdit && (
               <div className="flex shrink-0 items-center gap-3 text-sm">
@@ -523,7 +522,7 @@ function DeckV2Page() {
                 </button>
               </div>
             )}
-          </header>
+          </DeckHeader>
           {mainMode === "import" ? (
             <section aria-label="Import list">
               <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
