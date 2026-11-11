@@ -41,6 +41,7 @@ export const SET_IMAGES: Record<string, string> = {
   'tnp': 'set-tnp-logo', // Tournament Pack
   'obk': 'set-obk-logo-20261111002304', // Outbreak
   'aur': 'set-aur-logo', // 1st Strike
+  'ast': 'set-aur-logo', // Armory Deck: Aurora (LSS uses the same Aurora wordmark for it)
   'ter': 'set-ter-logo', // First Strike: Terra
   'jdg': 'set-jdg-logo', // Judge Promos (the Judges of Rathe programme mark)
   'ako': 'set-ako-logo', // Armory Deck: Kayo
@@ -51,6 +52,7 @@ export const SET_IMAGES: Record<string, string> = {
   'amx': 'set-amx-logo', // Armory Deck: Maxx Nitro
   'agb': 'set-agb-logo', // Armory Deck: Gravy Bones
   'asr': 'set-asr-logo', // Armory Deck: Ira
+  'avs': 'set-avs-logo', // Armory Deck Legends: Viserai
   'aps': 'set-aps-logo', // Armory Deck: Pleiades
   'arr': 'set-arr-logo', // Armory Deck: Rhinar
   'aac': 'set-aac-logo', // Armory Deck: Arakni
@@ -58,6 +60,23 @@ export const SET_IMAGES: Record<string, string> = {
   'azs': 'set-azs-logo', // Armory Deck: Zyggy
   'aol': 'set-aol-logo', // Armory Deck: Olympia
   'amg': 'set-amg-logo', // Armory Deck: Min
+  '2hp': 'set-2hp-logo', // History Pack Vol.2
+  'rap': 'set-rap-logo', // Archive Pack - Rosetta
+  'spw': 'set-spw-logo', // Smash Palace: Chorus of Steel
+  'dvr': 'set-dvr-logo', // Classic Battles: Rhinar vs Dorinthea
+  'rvd': 'set-dvr-logo', // Classic Battles: Rhinar vs Dorinthea - Rhinar
+  // LSS made one "History Pack 1 Blitz Decks" logo for all six decks.
+  '1hb': 'set-1hp-blitz-logo', // Historic Pack 1 Blitz Deck: Bravo
+  '1hd': 'set-1hp-blitz-logo', // Historic Pack 1 Blitz Deck: Dash
+  '1ht': 'set-1hp-blitz-logo', // Historic Pack 1 Blitz Deck: Dorinthea
+  '1hk': 'set-1hp-blitz-logo', // Historic Pack 1 Blitz Deck: Kano
+  '1hr': 'set-1hp-blitz-logo', // Historic Pack 1 Blitz Deck: Rhinar
+  '1hv': 'set-1hp-blitz-logo', // Historic Pack 1 Blitz Deck: Viserai
+  // The 2019 hero decks never had a logo: these are the product boxes, cut out.
+  'bvo': 'set-bvo-logo', // Hero Deck: Bravo
+  'tea': 'set-tea-logo', // Hero Deck: Dorinthea
+  'ksu': 'set-ksu-logo', // Hero Deck: Katsu
+  'rnr': 'set-rnr-logo', // Hero Deck: Rhinar
   // Silver Age decks have no per-hero logo: they all share the format's wordmark.
   'sar': 'set-silver-age-logo', // Silver Age Deck: Arakni
   'saz': 'set-silver-age-logo', // Silver Age Deck: Azalea
