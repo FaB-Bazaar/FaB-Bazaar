@@ -6,9 +6,12 @@ import { ArrowLeft } from "lucide-react"
 import { getOrderedSets } from '@/lib/fab-constants'
 import { getSetImageUrl } from "@/lib/set-images"
 import { useState } from "react"
+import { useSetOverlayVersion } from "@/components/SetOverlayProvider"
 
 export default function SetsLandingPage() {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  // This page is prerendered: re-render when the DB set overlay arrives.
+  useSetOverlayVersion();
 
   // Get sets grouped by category in display order
   const { standard, nonStandard } = getOrderedSets();
@@ -18,8 +21,10 @@ export default function SetsLandingPage() {
 
   const nonStandardSets = nonStandard;
 
-  const handleImageError = (setCode: string) => {
-    setImageErrors(prev => ({ ...prev, [setCode]: true }));
+  // Keyed by image URL, not set code: a logo that arrives with the overlay
+  // must not inherit the failure of the placeholder it replaces.
+  const handleImageError = (src: string) => {
+    setImageErrors(prev => ({ ...prev, [src]: true }));
   };
 
   return (
@@ -48,12 +53,12 @@ export default function SetsLandingPage() {
                 >
                   {/* Set Image */}
                   <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center p-3">
-                    {!imageErrors[set.code] ? (
+                    {!imageErrors[getSetImageUrl(set.code)] ? (
                       <img
                         src={getSetImageUrl(set.code)}
                         alt={set.name}
                         className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-200"
-                        onError={() => handleImageError(set.code)}
+                        onError={() => handleImageError(getSetImageUrl(set.code))}
                       />
                     ) : (
                       <div className="text-center">
@@ -89,12 +94,12 @@ export default function SetsLandingPage() {
                 >
                   {/* Set Image */}
                   <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center p-3">
-                    {!imageErrors[set.code] ? (
+                    {!imageErrors[getSetImageUrl(set.code)] ? (
                       <img
                         src={getSetImageUrl(set.code)}
                         alt={set.name}
                         className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-200"
-                        onError={() => handleImageError(set.code)}
+                        onError={() => handleImageError(getSetImageUrl(set.code))}
                       />
                     ) : (
                       <div className="text-center">

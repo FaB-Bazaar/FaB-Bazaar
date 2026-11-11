@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { adoptLayoutOverlay, adoptFetchedOverlay, __resetSetOverlayClientForTests } from './set-overlay-client';
+import {
+  adoptLayoutOverlay, adoptFetchedOverlay, subscribeSetOverlay, setOverlayVersion, __resetSetOverlayClientForTests,
+} from './set-overlay-client';
 import { currentSetOverlay, resetSetOverlay, type SetOverlay } from './set-overlay';
 
 const o = (version: string): SetOverlay => ({ version, meta: {}, images: {}, filterSets: null });
@@ -30,6 +32,26 @@ describe('browser overlay adoption', () => {
     adoptFetchedOverlay(o('b'));
     adoptLayoutOverlay(o('c'));
     expect(currentSetOverlay().version).toBe('c');
+  });
+
+  // /sets is prerendered with the compiled snapshot: the fetched overlay has
+  // to re-render it, or a logo registered after the build never shows there.
+  it('tells subscribers when a fetched overlay changes what is published', () => {
+    adoptLayoutOverlay(o('a'));
+    let calls = 0;
+    const unsubscribe = subscribeSetOverlay(() => { calls++; });
+    expect(setOverlayVersion()).toBe('a');
+
+    adoptFetchedOverlay(o('b'));
+    expect(calls).toBe(1);
+    expect(setOverlayVersion()).toBe('b');
+
+    adoptFetchedOverlay(o('b'));
+    expect(calls).toBe(1);
+
+    unsubscribe();
+    adoptFetchedOverlay(o('c'));
+    expect(calls).toBe(1);
   });
 
   it('ignores a malformed fetch result', () => {

@@ -1,8 +1,20 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import type { SetOverlay } from '@/lib/fab-constants/set-overlay';
-import { adoptFetchedOverlay, adoptLayoutOverlay } from '@/lib/fab-constants/set-overlay-client';
+import {
+  adoptFetchedOverlay, adoptLayoutOverlay, subscribeSetOverlay, setOverlayVersion,
+} from '@/lib/fab-constants/set-overlay-client';
+
+/**
+ * Re-renders the calling component when the fetched overlay replaces the one
+ * the page was built with. A prerendered page that lists sets or shows set
+ * logos needs it — without it the page keeps the compiled snapshot until the
+ * next navigation (/sets showed a broken Outbreak logo this way).
+ */
+export function useSetOverlayVersion(): string {
+  return useSyncExternalStore(subscribeSetOverlay, setOverlayVersion, setOverlayVersion);
+}
 
 /**
  * Patches the set constants with the DB set overlay (sets registered after
