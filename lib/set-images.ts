@@ -40,6 +40,42 @@ export const SET_IMAGES: Record<string, string> = {
   'mpa': 'set-mpa-logo', // Mastery Pack Assassin
   'tnp': 'set-tnp-logo', // Tournament Pack
   'obk': 'set-obk-logo-20261111002304', // Outbreak
+  'aur': 'set-aur-logo', // 1st Strike
+  'ter': 'set-ter-logo', // First Strike: Terra
+  'jdg': 'set-jdg-logo', // Judge Promos (the Judges of Rathe programme mark)
+  'ako': 'set-ako-logo', // Armory Deck: Kayo
+  'asb': 'set-asb-logo', // Armory Deck: Boltyn
+  'aaz': 'set-aaz-logo', // Armory Deck: Azalea
+  'aio': 'set-aio-logo', // Armory Deck: Dash
+  'ajv': 'set-ajv-logo', // Armory Deck: Jarl Vetreidi
+  'amx': 'set-amx-logo', // Armory Deck: Maxx Nitro
+  'agb': 'set-agb-logo', // Armory Deck: Gravy Bones
+  'asr': 'set-asr-logo', // Armory Deck: Ira
+  'aps': 'set-aps-logo', // Armory Deck: Pleiades
+  'arr': 'set-arr-logo', // Armory Deck: Rhinar
+  'aac': 'set-aac-logo', // Armory Deck: Arakni
+  'aha': 'set-aha-logo', // Armory Deck Origins: Hala
+  'azs': 'set-azs-logo', // Armory Deck: Zyggy
+  'aol': 'set-aol-logo', // Armory Deck: Olympia
+  'amg': 'set-amg-logo', // Armory Deck: Min
+  // Silver Age decks have no per-hero logo: they all share the format's wordmark.
+  'sar': 'set-silver-age-logo', // Silver Age Deck: Arakni
+  'saz': 'set-silver-age-logo', // Silver Age Deck: Azalea
+  'sbr': 'set-silver-age-logo', // Silver Age Deck: Bravo
+  'sda': 'set-silver-age-logo', // Silver Age Deck: Dash
+  'sdo': 'set-silver-age-logo', // Silver Age Deck: Dorinthea
+  'sen': 'set-silver-age-logo', // Silver Age Deck: Enigma
+  'sfa': 'set-silver-age-logo', // Silver Age Deck: Fai
+  'siy': 'set-silver-age-logo', // Silver Age Deck: Iyslander
+  'ska': 'set-silver-age-logo', // Silver Age Deck: Kayo
+  'svi': 'set-silver-age-logo', // Silver Age Deck: Viserai
+  'sba': 'set-silver-age-logo', // Silver Age Deck: Briar
+  'sbl': 'set-silver-age-logo', // Silver Age Deck: Boltyn
+  'sbz': 'set-silver-age-logo', // Silver Age Deck: Blaze
+  'sgb': 'set-silver-age-logo', // Silver Age Deck: Gravy Bones
+  'sly': 'set-silver-age-logo', // Silver Age Deck: Lyath Goldmane
+  'sat': 'set-silver-age-logo', // Silver Age Deck: Prism
+  'sbw': 'set-silver-age-logo', // Silver Age Deck: Viserai (2026-09)
 };
 
 // GEM seasonal pack art, keyed by TCGplayer group id (`tcg_groups.group_id`,
