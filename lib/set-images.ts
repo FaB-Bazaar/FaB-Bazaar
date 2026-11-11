@@ -10,7 +10,7 @@ export const SET_IMAGES: Record<string, string> = {
   'wtr': '662cd0af-99ab-4841-bf69-95340c122700', // Welcome to Rathe
   'arc': '1ddbff85-ebe1-48c5-3f4f-a07e76b10d00', // Arcane Rising
   'cru': '73447dd1-5812-4c90-ec79-a33b018c2600', // Crucible of War
-  'mon': 'ed110d5d-d334-4d1b-fdd0-90457a7ae200', // Monarch
+  'mon': 'set-mon-logo', // Monarch (2500px original, transparent margins trimmed)
   'ele': '6c47e6cb-7ce0-4219-9c81-5a80557b7f00', // Tales of Aria
   'evr': '403c910a-bbfc-4670-8ade-e430b7518100', // Everfest
   'upr': 'f5c4b4f6-1cb8-4f78-c5d0-835c80bfa700', // Uprising
