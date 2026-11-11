@@ -4,9 +4,16 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Library, Search } from "lucide-react";
 import { PrintingMetaChips, SetLogo } from "@/components/shared/PrintingMetaChips";
-import { sortMarketMovers, type MarketSort, type MarketSortKey } from "@/lib/daily/sort-market-movers";
+import { sortMarketMovers, type MarketSort } from "@/lib/daily/sort-market-movers";
+import {
+  filterMarketMovers,
+  NO_MARKET_FILTERS,
+  type FoilingFilter,
+  type MarketFilters,
+} from "@/lib/daily/market-movers-view";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import type {
@@ -140,7 +147,14 @@ function HoldingLine({ m }: { m: MergedMover }) {
 // full "Buy on TCGplayer" row stays on the large MoverCard tiles; here it is
 // one small element under the price so the grid stays scannable. `feature`
 // distinguishes the tier in the affiliate_click event (market_* / mover_compact_*).
-function CompactBuyLink({ url, feature }: { url: string | null; feature: string }) {
+function CompactBuyLink({
+  url, feature, wordmarkFromSm = false,
+}: {
+  url: string | null;
+  feature: string;
+  /** Phones show just "Buy" (the market table has no room for the wordmark). */
+  wordmarkFromSm?: boolean;
+}) {
   if (!url) return null;
   return (
     <TcgAffiliateLink
@@ -155,7 +169,7 @@ function CompactBuyLink({ url, feature }: { url: string | null; feature: string 
       <img
         src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
         alt="on TCGplayer"
-        className="h-3 w-[74px] max-w-none"
+        className={`h-3 w-[74px] max-w-none ${wordmarkFromSm ? "hidden sm:block" : ""}`}
       />
     </TcgAffiliateLink>
   );
@@ -273,105 +287,174 @@ function MergedMoverRow({ m, featurePrefix }: { m: MergedMover; featurePrefix: s
 // Market tier
 // ---------------------------------------------------------------------------
 
-const MARKET_PAGE_SIZE = 10;
+// Divisible by 1, 2 and 3, so the last row of the grid is never ragged.
+const MARKET_PAGE_SIZE = 12;
 
-function MarketRow({ m }: { m: MarketMoverDTO }) {
+const PRICE_FLOORS: Array<{ label: string; minPrice: number }> = [
+  { label: "Any price", minPrice: 0 },
+  { label: "$5+", minPrice: 5 },
+  { label: "$20+", minPrice: 20 },
+  { label: "$100+", minPrice: 100 },
+];
+
+const FOILING_FILTERS: Array<{ label: string; foiling: FoilingFilter }> = [
+  { label: "Any finish", foiling: "all" },
+  { label: "Non-foil", foiling: "nonfoil" },
+  { label: "Foil", foiling: "foil" },
+];
+
+// Large card shown beside a hovered thumbnail. Fixed-positioned so it is never
+// clipped by a row, and desktop-only.
+const PREVIEW_WIDTH = 260;
+const PREVIEW_HEIGHT = Math.round((PREVIEW_WIDTH * 88) / 63);
+
+interface CardPreview {
+  url: string;
+  name: string;
+  top: number;
+  left: number;
+}
+
+function previewFor(el: HTMLElement, url: string, name: string): CardPreview {
+  const rect = el.getBoundingClientRect();
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 0;
+  const centred = rect.top + rect.height / 2 - PREVIEW_HEIGHT / 2;
+  const top = Math.max(8, Math.min(centred, Math.max(8, viewportHeight - PREVIEW_HEIGHT - 8)));
+  return { url, name, top, left: rect.right + 12 };
+}
+
+// One market mover, spelled out in words: was → now, then the change.
+function MarketRow({ m, onPreview }: { m: MarketMoverDTO; onPreview: (preview: CardPreview | null) => void }) {
+  const router = useRouter();
   const isPositive = (m.dollarChange ?? 0) >= 0;
   const href = `/printing/${m.printingId}`;
   return (
-    <tr className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60">
-      <td className="py-1.5 pl-3 pr-2 w-10">
-        <Link
-          href={href}
-          className="block w-8 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700"
-          aria-label={`View ${m.displayName}`}
-          tabIndex={-1}
-        >
-          {m.imageUrl ? (
-            <Image src={m.imageUrl} alt={m.displayName} fill sizes="32px" className="object-cover" unoptimized />
-          ) : null}
-        </Link>
-      </td>
-      <td className="py-1.5 pr-3 sm:pr-4 max-w-0 w-full sm:max-w-none sm:w-auto whitespace-nowrap">
-        <Link
-          href={href}
-          className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate block sm:max-w-[18rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
-        >
-          {m.displayName}
-        </Link>
-      </td>
-      {/* Straight after the name; any spare width sits here, before the price. */}
-      <td className="py-1.5 pr-3 hidden sm:table-cell sm:w-full">
-        <PrintingMetaChips set={m.set} foiling={m.foiling} rarity={m.rarity} setSize="md" className="min-w-max" />
-      </td>
-      <td className="py-1.5 pr-3 text-right text-sm font-semibold tabular-nums whitespace-nowrap text-gray-900 dark:text-gray-100">
-        {formatPrice(m.pAtSignal)}
-      </td>
-      <td
-        className={`py-1.5 pr-3 text-right text-sm tabular-nums whitespace-nowrap ${
-          isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-        }`}
-      >
-        {formatPctChange(m.pctChange)}
-      </td>
-      <td className="py-1.5 pr-3 text-right whitespace-nowrap">
-        <CompactBuyLink url={m.tcgplayerUrl} feature={`market_${m.signalType}`} />
-      </td>
-    </tr>
-  );
-}
-
-function SortHeader({
-  label, sortKey, sort, onSort, className = "",
-}: {
-  label: string;
-  sortKey: MarketSortKey;
-  sort: MarketSort;
-  onSort: (key: MarketSortKey) => void;
-  className?: string;
-}) {
-  const active = sort?.key === sortKey;
-  return (
-    <th
-      scope="col"
-      aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
-      className={`py-2 pr-3 font-medium ${className}`}
+    <div
+      data-testid="market-row"
+      // The whole row opens the printing; links and buttons inside keep their own action.
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("a, button")) return;
+        router.push(href);
+      }}
+      className="flex items-center gap-3 p-2.5 cursor-pointer rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
     >
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm ${
-          active ? "text-gray-900 dark:text-gray-100" : ""
-        }`}
+      <Link
+        href={href}
+        className="shrink-0 block w-12 aspect-[63/88] relative rounded overflow-hidden bg-gray-100 dark:bg-gray-700"
+        aria-label={`View ${m.displayName}`}
+        tabIndex={-1}
+        onMouseEnter={(e) => {
+          if (m.imageUrl) onPreview(previewFor(e.currentTarget, m.imageUrl, m.displayName));
+        }}
+        onMouseLeave={() => onPreview(null)}
       >
-        {label}
-        <span aria-hidden="true" className={active ? "" : "invisible"}>
-          {sort?.dir === "asc" ? "↑" : "↓"}
-        </span>
-      </button>
-    </th>
+        {m.imageUrl ? (
+          <Image src={m.imageUrl} alt={m.displayName} fill sizes="48px" className="object-cover" unoptimized />
+        ) : null}
+      </Link>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link
+            href={href}
+            className="min-w-0 max-w-full break-words text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+          >
+            {m.displayName}
+          </Link>
+          <div className="flex items-center gap-1.5">
+            {/* Phones have no room for the logo slot, so the logo sits here instead. */}
+            <SetLogo set={m.set} size="md" className="sm:hidden" />
+            <PrintingMetaChips foiling={m.foiling} rarity={m.rarity} showSet={false} />
+          </div>
+        </div>
+        <div className="mt-1 text-sm tabular-nums text-gray-600 dark:text-gray-400">
+          {formatPrice(m.refPrice)}
+          {" → "}
+          <span className="font-semibold text-gray-900 dark:text-gray-100">{formatPrice(m.pAtSignal)}</span>
+        </div>
+        <div
+          className={`text-sm font-semibold tabular-nums ${
+            isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+          }`}
+        >
+          {formatPctChange(m.pctChange)}
+          {m.dollarChange != null && <span className="font-normal">{` (${formatImpact(m.dollarChange)})`}</span>}
+        </div>
+      </div>
+      {/* The set logo, large, between the prices and the buy button. */}
+      <div data-testid="market-set-logo" className="hidden sm:flex shrink-0 relative w-28 h-12 items-center justify-center">
+        <SetLogo set={m.set} size="fill" />
+      </div>
+      <div className="shrink-0">
+        <CompactBuyLink url={m.tcgplayerUrl} feature={`market_${m.signalType}`} wordmarkFromSm />
+      </div>
+    </div>
   );
 }
 
-// One signal at a time: tabs over a single compact table (the four stacked
-// tile grids made "Around the market" most of the page).
+function FilterChip({ label, pressed, onClick }: { label: string; pressed: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded-full border text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+        pressed
+          ? "border-blue-600 bg-blue-600 text-white"
+          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+type MarketSortChoice = "default" | "change" | "price-desc" | "price-asc" | "set" | "name";
+
+const SORT_CHOICES: Array<{ value: MarketSortChoice; label: string }> = [
+  { value: "default", label: "Default order" },
+  { value: "change", label: "Biggest % change" },
+  { value: "price-desc", label: "Highest price" },
+  { value: "price-asc", label: "Lowest price" },
+  { value: "set", label: "Newest set" },
+  { value: "name", label: "Name A–Z" },
+];
+
+// "Default order" keeps the signal's own ranking. "Biggest % change" means the
+// biggest drop on the decliners tab, so it sorts the other way there.
+function toMarketSort(choice: MarketSortChoice, signal: SignalType): MarketSort {
+  switch (choice) {
+    case "default": return null;
+    case "change": return { key: "change", dir: signal === "top_decliner" ? "asc" : "desc" };
+    case "price-desc": return { key: "price", dir: "desc" };
+    case "price-asc": return { key: "price", dir: "asc" };
+    case "set": return { key: "set", dir: "desc" };
+    case "name": return { key: "name", dir: "asc" };
+  }
+}
+
+// One signal at a time: tabs over a single list (the four stacked tile grids
+// made "Around the market" most of the page). Rows sit in columns on wide
+// screens so the width is used by cards, not by a gap inside each row.
 function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: MarketMoverDTO[] }> }) {
   const available = lists.filter((l) => l.movers.length > 0);
   const [active, setActive] = React.useState<SignalType | null>(available[0]?.signal ?? null);
   const [expanded, setExpanded] = React.useState(false);
-  // null = the signal's own ranking. First click on a column picks the useful
-  // direction (highest price, biggest change, newest set, A→Z); a second reverses it.
-  const [sort, setSort] = React.useState<MarketSort>(null);
+  const [sortChoice, setSortChoice] = React.useState<MarketSortChoice>("default");
+  // Filters stay put across tabs: "$20+" is a statement about what you care about.
+  const [filters, setFilters] = React.useState<MarketFilters>(NO_MARKET_FILTERS);
+  const [preview, setPreview] = React.useState<CardPreview | null>(null);
+  // The preview is pinned to where the thumbnail was; drop it once the page moves.
+  React.useEffect(() => {
+    if (!preview) return;
+    const clear = () => setPreview(null);
+    window.addEventListener("scroll", clear, { passive: true });
+    return () => window.removeEventListener("scroll", clear);
+  }, [preview]);
   const current = available.find((l) => l.signal === active) ?? available[0];
   if (!current) return null;
 
-  const onSort = (key: MarketSortKey) =>
-    setSort((prev) =>
-      prev?.key === key
-        ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
-        : { key, dir: key === "name" ? "asc" : "desc" }
-    );
-  const sorted = sortMarketMovers(current.movers, sort);
+  const matching = filterMarketMovers(current.movers, filters);
+  const sorted = sortMarketMovers(matching, toMarketSort(sortChoice, current.signal));
   const rows = expanded ? sorted : sorted.slice(0, MARKET_PAGE_SIZE);
   const hidden = sorted.length - rows.length;
 
@@ -386,7 +469,7 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
               type="button"
               role="tab"
               aria-selected={selected}
-              onClick={() => { setActive(signal); setExpanded(false); setSort(null); }}
+              onClick={() => { setActive(signal); setExpanded(false); setSortChoice("default"); }}
               className={`px-3 py-1.5 rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                 selected
                   ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
@@ -402,25 +485,51 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
         })}
       </div>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{SIGNAL_META[current.signal].blurb}</p>
-      <div className="relative bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="text-left text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/80">
-            <tr>
-              <th scope="col" className="w-10"><span className="sr-only">Image</span></th>
-              <SortHeader label="Card" sortKey="name" sort={sort} onSort={onSort} />
-              <SortHeader label="Set" sortKey="set" sort={sort} onSort={onSort} className="hidden sm:table-cell" />
-              <SortHeader label="Price" sortKey="price" sort={sort} onSort={onSort} className="text-right" />
-              <SortHeader label="Change" sortKey="change" sort={sort} onSort={onSort} className="text-right" />
-              <th scope="col"><span className="sr-only">Buy</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((m) => (
-              <MarketRow key={`${m.signalType}-${m.printingId}`} m={m} />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
+        <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+          Sort by
+          <select
+            value={sortChoice}
+            onChange={(e) => setSortChoice(e.target.value as MarketSortChoice)}
+            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-xs py-1 pl-2 pr-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            {SORT_CHOICES.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
             ))}
-          </tbody>
-        </table>
+          </select>
+        </label>
+        <div role="group" aria-label="Minimum price" className="flex flex-wrap gap-1">
+          {PRICE_FLOORS.map(({ label, minPrice }) => (
+            <FilterChip
+              key={label}
+              label={label}
+              pressed={filters.minPrice === minPrice}
+              onClick={() => { setFilters((f) => ({ ...f, minPrice })); setExpanded(false); }}
+            />
+          ))}
+        </div>
+        <div role="group" aria-label="Finish" className="flex flex-wrap gap-1">
+          {FOILING_FILTERS.map(({ label, foiling }) => (
+            <FilterChip
+              key={label}
+              label={label}
+              pressed={filters.foiling === foiling}
+              onClick={() => { setFilters((f) => ({ ...f, foiling })); setExpanded(false); }}
+            />
+          ))}
+        </div>
       </div>
+      {rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
+          No cards match these filters.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2">
+          {rows.map((m) => (
+            <MarketRow key={`${m.signalType}-${m.printingId}`} m={m} onPreview={setPreview} />
+          ))}
+        </div>
+      )}
       {hidden > 0 && (
         <button
           type="button"
@@ -429,6 +538,17 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
         >
           Show {hidden} more
         </button>
+      )}
+      {preview && (
+        <div
+          data-testid="card-preview"
+          aria-hidden="true"
+          style={{ top: preview.top, left: preview.left, width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }}
+          className="hidden md:block fixed z-50 pointer-events-none rounded-xl overflow-hidden shadow-2xl ring-1 ring-black/20 bg-gray-100 dark:bg-gray-700"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview.url} alt="" className="h-full w-full object-cover" />
+        </div>
       )}
     </div>
   );

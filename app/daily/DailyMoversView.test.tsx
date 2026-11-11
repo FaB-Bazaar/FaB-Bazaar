@@ -9,7 +9,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { DailyMoverDTO, MarketMoverDTO, MarketMoversDTO, MoversInCollectionDTO } from '@/lib/services/contracts/IDailyMoversService'
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/daily' }))
+const routerPush = vi.fn()
+vi.mock('next/navigation', () => ({ usePathname: () => '/daily', useRouter: () => ({ push: routerPush }) }))
 vi.mock('next/image', () => ({
   default: (props: { src: string; alt: string }) => <img src={props.src} alt={props.alt} />,
 }))
@@ -59,6 +60,7 @@ const affiliateFeatures = () =>
 
 beforeEach(() => {
   window.gtag = vi.fn()
+  routerPush.mockReset()
 })
 
 describe('/daily market tier', () => {
@@ -177,7 +179,12 @@ describe('/daily your movers — one row per card', () => {
   })
 })
 
-describe('/daily around the market — tabs over one table', () => {
+const marketRows = () => screen.queryAllByTestId('market-row')
+const marketNames = () =>
+  marketRows().map((r) => r.querySelector('a[href^="/printing/"]:not([aria-label])')?.textContent)
+const marketRow = (name: string) => marketRows().find((r) => r.textContent?.includes(name)) as HTMLElement
+
+describe('/daily around the market — tabs over one list', () => {
   const market: MarketMoversDTO = {
     asOfDate: '2026-09-18',
     totalCount: 3,
@@ -187,28 +194,28 @@ describe('/daily around the market — tabs over one table', () => {
     decliners: [marketMover({ printingId: 'd1', displayName: 'Aurora', signalType: 'top_decliner', pctChange: -16, dollarChange: -20 })],
   }
 
-  it('shows one signal at a time as table rows, with a tab per non-empty signal', () => {
+  it('shows one signal at a time, with a tab per non-empty signal', () => {
     render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent)
     expect(tabs).toEqual(['Top Gainers1', 'Breakouts1', 'Top Decliners1'])
     expect(screen.getByRole('tab', { name: /Top Gainers/ })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('row', { name: /Soul Shackle/ })).toBeTruthy()
+    expect(marketNames()).toEqual(['Soul Shackle'])
     expect(screen.queryByText('Aurora')).toBeNull()
   })
 
-  it('switches the table when another tab is picked', () => {
+  it('switches the list when another tab is picked', () => {
     render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
     fireEvent.click(screen.getByRole('tab', { name: /Top Decliners/ }))
-    expect(screen.getByRole('row', { name: /Aurora/ })).toBeTruthy()
+    expect(marketNames()).toEqual(['Aurora'])
     expect(screen.queryByText('Soul Shackle')).toBeNull()
   })
 
-  it('shows 10 rows, then the rest behind "Show N more"', () => {
-    const many = { ...market, gainers: Array.from({ length: 13 }, (_, i) => marketMover({ printingId: `g${i}`, displayName: `Gainer ${i}` })) }
+  it('shows 12 rows, then the rest behind "Show N more"', () => {
+    const many = { ...market, gainers: Array.from({ length: 15 }, (_, i) => marketMover({ printingId: `g${i}`, displayName: `Gainer ${i}` })) }
     render(<DailyMoversView signedIn={false} userMovers={null} market={many} error={null} />)
-    expect(screen.getAllByRole('row', { name: /Gainer \d+/ })).toHaveLength(10)
+    expect(marketRows()).toHaveLength(12)
     fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }))
-    expect(screen.getAllByRole('row', { name: /Gainer \d+/ })).toHaveLength(13)
+    expect(marketRows()).toHaveLength(15)
   })
 })
 
@@ -280,70 +287,207 @@ describe('/daily your movers — a row reads as a sentence', () => {
   })
 })
 
-describe('/daily market table — no dead gap after the name', () => {
-  it('puts the set logo cell straight after the name, and lets the gap sit before the price', () => {
-    render(<DailyMoversView signedIn={false} userMovers={null} market={marketDto([marketMover()])} error={null} />)
-    const cells = [...screen.getByRole('row', { name: /Enlightened Strike/ }).querySelectorAll('td')]
-    const nameIdx = cells.findIndex((c) => c.textContent === 'Enlightened Strike')
-    expect(cells[nameIdx + 1].querySelector('img[alt="WTR"]')).not.toBeNull()
-    // From sm up the set cell takes the spare width; on phones (set hidden) the name does.
-    expect(cells[nameIdx].className).toMatch(/\bsm:w-auto\b/)
-    expect(cells[nameIdx + 1].className).toMatch(/\bsm:w-full\b/)
+describe('/daily market list — a row spells the move out', () => {
+  const market = marketDto([
+    marketMover({ printingId: 'big', displayName: 'Big Mover', refPrice: 10, pAtSignal: 26, dollarChange: 16, pctChange: 160 }),
+  ])
+
+  it('is not a table, and has no bar to decode', () => {
+    const { container } = render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    expect(container.querySelector('table')).toBeNull()
+    expect(container.querySelector('[data-testid="change-bar"]')).toBeNull()
+  })
+
+  it('lays the rows out in columns on wide screens, one column on phones', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    const grid = marketRow('Big Mover').parentElement as HTMLElement
+    expect(grid.className).toMatch(/\bgrid-cols-1\b/)
+    expect(grid.className).toMatch(/\blg:grid-cols-2\b/)
+    expect(grid.className).toMatch(/\bxl:grid-cols-3\b/)
+  })
+
+  it('states the old price, the new price, and the change in percent and dollars', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    expect(marketRow('Big Mover').textContent).toContain('$10.00 → $26.00')
+    expect(marketRow('Big Mover').textContent).toContain('+160% (+$16.00)')
+  })
+
+  it('shows a drop with a minus sign', () => {
+    const drop = { ...marketDto([]), decliners: [marketMover({ displayName: 'Dropper', signalType: 'top_decliner', refPrice: 50, pAtSignal: 30, dollarChange: -20, pctChange: -40 })] }
+    render(<DailyMoversView signedIn={false} userMovers={null} market={drop} error={null} />)
+    expect(marketRow('Dropper').textContent).toContain('-40% (−$20.00)')
+  })
+
+  it('puts a large set logo between the prices and the buy button (next to the name on phones)', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    const row = marketRow('Big Mover')
+    const slot = row.querySelector('[data-testid="market-set-logo"]') as HTMLElement
+    expect(slot.querySelector('img[alt="WTR"]')).not.toBeNull()
+    expect(slot.className).toMatch(/\bhidden\b/)
+    expect(slot.className).toMatch(/\bsm:flex\b/)
+    // Order in the row: prices, then the logo slot, then the buy link.
+    const price = screen.getByText('$26.00')
+    const buy = buyLinks()[0]
+    expect(price.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(slot.compareDocumentPosition(buy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const inline = [...row.querySelectorAll('img[alt="WTR"]')].find((i) => !slot.contains(i)) as HTMLElement
+    expect(inline.className).toMatch(/\bsm:hidden\b/)
+  })
+
+  it('shows set, foiling and rarity on every row, at every width', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    const row = marketRow('Big Mover')
+    expect(row.querySelector('img[alt="WTR"]')).not.toBeNull()
+    expect(row.querySelector('[aria-label="Non-foil"]')).not.toBeNull()
+    expect(row.querySelector('[title="Majestic"]')).not.toBeNull()
   })
 })
 
-describe('/daily market table — sortable headers', () => {
+describe('/daily market list — rows are interactive', () => {
+  const market = marketDto([marketMover({ printingId: 'p9', displayName: 'Clicky', imageUrl: 'https://img.test/clicky.webp' })])
+
+  it('opens the printing when the row is clicked anywhere', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(screen.getByText('$12.50'))
+    expect(routerPush).toHaveBeenCalledWith('/printing/p9')
+  })
+
+  it('leaves the buy link alone — it does not also open the printing', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(buyLinks()[0])
+    expect(routerPush).not.toHaveBeenCalled()
+  })
+
+  it('shows a large card preview while the thumbnail is hovered', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    expect(screen.queryByTestId('card-preview')).toBeNull()
+    const thumb = marketRow('Clicky').querySelector('a[aria-label="View Clicky"]') as HTMLElement
+    fireEvent.mouseEnter(thumb)
+    expect(screen.getByTestId('card-preview').querySelector('img')).toHaveAttribute('src', 'https://img.test/clicky.webp')
+    fireEvent.mouseLeave(thumb)
+    expect(screen.queryByTestId('card-preview')).toBeNull()
+  })
+})
+
+describe('/daily market list — quick filters', () => {
   const market: MarketMoversDTO = {
     asOfDate: '2026-09-18', totalCount: 4,
+    gainers: [
+      marketMover({ printingId: 'a', displayName: 'Cheap Nonfoil', foiling: 'S', pAtSignal: 3 }),
+      marketMover({ printingId: 'b', displayName: 'Mid Rainbow', foiling: 'R', pAtSignal: 30 }),
+      marketMover({ printingId: 'c', displayName: 'Big Cold', foiling: 'C', pAtSignal: 300 }),
+    ],
+    breakouts: [marketMover({ printingId: 'x', displayName: 'Cheap Breakout', signalType: 'breakout', pAtSignal: 2 })],
+    steadyRisers: [], decliners: [],
+  }
+  const chip = (name: string) => screen.getByRole('button', { name })
+
+  it('hides cards under the chosen price floor', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(chip('$20+'))
+    expect(marketNames()).toEqual(['Mid Rainbow', 'Big Cold'])
+    expect(chip('$20+')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(chip('Any price'))
+    expect(marketNames()).toHaveLength(3)
+  })
+
+  it('shows only foils, or only non-foils', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(chip('Foil'))
+    expect(marketNames()).toEqual(['Mid Rainbow', 'Big Cold'])
+    fireEvent.click(chip('Non-foil'))
+    expect(marketNames()).toEqual(['Cheap Nonfoil'])
+  })
+
+  it('keeps the filter when switching tabs, and says so when nothing matches', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(chip('$100+'))
+    fireEvent.click(screen.getByRole('tab', { name: /Breakouts/ }))
+    expect(marketRows()).toHaveLength(0)
+    expect(screen.getByText('No cards match these filters.')).toBeTruthy()
+  })
+
+  it('pages the filtered list: "Show N more" counts matching cards only', () => {
+    const many = {
+      ...market,
+      gainers: [
+        ...Array.from({ length: 14 }, (_, i) => marketMover({ printingId: `e${i}`, displayName: `Expensive ${i}`, pAtSignal: 50 })),
+        ...Array.from({ length: 5 }, (_, i) => marketMover({ printingId: `c${i}`, displayName: `Bulk ${i}`, pAtSignal: 1 })),
+      ],
+    }
+    render(<DailyMoversView signedIn={false} userMovers={null} market={many} error={null} />)
+    fireEvent.click(chip('$20+'))
+    expect(screen.getByRole('button', { name: 'Show 2 more' })).toBeTruthy()
+  })
+})
+
+describe('/daily market list — "Sort by"', () => {
+  const market: MarketMoversDTO = {
+    asOfDate: '2026-09-18', totalCount: 6,
     gainers: [
       marketMover({ printingId: 'a', displayName: 'Cheap New', set: 'hnt', pAtSignal: 5, pctChange: 150 }),
       marketMover({ printingId: 'b', displayName: 'Pricey Old', set: 'wtr', pAtSignal: 400, pctChange: 15 }),
       marketMover({ printingId: 'c', displayName: 'Mid Mid', set: 'dtd', pAtSignal: 90, pctChange: 60 }),
     ],
     breakouts: [marketMover({ printingId: 'x', displayName: 'Breakout Card', signalType: 'breakout' })],
-    steadyRisers: [], decliners: [],
+    steadyRisers: [],
+    decliners: [
+      marketMover({ printingId: 'd1', displayName: 'Small Drop', signalType: 'top_decliner', pctChange: -5, dollarChange: -1 }),
+      marketMover({ printingId: 'd2', displayName: 'Big Drop', signalType: 'top_decliner', pctChange: -40, dollarChange: -9 }),
+    ],
   }
-  const order = () =>
-    screen.getAllByRole('row').slice(1).map((r) => r.querySelector('td a[href^="/printing/"]:not([aria-label])')?.textContent)
-  const header = (name: RegExp) => screen.getByRole('button', { name })
+  const sortBy = (label: string) => {
+    const select = screen.getByRole('combobox', { name: 'Sort by' }) as HTMLSelectElement
+    const option = [...select.options].find((o) => o.textContent === label)
+    if (!option) throw new Error(`no sort option "${label}"`)
+    fireEvent.change(select, { target: { value: option.value } })
+  }
 
-  it('keeps the signal ranking until a header is clicked', () => {
+  it('keeps the signal ranking until a sort is picked', () => {
     render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
-    expect(order()).toEqual(['Cheap New', 'Pricey Old', 'Mid Mid'])
+    expect(marketNames()).toEqual(['Cheap New', 'Pricey Old', 'Mid Mid'])
   })
 
-  it('sorts by price, highest first, and reverses on a second click', () => {
+  it('sorts by price, either way', () => {
     render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
-    fireEvent.click(header(/^Price/))
-    expect(order()).toEqual(['Pricey Old', 'Mid Mid', 'Cheap New'])
-    expect(header(/^Price/).closest('th')).toHaveAttribute('aria-sort', 'descending')
-    fireEvent.click(header(/^Price/))
-    expect(order()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
-    expect(header(/^Price/).closest('th')).toHaveAttribute('aria-sort', 'ascending')
+    sortBy('Highest price')
+    expect(marketNames()).toEqual(['Pricey Old', 'Mid Mid', 'Cheap New'])
+    sortBy('Lowest price')
+    expect(marketNames()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
   })
 
-  it('sorts by % change and by set, newest set first', () => {
+  it('sorts by biggest % change, newest set and name', () => {
     render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
-    fireEvent.click(header(/^Change/))
-    expect(order()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
-    fireEvent.click(header(/^Set/))
-    expect(order()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
-    fireEvent.click(header(/^Set/))
-    expect(order()).toEqual(['Pricey Old', 'Mid Mid', 'Cheap New'])
+    sortBy('Biggest % change')
+    expect(marketNames()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
+    sortBy('Newest set')
+    expect(marketNames()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
+    sortBy('Name A–Z')
+    expect(marketNames()).toEqual(['Cheap New', 'Mid Mid', 'Pricey Old'])
+    sortBy('Default order')
+    expect(marketNames()).toEqual(['Cheap New', 'Pricey Old', 'Mid Mid'])
+  })
+
+  it('puts the biggest DROP first when sorting decliners by % change', () => {
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    fireEvent.click(screen.getByRole('tab', { name: /Top Decliners/ }))
+    sortBy('Biggest % change')
+    expect(marketNames()).toEqual(['Big Drop', 'Small Drop'])
   })
 
   it('sorts the full list, not just the first page', () => {
-    const many = { ...market, gainers: Array.from({ length: 12 }, (_, i) => marketMover({ printingId: `g${i}`, displayName: `G${i}`, pAtSignal: i })) }
+    const many = { ...market, gainers: Array.from({ length: 14 }, (_, i) => marketMover({ printingId: `g${i}`, displayName: `G${i}`, pAtSignal: i })) }
     render(<DailyMoversView signedIn={false} userMovers={null} market={many} error={null} />)
-    fireEvent.click(header(/^Price/))
-    expect(order()[0]).toBe('G11')
+    sortBy('Highest price')
+    expect(marketNames()[0]).toBe('G13')
   })
 
   it('resets to the signal ranking when switching tabs', () => {
     render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
-    fireEvent.click(header(/^Price/))
+    sortBy('Highest price')
     fireEvent.click(screen.getByRole('tab', { name: /Breakouts/ }))
     fireEvent.click(screen.getByRole('tab', { name: /Top Gainers/ }))
-    expect(order()).toEqual(['Cheap New', 'Pricey Old', 'Mid Mid'])
+    expect(marketNames()).toEqual(['Cheap New', 'Pricey Old', 'Mid Mid'])
+    expect((screen.getByRole('combobox', { name: 'Sort by' }) as HTMLSelectElement).value).toBe('default')
   })
 })
