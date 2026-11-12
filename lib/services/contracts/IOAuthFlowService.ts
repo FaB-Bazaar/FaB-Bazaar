@@ -314,6 +314,22 @@ export interface IOAuthFlowService {
   registerClient(input: RegisterClientInput): AsyncResult<RegisterClientResultDTO>;
 
   // ========================================
+  // Grants (consent)
+  // ========================================
+
+  /**
+   * The scope string of each live grant this user has given this client
+   * (live = its access or refresh token has not expired).
+   */
+  listGrantedScopes(userId: string, clientId: string): AsyncResult<string[]>;
+
+  /**
+   * Whether this exact access token is still on record — false once the user
+   * revokes the app's access.
+   */
+  isAccessTokenActive(accessToken: string): AsyncResult<boolean>;
+
+  // ========================================
   // Token Generation Helpers
   // ========================================
 

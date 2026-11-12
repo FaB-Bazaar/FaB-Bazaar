@@ -9,8 +9,9 @@ import { users, oauthClients, oauthAccessTokens, oauthAuthorizationCodes } from 
 import { randomBytes } from 'crypto';
 import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, gt, or } from 'drizzle-orm';
 import type {
+  AuthorizedAppDTO,
   IOAuthService,
   OAuthClientDTO,
   OAuthClientWithSecretDTO,
@@ -182,6 +183,90 @@ export class PostgresOAuthService implements IOAuthService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to revoke OAuth client',
+      };
+    }
+  }
+
+  /**
+   * Apps holding a live grant from this user, one entry per app.
+   */
+  async listAuthorizedApps(userId: string): AsyncResult<AuthorizedAppDTO[]> {
+    try {
+      const now = new Date();
+      const rows = await db
+        .select({
+          clientId: oauthAccessTokens.clientId,
+          scope: oauthAccessTokens.scope,
+          createdAt: oauthAccessTokens.createdAt,
+          clientName: oauthClients.clientName,
+          clientUri: oauthClients.clientUri,
+        })
+        .from(oauthAccessTokens)
+        .innerJoin(oauthClients, eq(oauthClients.clientId, oauthAccessTokens.clientId))
+        .where(
+          and(
+            eq(oauthAccessTokens.userId, userId),
+            or(gt(oauthAccessTokens.expiresAt, now), gt(oauthAccessTokens.refreshTokenExpiresAt, now))
+          )
+        );
+
+      const apps = new Map<string, AuthorizedAppDTO>();
+      for (const row of rows) {
+        const app = apps.get(row.clientId);
+        if (!app) {
+          apps.set(row.clientId, {
+            client_id: row.clientId,
+            client_name: row.clientName,
+            client_uri: row.clientUri ?? undefined,
+            scopes: [row.scope],
+            authorized_at: row.createdAt,
+          });
+          continue;
+        }
+        if (!app.scopes.includes(row.scope)) app.scopes.push(row.scope);
+        if (row.createdAt < app.authorized_at) app.authorized_at = row.createdAt;
+      }
+
+      return {
+        success: true,
+        data: [...apps.values()].sort((a, b) => a.client_name.localeCompare(b.client_name)),
+      };
+    } catch (error) {
+      console.error('[PostgresOAuthService] listAuthorizedApps error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to list authorized apps',
+      };
+    }
+  }
+
+  /**
+   * Remove one user's access to an app. The client and other users' access
+   * are untouched.
+   */
+  async revokeAppAccess(userId: string, clientId: string): AsyncResult<void> {
+    try {
+      const removed = await db.transaction(async (tx) => {
+        const tokens = await tx
+          .delete(oauthAccessTokens)
+          .where(and(eq(oauthAccessTokens.userId, userId), eq(oauthAccessTokens.clientId, clientId)))
+          .returning({ id: oauthAccessTokens.id });
+        const codes = await tx
+          .delete(oauthAuthorizationCodes)
+          .where(and(eq(oauthAuthorizationCodes.userId, userId), eq(oauthAuthorizationCodes.clientId, clientId)))
+          .returning({ id: oauthAuthorizationCodes.id });
+        return tokens.length + codes.length;
+      });
+
+      if (removed === 0) {
+        return { success: false, error: 'No access to revoke' };
+      }
+      return { success: true, data: undefined };
+    } catch (error) {
+      console.error('[PostgresOAuthService] revokeAppAccess error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to revoke app access',
       };
     }
   }

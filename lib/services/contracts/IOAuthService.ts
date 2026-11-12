@@ -21,6 +21,21 @@ export interface OAuthClientDTO {
 }
 
 /**
+ * An app the user has authorized to act for them (it holds a live grant).
+ * Unlike OAuthClientDTO this is usually a client the user does NOT own —
+ * a partner's or an MCP host's.
+ */
+export interface AuthorizedAppDTO {
+  client_id: string;
+  client_name: string;
+  client_uri?: string;
+  /** The scope string of each live grant. */
+  scopes: string[];
+  /** When the user first authorized it (oldest live grant). */
+  authorized_at: Date;
+}
+
+/**
  * OAuth client with secret (only returned on creation)
  * The client secret is only shown once during creation
  */
@@ -105,4 +120,16 @@ export interface IOAuthService {
     userId: string,
     clientId: string
   ): AsyncResult<void>;
+
+  /**
+   * Apps holding a live grant from this user, one entry per app.
+   */
+  listAuthorizedApps(userId: string): AsyncResult<AuthorizedAppDTO[]>;
+
+  /**
+   * Remove ONE user's access to an app: their tokens and pending codes for
+   * that client. The client itself and other users' access are untouched.
+   * Fails when the user has no access to revoke.
+   */
+  revokeAppAccess(userId: string, clientId: string): AsyncResult<void>;
 }

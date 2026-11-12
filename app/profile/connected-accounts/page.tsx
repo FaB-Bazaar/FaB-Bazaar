@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner"
 import { CheckCircle2, XCircle } from "lucide-react"
 import { hasTalisharMembership, hasFabBazaarMembership } from "@/lib/metafy/communities"
+import { AuthorizedApps } from "@/components/profile/AuthorizedApps"
 
 function TalisharStatus({ communities }: { communities: { communityId: string }[] }) {
   const inTalishar = hasTalisharMembership(communities)
@@ -80,7 +81,7 @@ function StatusRow({ label, ok }: { label: string; ok: boolean }) {
 export default function ConnectedAccountsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session, update: updateSession } = useSession()
+  const { data: session, status: sessionStatus, update: updateSession } = useSession()
   const { user } = useAuth()
 
   const [isFetching, setIsFetching] = useState(true)
@@ -105,10 +106,12 @@ export default function ConnectedAccountsPage() {
 
     if (user || session?.user) {
       fetchUserData()
-    } else {
+    } else if (sessionStatus !== 'loading') {
+      // Only conclude "signed out" once the session has resolved — deciding
+      // while it was still loading redirected signed-in users on a direct load.
       setIsFetching(false)
     }
-  }, [user, session])
+  }, [user, session, sessionStatus])
 
   useEffect(() => {
     if (!isFetching && !user && !session?.user) {
@@ -284,6 +287,10 @@ export default function ConnectedAccountsPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        <div className="pt-4">
+          <AuthorizedApps />
         </div>
       </div>
     </div>

@@ -20,7 +20,9 @@ import {
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, gt, or } from 'drizzle-orm';
+import { classifyScopeRequest } from '@/lib/oauth/consent';
+import { signPartnerToken, verifyPartnerToken } from '@/lib/oauth/partner-token';
 import bcrypt from 'bcryptjs';
 import type {
   IOAuthFlowService,
@@ -69,9 +71,9 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
         }
       }
 
-      // Validate redirect URI if provided
+      // Validate redirect URI if provided: it must be one the client registered.
       if (redirectUri) {
-        if (client.redirectUris.length > 0 && !client.redirectUris.includes(redirectUri)) {
+        if (!client.redirectUris.includes(redirectUri)) {
           return { success: false, error: 'Invalid redirect_uri' };
         }
       }
@@ -368,15 +370,17 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
     clientId: string
   ): AsyncResult<TokenResponseDTO> {
     try {
-      // Verify refresh token JWT
-      let decoded: any;
-      try {
-        decoded = jwt.verify(refreshToken, JWT_SECRET);
-      } catch (error) {
-        return {
-          success: false,
-          error: 'Invalid refresh token',
-        };
+      // Verify refresh token JWT (partner-scoped grants are signed with their own key)
+      let decoded: any = verifyPartnerToken(refreshToken);
+      if (!decoded) {
+        try {
+          decoded = jwt.verify(refreshToken, JWT_SECRET);
+        } catch (error) {
+          return {
+            success: false,
+            error: 'Invalid refresh token',
+          };
+        }
       }
 
       // Find token record in database
@@ -554,6 +558,57 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
   }
 
   // ========================================
+  // Grants (consent)
+  // ========================================
+
+  /**
+   * The scope of each live grant this user has given this client. A grant is
+   * live while its access or refresh token has not expired.
+   */
+  async listGrantedScopes(userId: string, clientId: string): AsyncResult<string[]> {
+    try {
+      const now = new Date();
+      const rows = await db
+        .select({ scope: oauthAccessTokens.scope })
+        .from(oauthAccessTokens)
+        .where(
+          and(
+            eq(oauthAccessTokens.userId, userId),
+            eq(oauthAccessTokens.clientId, clientId),
+            or(gt(oauthAccessTokens.expiresAt, now), gt(oauthAccessTokens.refreshTokenExpiresAt, now))
+          )
+        );
+      return { success: true, data: [...new Set(rows.map(r => r.scope))] };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] listGrantedScopes error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to list granted scopes',
+      };
+    }
+  }
+
+  /**
+   * Is this exact access token still on record? False once the user revokes
+   * the app's access (or the token was rotated by a refresh).
+   */
+  async isAccessTokenActive(accessToken: string): AsyncResult<boolean> {
+    try {
+      const [row] = await db
+        .select({ id: oauthAccessTokens.id })
+        .from(oauthAccessTokens)
+        .where(eq(oauthAccessTokens.accessToken, accessToken));
+      return { success: true, data: !!row };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] isAccessTokenActive error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to check access token',
+      };
+    }
+  }
+
+  // ========================================
   // Token Generation
   // ========================================
 
@@ -561,6 +616,11 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
    * Generate JWT access token
    */
   generateAccessToken(userId: string, clientId: string, scope: string): string {
+    // A grant made only of partner scopes gets a token the rest of the app
+    // cannot verify (see lib/oauth/partner-token).
+    if (classifyScopeRequest(scope).kind === 'partner') {
+      return signPartnerToken({ userId, clientId, scope, type: 'access_token' });
+    }
     return jwt.sign(
       {
         sub: userId,
@@ -577,6 +637,9 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
    * Generate JWT refresh token
    */
   generateRefreshToken(userId: string, clientId: string, scope: string): string {
+    if (classifyScopeRequest(scope).kind === 'partner') {
+      return signPartnerToken({ userId, clientId, scope, type: 'refresh_token' });
+    }
     return jwt.sign(
       {
         sub: userId,

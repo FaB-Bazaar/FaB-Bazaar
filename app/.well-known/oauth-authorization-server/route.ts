@@ -7,6 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { PARTNER_SCOPES } from '@/lib/partner-api/scopes';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -46,7 +47,8 @@ export async function GET(request: Request) {
     ],
 
     // Scopes
-    scopes_supported: ['read', 'write', 'claudeai'],
+    // Legacy full-access scopes, then the partner API's limited scopes.
+    scopes_supported: ['read', 'write', 'claudeai', ...PARTNER_SCOPES],
 
     // Service documentation
     service_documentation: `${baseUrl}/docs/oauth`,

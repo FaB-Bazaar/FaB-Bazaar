@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { oauthFlowService } from '@/lib/services';
+import { consentRedirect } from '@/lib/oauth/consent-gate';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -75,6 +76,14 @@ export async function GET(req: Request) {
     loginUrl.searchParams.set('callbackUrl', callbackUrl.toString());
     return NextResponse.redirect(loginUrl);
   }
+
+  // Partner-scoped requests need the user's consent first (lib/oauth/consent-gate).
+  const consent = await consentRedirect(req, {
+    userId: session.user.id,
+    clientOwnerId: client.user_id,
+    baseUrl,
+  });
+  if (consent) return consent;
   
   // Generate authorization code using service layer
   try {
@@ -140,11 +149,9 @@ export async function GET(req: Request) {
   }
 }
 
-// Handle POST for consent form submissions (future enhancement)
+// POST is not supported here; the consent form posts to /oauth/consent/decision.
 export async function POST(req: Request) {
-  console.log('📝 POST request to authorize endpoint - not implemented yet');
-  // This would handle explicit user consent if you want a consent page
-  // For now, we auto-approve in GET handler
+  console.log('📝 POST request to authorize endpoint - not supported');
   const error = new URL('/oauth/error', new URL(req.url).origin);
   error.searchParams.set('error', 'method_not_allowed');
   error.searchParams.set('error_description', 'POST method not implemented for authorization endpoint');
