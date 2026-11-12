@@ -55,7 +55,7 @@ describe('POST /api/partner/v1/collection/import', () => {
     );
   });
 
-  it('creates a private binder and adds the resolved cards', async () => {
+  it('creates a public binder by default and adds the resolved cards', async () => {
     searchReturns([printing({})]);
     addSucceeds(1);
 
@@ -73,7 +73,9 @@ describe('POST /api/partner/v1/collection/import', () => {
       'user-1',
       expect.objectContaining({
         name: 'From Nanza',
-        visibility: expect.objectContaining({ level: 'private', allowWhoHas: false }),
+        slug: 'from-nanza',
+        isPublic: true,
+        visibility: expect.objectContaining({ level: 'public', allowWhoHas: true }),
       }),
     );
     expect(mockAdd).toHaveBeenCalledWith('b-new', 'user-1', [
@@ -89,6 +91,49 @@ describe('POST /api/partner/v1/collection/import', () => {
         unresolved: [],
       },
     });
+  });
+
+  it('creates a private binder when visibility is "private"', async () => {
+    searchReturns([printing({})]);
+    addSucceeds(1);
+
+    await POST(
+      post('/collection/import', { binder_name: 'From Nanza', visibility: 'private', items: [{ printing_id: 'p-1' }] }),
+      ctx({}),
+    );
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        isPublic: false,
+        visibility: expect.objectContaining({ level: 'private', allowWhoHas: false, allowInSearch: false }),
+      }),
+    );
+  });
+
+  it('refuses a visibility it does not know, creating nothing', async () => {
+    searchReturns([printing({})]);
+
+    const response = await POST(
+      post('/collection/import', { visibility: 'friends', items: [{ printing_id: 'p-1' }] }),
+      ctx({}),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('gives the new binder a slug none of the user\'s binders has', async () => {
+    mockSummary.mockResolvedValue({
+      success: true,
+      data: [{ _id: 'b-0', name: 'Other', slug: 'from-nanza' }],
+    } as never);
+    searchReturns([printing({})]);
+    addSucceeds(1);
+
+    await POST(post('/collection/import', { binder_name: 'From Nanza', items: [{ printing_id: 'p-1' }] }), ctx({}));
+
+    expect(mockCreate).toHaveBeenCalledWith('user-1', expect.objectContaining({ slug: 'from-nanza-2' }));
   });
 
   it('picks a free binder name when the requested one is taken', async () => {

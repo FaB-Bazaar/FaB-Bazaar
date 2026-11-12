@@ -1,8 +1,9 @@
 // POST /api/partner/v1/collection/import — add a list of cards to the caller's
-// collection: into a new private binder, or into one of their binders
-// (`binder_id`). Cards that cannot be pinned to one printing are reported back,
+// collection: into a new binder (public unless `visibility` is "private"), or
+// into one of their binders (`binder_id`). Cards that cannot be pinned to one printing are reported back,
 // not guessed.
 import { binderService, printingsService } from '@/lib/services';
+import { generateUniqueBinderSlug } from '@/lib/utils';
 import { partnerError, partnerOk, partnerRoute } from '@/lib/partner-api/route';
 import {
   parseImportItems,
@@ -53,6 +54,24 @@ function freeBinderName(wanted: string, taken: string[]): string | null {
   return null;
 }
 
+// A new binder is public like one made in the app; "private" turns every
+// sharing switch off.
+function visibilityFor(level: 'public' | 'private') {
+  const open = level === 'public';
+  return {
+    isPublic: open,
+    visibility: {
+      level,
+      allowInSearch: open,
+      allowInMatching: open,
+      allowWhoHas: open,
+      allowWebhooks: open,
+      allowDiscordCommands: open,
+      allowApiExport: open,
+    },
+  };
+}
+
 export const POST = partnerRoute('collection:write', async ({ request, auth }) => {
   let body: Record<string, unknown>;
   try {
@@ -62,6 +81,11 @@ export const POST = partnerRoute('collection:write', async ({ request, auth }) =
   }
   if (!body || typeof body !== 'object') {
     return partnerError(400, 'invalid_request', 'The body must be a JSON object.');
+  }
+
+  const level = body.visibility === undefined ? 'public' : body.visibility;
+  if (level !== 'public' && level !== 'private') {
+    return partnerError(400, 'invalid_request', '"visibility" must be "public" or "private".');
   }
 
   const parsed = parseImportItems(body.items);
@@ -85,20 +109,14 @@ export const POST = partnerRoute('collection:write', async ({ request, auth }) =
         ? body.binder_name.trim().slice(0, 80)
         : `Import ${new Date().toISOString().slice(0, 10)}`;
     const summaries = await binderService.listUserBindersSummary(auth.userId);
-    const name = freeBinderName(wanted, summaries.success ? summaries.data.map(b => b.name) : []);
+    const existing = summaries.success ? summaries.data : [];
+    const name = freeBinderName(wanted, existing.map(b => b.name));
     if (!name) return partnerError(409, 'name_taken', 'Choose a different binder name.');
 
     const created = await binderService.createBinder(auth.userId, {
       name,
-      visibility: {
-        level: 'private',
-        allowInSearch: false,
-        allowInMatching: false,
-        allowWhoHas: false,
-        allowWebhooks: false,
-        allowDiscordCommands: false,
-        allowApiExport: false,
-      },
+      slug: generateUniqueBinderSlug(name, existing.flatMap(b => (b.slug ? [b.slug] : []))),
+      ...visibilityFor(level),
     });
     if (!created.success) {
       console.error('[PartnerAPI] create binder failed:', created.error);

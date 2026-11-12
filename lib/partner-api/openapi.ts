@@ -177,7 +177,7 @@ export function buildOpenApiSpec(baseUrl: string) {
           operationId: 'importCollection',
           summary: "Add cards to the user's collection",
           description:
-            'Adds the cards to a new private binder, or to the binder named by `binder_id`. ' +
+            'Adds the cards to a new binder, or to the binder named by `binder_id`. A new binder is public unless `visibility` is `private`. ' +
             'Identify each card by `printing_id`, or by `collector_number` plus `foiling` and `edition` when the number alone is not unique. ' +
             'Cards that cannot be matched to exactly one printing are not added; they come back in `unresolved` by position in `items`. ' +
             'Calling this twice adds the cards twice.',
@@ -427,6 +427,12 @@ export function buildOpenApiSpec(baseUrl: string) {
             binder_name: {
               type: 'string',
               description: 'Name for the new binder. A number is appended if the user already has one by that name.',
+            },
+            visibility: {
+              type: 'string',
+              enum: ['public', 'private'],
+              default: 'public',
+              description: 'Who can see the new binder. Ignored when `binder_id` is given.',
             },
             items: { type: 'array', minItems: 1, maxItems: MAX_IMPORT_ITEMS, items: ref('CollectionImportItem') },
           },
