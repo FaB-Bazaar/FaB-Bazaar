@@ -38,7 +38,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //        outside a nightly run (cached bodies group it under the old card)
 //   v11 — migration 0129 moved Pirate from talents to classes on provisional
 //        cards (Favorable Winds now matches Marlynn's hero-legality pool)
-const SEARCH_CACHE_VERSION = 'v11';
+//   v12 — a set's release day still counts as spoiler season (the cc filter
+//        keeps its not-yet-flagged cards until the nightly flips cc_legal)
+const SEARCH_CACHE_VERSION = 'v12';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

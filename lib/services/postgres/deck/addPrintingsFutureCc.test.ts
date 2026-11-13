@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/postgres/db';
 import { users, decks, cards, printings, sets } from '@/lib/postgres/schema';
@@ -20,6 +20,11 @@ const rand = crypto.randomUUID().slice(0, 6);
 const futureSet = `zd${rand.slice(0, 3)}`;
 const futureCardId = `test-fccdeck-${rand}`;
 const staleCardId = `test-fccstale-${rand}`;
+// A set whose release date is TODAY: no longer "future", and the nightly run
+// that flips cc_legal on release day has not happened yet.
+const releaseDaySet = `zr${rand.slice(0, 3)}`;
+const releaseDayCardId = `test-fccday-${rand}`;
+let releaseDayPrintingId: string;
 let futurePrintingId: string;
 let stalePrintingId: string;
 let testUserId: string;
@@ -42,6 +47,21 @@ beforeAll(async () => {
     printingId: futurePrintingId, cardUniqueId: futureCardId, set: futureSet,
     collectorNumber: `${futureSet.toUpperCase()}001`, edition: 'N', foiling: 'S', rarity: 'C',
   });
+  // Released today by the DATABASE's clock (the predicate compares CURRENT_DATE).
+  const today = await db.execute(sql`SELECT CURRENT_DATE::text AS today`);
+  await db.insert(sets).values({
+    code: releaseDaySet, displayCode: releaseDaySet.toUpperCase(), name: `Test Release Day ${rand}`,
+    releaseDate: (today.rows[0] as { today: string }).today, releaseOrder: base + 1, displayOrder: base + 1, category: 'standard',
+  });
+  await db.insert(cards).values({
+    cardUniqueId: releaseDayCardId, name: `test fcc release day card ${rand}`, displayName: `Test FCC Release Day Card ${rand}`,
+    types: ['action'], classes: ['warrior'], ccLegal: false,
+  });
+  releaseDayPrintingId = nanoid(21);
+  await db.insert(printings).values({
+    printingId: releaseDayPrintingId, cardUniqueId: releaseDayCardId, set: releaseDaySet,
+    collectorNumber: `${releaseDaySet.toUpperCase()}001`, edition: 'N', foiling: 'S', rarity: 'C',
+  });
   // Not CC-legal and only printed in an already-released set (WTR).
   await db.insert(cards).values({
     cardUniqueId: staleCardId, name: `test fcc stale card ${rand}`, displayName: `Test FCC Stale Card ${rand}`,
@@ -55,9 +75,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(printings).where(inArray(printings.printingId, [futurePrintingId, stalePrintingId]));
-  await db.delete(cards).where(inArray(cards.cardUniqueId, [futureCardId, staleCardId]));
-  await db.delete(sets).where(eq(sets.code, futureSet));
+  await db.delete(printings).where(inArray(printings.printingId, [futurePrintingId, stalePrintingId, releaseDayPrintingId]));
+  await db.delete(cards).where(inArray(cards.cardUniqueId, [futureCardId, staleCardId, releaseDayCardId]));
+  await db.delete(sets).where(inArray(sets.code, [futureSet, releaseDaySet]));
 });
 
 beforeEach(async () => {
@@ -81,6 +101,15 @@ describe('addPrintings — Classic Constructed takes spoiler-season cards', () =
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.results[0]).toMatchObject({ printingId: futurePrintingId, success: true });
+  });
+
+  it('accepts a not-yet-cc_legal card on its set\'s release day (before the nightly flips the flag)', async () => {
+    const result = await service.addPrintings(ccDeckPublicId, testUserId, [
+      { printingId: releaseDayPrintingId, quantity: 3, category: 'maindeck' },
+    ]);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.results[0]).toMatchObject({ printingId: releaseDayPrintingId, success: true });
   });
 
   it('still rejects a card that is neither cc_legal nor in an unreleased set', async () => {

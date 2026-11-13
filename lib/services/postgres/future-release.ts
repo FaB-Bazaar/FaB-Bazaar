@@ -1,7 +1,12 @@
 /**
  * "Future release" predicate shared by the printings search, the hero picker
  * and the deck add-card gate: a card counts as a future release when at least
- * one of its printings belongs to a set whose `release_date` is after today.
+ * one of its printings belongs to a set whose `release_date` is today or later.
+ *
+ * Release day counts on purpose: a spoiler-season card's `cc_legal` flag is
+ * only flipped by the nightly `apply_provisional_legality()` run, so with a
+ * strict `>` the set dropped out of every CC deck pool for most of its own
+ * release day (MPA, 2026-11-13).
  *
  * Sets in the `excluded` category (welcome/demo decks, event tokens) never
  * count. Sets with a NULL release_date (unannounced) never count either — the
@@ -18,7 +23,7 @@ import { printings, sets } from '@/lib/postgres/schema';
 
 /**
  * `<cardUniqueId> IN (SELECT …)` — true when the card has a printing in a
- * future-dated set.
+ * set releasing today or later.
  *
  * Deliberately UNCORRELATED: the inner select has no reference to the outer
  * row, so Postgres evaluates it once and hashes the (tiny) id set, in both
@@ -30,7 +35,7 @@ export function isFutureReleaseCard(cardUniqueId: PgColumn | SQL): SQL<boolean> 
   return sql<boolean>`(${cardUniqueId} IN (
     SELECT fp.card_unique_id FROM ${printings} fp
     JOIN ${sets} fs ON fs.code = fp.set
-    WHERE fs.release_date > CURRENT_DATE
+    WHERE fs.release_date >= CURRENT_DATE
       AND fs.category <> 'excluded'
   ))`;
 }
