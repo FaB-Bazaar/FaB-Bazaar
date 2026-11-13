@@ -1,12 +1,12 @@
 # Stage 1: Install all dependencies (including native module compilation)
-FROM node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 AS deps
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS deps
 RUN apk add --no-cache libc6-compat python3 make g++ krb5-dev
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
 # Stage 2: Build the application
-FROM node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 AS builder
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 RUN apk add --no-cache libc6-compat python3 make g++ krb5-dev
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/app/.next/cache \
     NODE_OPTIONS="--max_old_space_size=1536" npm run build
 
 # Stage 3: Lean production runtime using Next.js standalone output
-FROM node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 AS runner
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
