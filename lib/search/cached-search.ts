@@ -40,7 +40,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //        cards (Favorable Winds now matches Marlynn's hero-legality pool)
 //   v12 — a set's release day still counts as spoiler season (the cc filter
 //        keeps its not-yet-flagged cards until the nightly flips cc_legal)
-const SEARCH_CACHE_VERSION = 'v12';
+//   v13 — migration 0130 made the early-adopted MPA / AMO previews legal
+//        outside a nightly run
+const SEARCH_CACHE_VERSION = 'v13';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

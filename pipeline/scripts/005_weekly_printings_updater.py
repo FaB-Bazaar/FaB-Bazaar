@@ -730,8 +730,9 @@ class WeeklyPrintingsUpdater:
         """Flip constructed-legality on provisional (CardVault-ingested) cards
         whose set's legal date has passed — `apply_provisional_legality()` from
         migration 0112. Legality columns are admin-owned (never upserted), so
-        without this a spoiler-season set stays illegal after release until
-        fab-cube adopts every row. A missing function (pipeline image rebuilt
+        without this a spoiler-season set stays illegal after release. Covers
+        provisional cards and (migration 0130) CardVault-ingested cards the
+        feed adopted before their set was legal. A missing function (pipeline image rebuilt
         before the migration applied) is a warning, not a step failure."""
         if dry_run:
             print("\n⚖️  Provisional legality: skipped (dry run)")

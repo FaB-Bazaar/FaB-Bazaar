@@ -14,6 +14,17 @@
  *   commoner     = common / basic / token, and not an adult hero
  * It is idempotent and runs nightly from 005 so future sets flip on their own.
  *
+ * Migration 0130 widens "provisional": a card previewed early in spoiler season
+ * is ingested from CardVault, then ADOPTED by fab-cube (fab_cube_card_id set)
+ * weeks before its set is legal — still with every flag false. 0112 skipped
+ * every adopted row, so those cards stayed illegal in all formats after
+ * release (MPA: Dr. Mortimer, Mutually Assured Destruction, Prey on Insecurity,
+ * Remember the Mists, Seed Inertia). A never-flagged adopted card now qualifies
+ * when it has an ENGLISH CardVault-ingested printing (lss_print_id) in the
+ * legal set. Feed-origin cards (no CardVault printing) and cards whose only
+ * lss_print_id rows are the i18n import's non-English printings stay untouched,
+ * so deliberate all-false rows on old cards survive.
+ *
  * Runs against the local DB (POSTGRES_URL via vitest.setup.ts).
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -37,6 +48,9 @@ const ids = {
   future: `test-pl-future-${rand}`,
   excluded: `test-pl-excluded-${rand}`,
   adopted: `test-pl-adopted-${rand}`,
+  adoptedEarly: `test-pl-adopted-early-${rand}`,
+  adoptedEarlyFuture: `test-pl-adopted-early-future-${rand}`,
+  adoptedI18n: `test-pl-adopted-i18n-${rand}`,
   curated: `test-pl-curated-${rand}`,
 };
 const allIds = Object.values(ids);
@@ -82,11 +96,14 @@ beforeAll(async () => {
     card(ids.future, ['merchant', 'action']),
     card(ids.excluded, ['merchant', 'action']),
     card(ids.adopted, ['merchant', 'action'], { fabCubeCardId: `feed-${rand}` }),
+    card(ids.adoptedEarly, ['merchant', 'action'], { fabCubeCardId: `feed-early-${rand}` }),
+    card(ids.adoptedEarlyFuture, ['merchant', 'action'], { fabCubeCardId: `feed-early-future-${rand}` }),
+    card(ids.adoptedI18n, ['merchant', 'action'], { fabCubeCardId: `feed-i18n-${rand}` }),
     card(ids.curated, ['merchant', 'action'], { ccLegal: true }),
   ]);
-  const mk = async (cardUniqueId: string, set: string, n: number, rarity: string) => {
+  const mk = async (cardUniqueId: string, set: string, n: number, rarity: string, extra: Record<string, unknown> = {}) => {
     const id = nanoid(21);
-    await db.insert(printings).values({ printingId: id, cardUniqueId, set, collectorNumber: `${set.toUpperCase()}${String(n).padStart(3, '0')}`, edition: 'n', foiling: 's', rarity, isFrontFace: true });
+    await db.insert(printings).values({ printingId: id, cardUniqueId, set, collectorNumber: `${set.toUpperCase()}${String(n).padStart(3, '0')}`, edition: 'n', foiling: 's', rarity, isFrontFace: true, ...extra });
     printingIds.push(id);
   };
   await mk(ids.common, legalSet, 1, 'c');
@@ -95,6 +112,12 @@ beforeAll(async () => {
   await mk(ids.adultHero, legalSet, 4, 'm');
   await mk(ids.adopted, legalSet, 5, 'c');
   await mk(ids.curated, legalSet, 6, 'c');
+  // CardVault-ingested (lss_print_id) and adopted by the feed before the set was legal.
+  await mk(ids.adoptedEarly, legalSet, 7, 'c', { lssPrintId: `lss-early-${rand}` });
+  await mk(ids.adoptedEarlyFuture, futureSet, 2, 'c', { lssPrintId: `lss-early-future-${rand}` });
+  // Feed-origin card whose only lss_print_id row is an i18n-import (non-English) printing.
+  await mk(ids.adoptedI18n, legalSet, 8, 'c');
+  await mk(ids.adoptedI18n, legalSet, 8, 'c', { lssPrintId: `lss-i18n-${rand}`, language: 'fr' });
   await mk(ids.released, releasedSet, 1, 'r');
   await mk(ids.future, futureSet, 1, 'c');
   await mk(ids.excluded, excludedSet, 1, 'c');
@@ -130,6 +153,18 @@ describe('migration 0112: sets.legal_from + apply_provisional_legality()', () =>
     expect(await flagsOf(ids.excluded)).toEqual(none);
     expect(await flagsOf(ids.adopted)).toEqual(none);
     expect(await flagsOf(ids.curated)).toEqual({ ...none, cc_legal: true });
+  });
+
+  it('0130: flips a CardVault-ingested card the feed adopted before its set was legal', async () => {
+    expect(await flagsOf(ids.adoptedEarly)).toEqual({ cc_legal: true, blitz_legal: true, silver_age_legal: true, ll_legal: true, commoner_legal: true });
+  });
+
+  it('0130: an early-adopted card still waits for its set to be legal', async () => {
+    expect(await flagsOf(ids.adoptedEarlyFuture)).toEqual(none);
+  });
+
+  it('0130: an i18n (non-English) lss_print_id printing does not make a feed card provisional', async () => {
+    expect(await flagsOf(ids.adoptedI18n)).toEqual(none);
   });
 
   it('is idempotent — a second run touches nothing', async () => {
