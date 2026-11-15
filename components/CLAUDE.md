@@ -42,7 +42,7 @@ Project-wide front-end rules. Apply to all interactive components, overlays, and
 ## Navigation
 
 - Nav items are hand-maintained in THREE places: desktop bar + mobile menu (both `navbar.tsx`) and the <640px tab-bar sheets (`navbar/MobileTabBar.tsx`). Change a label or link in all three — separate copies are how labels drifted.
-- Canonical labels (2026-09): top-level plain nouns **Collection / Decks / Stores**; items **Binders**, **My Decks**, **Profile**, **Bulk Import**. `/stores` is the user's FOLLOWED stores ("My Stores"); the directory is `/stores/browse` ("Browse Stores") — desktop used to label `/stores` "Browse Stores".
+- Canonical labels (2026-09): top-level plain nouns **Collection / Decks / Stores**; items **Binders**, **My Decks**, **Settings**, **Bulk Import**. In the avatar menu the username row (with a link icon) opens the PUBLIC profile and **Settings** opens the account pages (`/profile`, which share the `AccountNav` side nav); there is no separate "Profile" or "Connected Accounts" row (2026-11). `/stores` is the user's FOLLOWED stores ("My Stores"); the directory is `/stores/browse` ("Browse Stores") — desktop used to label `/stores` "Browse Stores".
 - Nav e2e: at mobile width "Collection"/"Decks" buttons exist in both the menu and the tab bar → use `.first()`; run nav specs with `--workers=1` (parallel runs time out on the dev server). Known-red and unrelated: `navbar-mobile-tabbar`, `mobile-nav-slim` tab-order test (stale selectors), `playmats` (fixtures missing locally).
 
 ## HUD / Overlay Patterns

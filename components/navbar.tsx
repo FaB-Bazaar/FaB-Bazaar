@@ -34,6 +34,7 @@ import {
   DatabaseZap,
   GraduationCap,
   Link2,
+  Settings,
   Pin,
   TrendingUp,
   Shield,
@@ -927,7 +928,7 @@ export default function Navbar() {
               {user ? (
                 <DropdownMenu onOpenChange={(open) => { if (open) { loadBindersOnDemand(); loadDecksOnDemand(); } }}>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="!p-0 w-10 h-10 rounded-full hover:bg-transparent">
+                    <Button variant="ghost" size="sm" data-testid="avatar-menu-trigger" className="!p-0 w-10 h-10 rounded-full hover:bg-transparent">
                       {user.image ? (
                         <img
                           src={user.image}
@@ -942,10 +943,24 @@ export default function Navbar() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
-                    <div className="px-3 py-2 border-b border-gray-300 dark:border-gray-700">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayUsername(user.username)}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                    </div>
+                    {/* The username row IS the link to the public profile (the icon says so);
+                        account pages live under Settings below. */}
+                    {user.username ? (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href={profileHref(user.username)}
+                          aria-label={`${displayUsername(user.username)} — view your public profile`}
+                          className="text-sm font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          <span className="truncate">{displayUsername(user.username)}</span>
+                          <ExternalLink className="h-3.5 w-3.5 ml-1.5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {user.email && (
+                      <p className="px-2 pb-2 text-xs text-gray-600 dark:text-gray-300 truncate">{user.email}</p>
+                    )}
+                    <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
                     {canUseVolzar(user) && (
                       <>
                         <DropdownMenuItem asChild>
@@ -966,14 +981,8 @@ export default function Navbar() {
                     )}
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                        <User className="h-4 w-4 mr-2" />
-                        Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile/connected-accounts" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                        <Link2 className="h-4 w-4 mr-2" />
-                        Connected Accounts
+                        <Settings className="h-4 w-4 mr-2" />
+                        Settings
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -1046,6 +1055,7 @@ export default function Navbar() {
                   variant="ghost"
                   size="sm"
                   onClick={handleMobileMenuToggle}
+                  data-testid="mobile-menu-toggle"
                   className="!p-0 w-10 h-10 rounded-full hover:bg-transparent"
                 >
                   {user.image ? (
@@ -1073,7 +1083,7 @@ export default function Navbar() {
 
         {/* Mobile Navigation - Goodreads Style (not an overlay) */}
         {isMenuOpen && (
-          <div className="md:hidden border-t dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div data-testid="mobile-menu" className="md:hidden border-t dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="container mx-auto px-4 py-2">
               {/* Simplified Mobile Menu - Goodreads Style */}
               <div className="space-y-1 py-2">
@@ -1234,6 +1244,18 @@ export default function Navbar() {
               {/* User Profile Section */}
               {user && (
                 <div className="border-t dark:border-gray-700 py-2">
+                  {user.username && (
+                    <Link
+                      href={profileHref(user.username)}
+                      onClick={() => setIsMenuOpen(false)}
+                      aria-label={`${displayUsername(user.username)} — view your public profile`}
+                    >
+                      <div className="flex items-center px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <span className="truncate">{displayUsername(user.username)}</span>
+                        <ExternalLink className="h-4 w-4 ml-1.5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                      </div>
+                    </Link>
+                  )}
                   {canUseVolzar(user) && (
                     <Link href="/volzar" onClick={() => setIsMenuOpen(false)}>
                       <div className="flex items-center px-3 py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -1251,8 +1273,8 @@ export default function Navbar() {
                   )}
                   <Link href="/profile" onClick={() => setIsMenuOpen(false)}>
                     <div className="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <User className="h-5 w-5 mr-3" />
-                      Profile
+                      <Settings className="h-5 w-5 mr-3" />
+                      Settings
                     </div>
                   </Link>
                   <Link href="/change-history" onClick={() => setIsMenuOpen(false)}>
