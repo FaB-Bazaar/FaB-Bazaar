@@ -1298,10 +1298,14 @@ export class PostgresDeckService implements IDeckService {
       // Plausible-card-count gate, shared by the rows query AND the count —
       // a gated-out deck that still counted produced "1 deck found" over an
       // empty listing on the Community page.
+      // Deck size = equipment + maindeck + inventory. Tokens and the benched
+      // maybe-pile are not part of the playable deck: counting them hid every
+      // 80-card Calling: Sydney list that also carried its tokens (2026-11).
+      const playableCount = sql`COALESCE(SUM(CASE WHEN ${deckCards.category} NOT IN ('hero', 'tokens', 'benched') THEN ${deckCards.quantity} ELSE 0 END), 0)`;
       const plausibleCountGate = sql`NOT (
-        (${decks.format} = 'Classic Constructed' AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 60 AND 80) OR
-        (${decks.format} = 'Silver Age'           AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 55) OR
-        (${decks.format} = 'Blitz'                AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 52)
+        (${decks.format} = 'Classic Constructed' AND ${playableCount} NOT BETWEEN 60 AND 80) OR
+        (${decks.format} = 'Silver Age'           AND ${playableCount} NOT BETWEEN 40 AND 55) OR
+        (${decks.format} = 'Blitz'                AND ${playableCount} NOT BETWEEN 40 AND 52)
       )`;
 
       // Total = count of the SAME grouped+gated set the rows query pages over.
