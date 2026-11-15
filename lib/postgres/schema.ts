@@ -132,6 +132,10 @@ export const users = pgTable('users', {
   // Show Cardmarket € instead of TCGplayer $ everywhere (migration 0126)
   cardmarketPrices: boolean('cardmarket_prices').default(false).notNull(),
 
+  // Social handles shown on the public profile: { platformKey: handle }
+  // (lib/profile/social-links.ts; migration 0131)
+  socialLinks: jsonb('social_links').$type<Record<string, string>>().default({}).notNull(),
+
   // Deck shown by the profile-level stream overlay (/overlay/u/<username>/deck).
   // FK to decks.id ON DELETE SET NULL is declared in migration 0120 (circular ref here).
   streamingDeckId: text('streaming_deck_id'),

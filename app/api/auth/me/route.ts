@@ -46,6 +46,7 @@ export async function GET() {
         preferredLanguage: profile.preferredLanguage,
         landingPage: profile.landingPage,
         cardmarketPrices: profile.cardmarketPrices,
+        socialLinks: profile.socialLinks,
       },
       sessionType: "nextauth",
       debug: {

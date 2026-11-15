@@ -46,6 +46,13 @@ function isValidBrowser(userAgent: string): boolean {
   return validBrowsers.some(pattern => pattern.test(userAgent))
 }
 
+// The profile page is this endpoint's only consumer, so the response carries
+// only what a binder tile renders: 6 showcase cards (the service returns its
+// top 10), tcg_low values, and the visibility level without permission flags.
+const SHOWCASE_CARDS_PER_TILE = 6
+
+const lowOnly = (value?: { tcg_low?: number }) => ({ tcg_low: value?.tcg_low || 0 })
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
@@ -154,7 +161,7 @@ export async function GET(
         tags: binder.tags || [],
         slug: binder.slug || null,
         isOnHand: binder.isOnHand || false,
-        visibility: binder.visibility || { level: 'public' },
+        visibility: { level: binder.visibility?.level || 'public' },
         isPublic: binder.isPublic !== false,
         updatedAt: binder.updatedAt,
       };
@@ -168,24 +175,9 @@ export async function GET(
         // hideValue strips value aggregates unconditionally. Owners see values
         // through the authenticated /api/binders surfaces.
         if (!(binder as any).hideValue) {
-          formatted.totalValue = stats.totalValue || {
-            tcg_market: 0,
-            tcg_low: 0,
-            tcg_mid: 0,
-            tcg_high: 0,
-          };
-          formatted.valueForTrade = stats.valueForTrade || {
-            tcg_market: 0,
-            tcg_low: 0,
-            tcg_mid: 0,
-            tcg_high: 0,
-          };
-          formatted.valueNotForTrade = stats.valueNotForTrade || {
-            tcg_market: 0,
-            tcg_low: 0,
-            tcg_mid: 0,
-            tcg_high: 0,
-          };
+          formatted.totalValue = lowOnly(stats.totalValue);
+          formatted.valueForTrade = lowOnly(stats.valueForTrade);
+          formatted.valueNotForTrade = lowOnly(stats.valueNotForTrade);
           formatted.total_value = stats.totalValue?.tcg_low || 0;
         }
         formatted.rarityCounts = stats.rarityCounts || {};
@@ -196,7 +188,7 @@ export async function GET(
       }
 
       if (includeShowcase && 'showcaseCards' in binder && binder.showcaseCards) {
-        formatted.showcaseCards = binder.showcaseCards;
+        formatted.showcaseCards = binder.showcaseCards.slice(0, SHOWCASE_CARDS_PER_TILE);
       }
 
       return formatted;

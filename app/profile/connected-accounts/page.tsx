@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
+import { AccountNav } from "@/components/profile/AccountNav"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { CheckCircle2, XCircle } from "lucide-react"
@@ -183,9 +184,11 @@ export default function ConnectedAccountsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-4xl mx-auto space-y-2">
-        <CardHeader className="px-0 pb-2">
+    <div className="container mx-auto py-6 px-4">
+      <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-4 md:gap-8">
+      <AccountNav />
+      <div className="flex-1 min-w-0 space-y-2">
+        <CardHeader className="px-0 pt-0 pb-2">
           <CardTitle className="text-xl">Connected Accounts</CardTitle>
           <CardDescription>Link third-party accounts to unlock additional features</CardDescription>
         </CardHeader>
@@ -292,6 +295,7 @@ export default function ConnectedAccountsPage() {
         <div className="pt-4">
           <AuthorizedApps />
         </div>
+      </div>
       </div>
     </div>
   )

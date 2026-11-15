@@ -28,6 +28,7 @@ import Link from "next/link"
 import { DeleteAccountDialog } from "@/components/dialogs/account/delete-account-dialog"
 import { ExportDataDialog } from "@/components/dialogs/account/export-data-dialog"
 import { ExportOptions } from "@/components/profile/ExportOptions"
+import { AccountNav } from "@/components/profile/AccountNav"
 import { useCookieConsent } from "@/contexts/CookieConsentContext"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -408,8 +409,10 @@ export default function ProfilePage() {
   const wantsCount = wantsStats?.count || 0
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card className="w-full max-w-3xl mx-auto">
+    <div className="container mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-4 md:gap-8">
+      <AccountNav username={userData?.username} />
+      <Card className="flex-1 min-w-0">
         <CardHeader>
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <Avatar className="h-24 w-24">
@@ -599,6 +602,7 @@ export default function ProfilePage() {
           <p className="text-sm text-muted-foreground">Member of FaB Bazaar since {joinDate}</p>
         </CardFooter>
       </Card>
+      </div>
     </div>
   )
 }

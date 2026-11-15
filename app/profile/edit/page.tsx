@@ -9,7 +9,8 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AccountNav } from "@/components/profile/AccountNav"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -184,16 +185,23 @@ export default function EditProfilePage() {
     )
   }
 
+  const selectClass =
+    "w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+  const hintClass = "text-xs text-gray-600 dark:text-gray-400"
+  const sectionClass = "text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3"
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-md mx-auto space-y-6">
-        <Card>
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Edit Profile</CardTitle>
-            <CardDescription className="text-center">Update your profile information</CardDescription>
+    <div className="container mx-auto py-6 px-4">
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-4 md:gap-8">
+        <AccountNav username={userProfile?.username || ""} />
+
+        <Card className="flex-1 min-w-0">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl">Edit profile</CardTitle>
+            <CardDescription>Only a username is required.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -206,123 +214,128 @@ export default function EditProfilePage() {
                 </Alert>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  placeholder="Choose a username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-gray-500">This will be your display name on the platform</p>
-              </div>
+              <section>
+                <h2 className={sectionClass}>Identity</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      placeholder="Choose a username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                    />
+                    <p className={hintClass}>Your display name on the platform</p>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="discordUsername">Discord Username (Optional)</Label>
-                <Input
-                  id="discordUsername"
-                  placeholder="username#1234"
-                  value={discordUsername}
-                  onChange={(e) => setDiscordUsername(e.target.value)}
-                />
-                <p className="text-xs text-gray-500">
-                  This will be used for contact in your listings and trade agreements
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="country">Country (Optional)</Label>
-                <select
-                  id="country"
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">Not set</option>
-                  {countries.map((c) => (
-                    <option key={c.iso2} value={c.iso2}>{c.name}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500">
-                  Used to suggest nearby stores and events — never shown as an address
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="preferredLanguage">Preferred language (Optional)</Label>
-                <select
-                  id="preferredLanguage"
-                  value={preferredLanguage}
-                  onChange={(e) => setPreferredLanguage(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">Auto — based on country</option>
-                  {SUPPORTED_LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>{l.label}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500">
-                  Volzar chats and prompts use this language; card names stay in English
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="landingPage">Home page (Optional)</Label>
-                <select
-                  id="landingPage"
-                  value={landingPage}
-                  onChange={(e) => setLandingPage(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">{DEFAULT_LANDING_PAGE_LABEL}</option>
-                  {LANDING_PAGE_OPTIONS.filter((o) => o.value !== DEFAULT_LANDING_PAGE).map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500">
-                  Where you land after signing in or visiting the home page
-                </p>
-              </div>
-
-              {states.length > 0 && (
-                <div className="space-y-2">
-                  <Label htmlFor="state">State / Region (Optional)</Label>
-                  <select
-                    id="state"
-                    value={stateCode}
-                    onChange={(e) => setStateCode(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="">Not set</option>
-                    {states.map((s) => (
-                      <option key={s.id} value={s.stateCode}>{s.name}</option>
-                    ))}
-                  </select>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="discordUsername">Discord username</Label>
+                    <Input
+                      id="discordUsername"
+                      placeholder="username"
+                      value={discordUsername}
+                      onChange={(e) => setDiscordUsername(e.target.value)}
+                    />
+                    <p className={hintClass}>How traders contact you</p>
+                  </div>
                 </div>
-              )}
+              </section>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <span className="flex items-center">
-                    <span className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                    Saving...
-                  </span>
-                ) : (
-                  "Save Changes"
-                )}
-              </Button>
+              <section>
+                <h2 className={sectionClass}>Location</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="country">Country</Label>
+                    <select
+                      id="country"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      className={selectClass}
+                    >
+                      <option value="">Not set</option>
+                      {countries.map((c) => (
+                        <option key={c.iso2} value={c.iso2}>{c.name}</option>
+                      ))}
+                    </select>
+                    <p className={hintClass}>Suggests nearby stores and events — never shown as an address</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="state">State / Region</Label>
+                    <select
+                      id="state"
+                      value={stateCode}
+                      onChange={(e) => setStateCode(e.target.value)}
+                      disabled={states.length === 0}
+                      className={selectClass}
+                    >
+                      <option value="">Not set</option>
+                      {states.map((s) => (
+                        <option key={s.id} value={s.stateCode}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h2 className={sectionClass}>Preferences</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="preferredLanguage">Preferred language</Label>
+                    <select
+                      id="preferredLanguage"
+                      value={preferredLanguage}
+                      onChange={(e) => setPreferredLanguage(e.target.value)}
+                      className={selectClass}
+                    >
+                      <option value="">Auto — based on country</option>
+                      {SUPPORTED_LANGUAGES.map((l) => (
+                        <option key={l.code} value={l.code}>{l.label}</option>
+                      ))}
+                    </select>
+                    <p className={hintClass}>For Volzar chats; card names stay in English</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="landingPage">Home page</Label>
+                    <select
+                      id="landingPage"
+                      value={landingPage}
+                      onChange={(e) => setLandingPage(e.target.value)}
+                      className={selectClass}
+                    >
+                      <option value="">{DEFAULT_LANDING_PAGE_LABEL}</option>
+                      {LANDING_PAGE_OPTIONS.filter((o) => o.value !== DEFAULT_LANDING_PAGE).map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <p className={hintClass}>Where you land after signing in</p>
+                  </div>
+                </div>
+              </section>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-1">
+                <Link href="/profile">
+                  <Button type="button" variant="outline" className="w-full sm:w-auto">
+                    Cancel
+                  </Button>
+                </Link>
+                <Button type="submit" className="w-full sm:w-auto" disabled={isLoading}>
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                      Saving...
+                    </span>
+                  ) : (
+                    "Save changes"
+                  )}
+                </Button>
+              </div>
             </form>
           </CardContent>
-          <CardFooter>
-            <Link href="/profile" className="w-full">
-              <Button variant="outline" className="w-full">
-                Cancel
-              </Button>
-            </Link>
-          </CardFooter>
         </Card>
-
       </div>
     </div>
   )

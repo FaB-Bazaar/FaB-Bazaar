@@ -68,4 +68,63 @@ describe('GET /api/users/[userId]/binders', () => {
     expect(res.status).toBe(200);
     expect(mockGetWithStats).toHaveBeenCalledWith(objectId);
   });
+  describe('payload size (the profile page is the only consumer)', () => {
+    const uuid = '46a05cc3-c38a-4dd6-aa58-7ced7b79708c';
+    const price = { tcg_market: 4, tcg_low: 3, tcg_mid: 5, tcg_high: 9 };
+    const bigBinder = {
+      _id: 'b1',
+      name: 'Big',
+      isPublic: true,
+      visibility: { level: 'public', allowInSearch: true, allowWhoHas: true, allowWebhooks: true },
+      updatedAt: new Date('2026-01-01'),
+      stats: {
+        totalQuantity: 5000,
+        quantityForTrade: 4000,
+        quantityNotForTrade: 1000,
+        totalValue: price,
+        valueForTrade: price,
+        valueNotForTrade: price,
+        rarityCounts: { m: 5000 },
+        rarityCountsForTrade: { m: 4000 },
+        rarityCountsNotForTrade: { m: 1000 },
+      },
+      showcaseCards: Array.from({ length: 10 }, (_, i) => ({
+        printingId: `p${i}`,
+        image_url: `https://img/${i}`,
+        tcg_low: 100 - i,
+        rarity: 'm',
+      })),
+    };
+
+    const getBinder = async () => {
+      mockGetWithStats.mockResolvedValue({ success: true, data: [bigBinder] } as any);
+      const res = await GET(makeRequest(uuid), { params: Promise.resolve({ userId: uuid }) });
+      return (await res.json()).binders[0];
+    };
+
+    it('sends only the 6 showcase cards a tile shows, most valuable first', async () => {
+      const binder = await getBinder();
+      expect(binder.showcaseCards.map((c: any) => c.printingId)).toEqual(['p0', 'p1', 'p2', 'p3', 'p4', 'p5']);
+    });
+
+    it('sends only the visibility level, not the per-feature permission flags', async () => {
+      const binder = await getBinder();
+      expect(binder.visibility).toEqual({ level: 'public' });
+    });
+
+    it('sends values as tcg_low only', async () => {
+      const binder = await getBinder();
+      expect(binder.totalValue).toEqual({ tcg_low: 3 });
+      expect(binder.valueForTrade).toEqual({ tcg_low: 3 });
+      expect(binder.valueNotForTrade).toEqual({ tcg_low: 3 });
+    });
+
+    it('keeps the stats the tile renders', async () => {
+      const binder = await getBinder();
+      expect(binder.totalQuantity).toBe(5000);
+      expect(binder.quantityForTrade).toBe(4000);
+      expect(binder.rarityCountsForTrade).toEqual({ m: 4000 });
+      expect(binder.rarityCountsNotForTrade).toEqual({ m: 1000 });
+    });
+  });
 });

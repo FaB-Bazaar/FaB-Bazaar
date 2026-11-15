@@ -121,6 +121,8 @@ export interface UserProfileDTO {
   landingPage?: string;
   /** Show Cardmarket € instead of TCGplayer $ everywhere (users.cardmarket_prices). */
   cardmarketPrices: boolean;
+  /** Social handles by platform key (users.social_links). */
+  socialLinks: Record<string, string>;
 }
 
 /**
@@ -176,6 +178,8 @@ export interface UserProfileStatsDTO {
     total: number;
   };
   wantsCount: number;
+  /** Social handles by platform key (users.social_links). */
+  socialLinks: Record<string, string>;
 }
 
 /**
@@ -197,6 +201,8 @@ export interface UpdateProfileDTO {
   landingPage?: string;
   /** Cardmarket € instead of TCGplayer $ — persisted to users.cardmarket_prices. */
   cardmarketPrices?: boolean;
+  /** Social handles by platform key — replaces the whole set (users.social_links). Validate with sanitizeSocialLinks first. */
+  socialLinks?: Record<string, string>;
 }
 
 export interface MetafyCommunityDTO {

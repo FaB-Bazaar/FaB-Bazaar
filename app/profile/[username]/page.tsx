@@ -18,9 +18,15 @@ import {
   Heart,
   Layers,
   Swords,
-  ChevronDown
+  ChevronDown,
+  ArrowLeftRight,
+  Pencil
 } from "lucide-react"
 import { groupBindersByTag } from "@/lib/profile/group-binders-by-tag"
+import { summarizeTrade } from "@/lib/profile/trade-summary"
+import { parseProfileTab, profileTabUrl, type ProfileTab } from "@/lib/profile/profile-tab"
+import { describeProfileLoadError } from "@/lib/profile/profile-load-error"
+import { socialLinkList } from "@/lib/profile/social-links"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ProfileTile } from "@/components/profiles/ProfileTile"
@@ -41,6 +47,8 @@ interface UserProfile {
   country?: string
   createdAt: string
   image?: string
+  /** Social handles by platform key; links are built by socialLinkList. */
+  socials?: Record<string, string>
 }
 
 interface ProfileStats {
@@ -119,10 +127,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
   const { toast } = useToast()
   const [profileData, setProfileData] = useState<ProfileResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // HTTP status of a failed load (null = network failure); undefined = no error.
+  const [errorStatus, setErrorStatus] = useState<number | null | undefined>(undefined)
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'collection' | 'decks'>('collection')
+  // Tab state, mirrored in the URL (?tab=decks) so a tab can be linked to.
+  const [activeTab, setActiveTab] = useState<ProfileTab>('collection')
+  useEffect(() => {
+    setActiveTab(parseProfileTab(window.location.search))
+  }, [])
+  const selectTab = (tab: ProfileTab) => {
+    setActiveTab(tab)
+    window.history.replaceState(null, '', profileTabUrl(window.location.pathname, window.location.search, tab))
+  }
 
   // State to manage binder visibility
   const [showAllBinders, setShowAllBinders] = useState(false)
@@ -182,27 +198,27 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
     const fetchProfileData = async () => {
       try {
         setLoading(true)
-        setError(null) // Reset error state at the start
-        
+        setErrorStatus(undefined) // Reset error state at the start
+
         // Fetch user profile data first
         const profileResponse = await fetch(`/api/users/profile/${username}`, { signal })
         if (signal.aborted) return
 
-        const profileData = await profileResponse.json()
-        if (!profileResponse.ok || !profileData.success) {
-          throw new Error(profileData.error || "User not found")
+        const profileData = await profileResponse.json().catch(() => null)
+        if (!profileResponse.ok || !profileData?.success) {
+          setErrorStatus(profileResponse.status)
+          return
         }
-
-        // Clear any previous errors since profile fetch succeeded
-        setError(null)
 
         // Fetch binders with full stats for this user
         const bindersResponse = await fetch(`/api/users/${profileData.user._id}/binders?includeStats=true&includeShowcase=true`, { signal })
         if (signal.aborted) return
 
-        const bindersData = await bindersResponse.json()
-        if (!bindersResponse.ok || !bindersData.success) {
-          throw new Error(bindersData.error || "Failed to load binders")
+        const bindersData = await bindersResponse.json().catch(() => null)
+        if (!bindersResponse.ok || !bindersData?.success) {
+          // The user exists; a failed binders load is never "not found".
+          setErrorStatus(bindersResponse.status === 404 ? 500 : bindersResponse.status)
+          return
         }
 
         // Combine the data
@@ -214,13 +230,12 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
         }
 
         setProfileData(combinedData)
-        setError(null) // Ensure error is cleared on success
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
         }
         console.error('Profile fetch error:', err)
-        setError(err instanceof Error ? err.message : "Failed to load profile")
+        setErrorStatus(null)
       } finally {
         if (!signal.aborted) {
           setLoading(false)
@@ -245,14 +260,15 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
     )
   }
 
-  if (error || !profileData) {
+  if (errorStatus !== undefined || !profileData) {
+    const loadError = describeProfileLoadError(errorStatus ?? null, username)
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4 overflow-x-hidden">
         <Card className="max-w-md w-full">
           <CardContent className="text-center py-12">
             <User className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Profile Not Found</h2>
-            <p className="text-muted-foreground mb-4">{error || `No user found with username "${username}"`}</p>
+            <h2 className="text-xl font-semibold mb-2">{loadError.title}</h2>
+            <p className="text-muted-foreground mb-4">{loadError.message}</p>
             <div className="space-y-2">
               <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
                 Try Again
@@ -283,6 +299,10 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
   const sections = groupBindersByTag(binders)
   const isGrouped = sections.some(s => s.tag !== null)
 
+  const trade = summarizeTrade(binders)
+  const socials = socialLinkList(user.socials)
+  const isOwnProfile = !!currentUser?.username && currentUser.username.toLowerCase() === user.username.toLowerCase()
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <div className="container mx-auto px-4 py-6 grid lg:grid-cols-4 gap-6">
@@ -290,7 +310,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
         <aside className="lg:col-span-1 space-y-6">
           <Card className="bg-card border-border p-6 text-center lg:text-left">
             <Avatar className="h-24 w-24 mx-auto lg:mx-0 mb-3">
-              <AvatarImage src={user.image || "/cardback.webp"} alt={user.username} />
+              <AvatarImage src={user.image || "/cardback.webp"} alt={displayUsername(user.username)} />
               <AvatarFallback className="text-2xl">
                 {displayUsername(user.username).charAt(0).toUpperCase()}
               </AvatarFallback>
@@ -329,6 +349,24 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
                 </div>
               )}
             </div>
+
+            {socials.length > 0 && (
+              <ul aria-label="Socials" className="flex flex-wrap gap-1.5 mt-3 justify-center lg:justify-start">
+                {socials.map((social) => (
+                  <li key={social.key}>
+                    <a
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow ugc"
+                      title={social.key === 'website' ? social.url : `${social.label}: ${social.handle}`}
+                      className="inline-flex items-center rounded-full border border-gray-300 dark:border-gray-600 px-2.5 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      {social.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
 
           {/* Stats - Updated with new data structure */}
@@ -353,17 +391,45 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
                 <div className="text-sm text-muted-foreground">Wants</div>
               </CardContent>
             </Card>
+
+            {trade.cardsForTrade > 0 && (
+              <Card className="col-span-2 cursor-default" data-testid="profile-trade-summary">
+                <CardContent className="p-4 text-center">
+                  <ArrowLeftRight className="mx-auto h-5 w-5 mb-1 text-green-600 dark:text-green-400" />
+                  <div className="text-lg font-bold text-green-700 dark:text-green-400">
+                    {trade.cardsForTrade.toLocaleString()} cards
+                    {trade.valueForTrade !== null && ` · ${formatValue(trade.valueForTrade)}`}
+                  </div>
+                  <div className="text-sm text-muted-foreground">For trade</div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar Actions */}
           <div className="space-y-2">
             <Link href={`/wants/${user._id}`} className="block w-full">
-              <Button size="lg" className="w-full bg-red-600 hover:bg-red-700">
-                <Heart className="h-4 w-4 mr-2" />
-                View Wants List
-              </Button>
+              {stats.totalWants > 0 ? (
+                <Button size="lg" className="w-full bg-red-600 hover:bg-red-700">
+                  <Heart className="h-4 w-4 mr-2" />
+                  View Wants List
+                </Button>
+              ) : (
+                <Button size="lg" variant="outline" className="w-full">
+                  <Heart className="h-4 w-4 mr-2" />
+                  View Wants List
+                </Button>
+              )}
             </Link>
 
+            {isOwnProfile && (
+              <Link href="/profile/edit" className="block w-full">
+                <Button size="lg" variant="outline" className="w-full">
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit profile
+                </Button>
+              </Link>
+            )}
           </div>
         </aside>
 
@@ -372,7 +438,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
           {/* Tabs */}
           <div className="flex border-b border-gray-300 dark:border-gray-700">
             <button
-              onClick={() => setActiveTab('collection')}
+              onClick={() => selectTab('collection')}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'collection'
                   ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
@@ -383,7 +449,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
               Collection
             </button>
             <button
-              onClick={() => setActiveTab('decks')}
+              onClick={() => selectTab('decks')}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'decks'
                   ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'

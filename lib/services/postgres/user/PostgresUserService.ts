@@ -424,6 +424,7 @@ export class PostgresUserService implements IUserService {
           preferredLanguage: user.preferredLanguage || undefined,
           landingPage: user.landingPage || undefined,
           cardmarketPrices: user.cardmarketPrices,
+          socialLinks: user.socialLinks ?? {},
           stateCode: user.stateCode || undefined,
         },
       };
@@ -567,6 +568,7 @@ export class PostgresUserService implements IUserService {
           discordId: users.discordId,
           discordAvatar: users.discordAvatar,
           createdAt: users.createdAt,
+          socialLinks: users.socialLinks,
         })
         .from(users)
         .where(sql`LOWER(${users.username}) = LOWER(${username})`);
@@ -617,6 +619,7 @@ export class PostgresUserService implements IUserService {
           createdAt: user.createdAt || new Date(),
           binderStats: stats,
           wantsCount: wantsResult?.count || 0,
+          socialLinks: user.socialLinks ?? {},
         },
       };
     } catch (error) {
@@ -663,6 +666,7 @@ export class PostgresUserService implements IUserService {
       if (updates.preferredLanguage !== undefined) set.preferredLanguage = updates.preferredLanguage || null;
       if (updates.landingPage !== undefined) set.landingPage = updates.landingPage || null;
       if (updates.cardmarketPrices !== undefined) set.cardmarketPrices = updates.cardmarketPrices;
+      if (updates.socialLinks !== undefined) set.socialLinks = updates.socialLinks;
 
       const result = await db
         .update(users)

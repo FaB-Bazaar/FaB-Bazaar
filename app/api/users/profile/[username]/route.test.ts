@@ -86,4 +86,50 @@ describe('GET /api/users/profile/[username]', () => {
     // public:2 — must not leak the unlisted/private counts or the 6 total
     expect(body.stats.totalBinders).toBe(2);
   });
+  it('re-reads the profile after 5 minutes so edits are not stale for a day', async () => {
+    vi.useFakeTimers();
+    try {
+      const call = () =>
+        GET(makeRequest('fresh-test-1'), { params: Promise.resolve({ username: 'fresh-test-1' }) });
+
+      await call();
+      await call();
+      expect(mockGetProfile).toHaveBeenCalledTimes(1); // still cached
+
+      vi.advanceTimersByTime(5 * 60 * 1000 + 1);
+      mockGetProfile.mockResolvedValue({
+        success: true,
+        data: {
+          _id: 'user-123',
+          username: 'someone',
+          createdAt: new Date('2024-01-01'),
+          binderStats: { public: 9, unlisted: 0, private: 0, total: 9 },
+          wantsCount: 0,
+        },
+      } as any);
+
+      const body = await (await call()).json();
+      expect(mockGetProfile).toHaveBeenCalledTimes(2);
+      expect(body.stats.totalBinders).toBe(9);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('includes the user\'s social handles in the public profile', async () => {
+    mockGetProfile.mockResolvedValue({
+      success: true,
+      data: {
+        _id: 'user-123',
+        username: 'someone',
+        createdAt: new Date('2024-01-01'),
+        binderStats: { public: 0, unlisted: 0, private: 0, total: 0 },
+        wantsCount: 0,
+        socialLinks: { nanza: 'danielwang' },
+      },
+    } as any);
+    const res = await GET(makeRequest('social-test-1'), {
+      params: Promise.resolve({ username: 'social-test-1' }),
+    });
+    expect((await res.json()).user.socials).toEqual({ nanza: 'danielwang' });
+  });
 });

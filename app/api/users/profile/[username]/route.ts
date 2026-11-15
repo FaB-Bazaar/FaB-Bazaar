@@ -1,29 +1,9 @@
 // app/api/users/profile/[username]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { getCachedPublicProfile, setCachedPublicProfile } from '@/lib/profile/public-profile-cache'
 
 export const dynamic = 'force-dynamic';
-
-// In-memory cache for username -> user lookups
-const userCache = new Map<string, {
-  user: any;
-  timestamp: number;
-  expiry: number;
-}>()
-
-// Cache settings
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-const CACHE_CLEANUP_INTERVAL = 60 * 60 * 1000; // Clean up every hour
-
-// Periodic cache cleanup
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of userCache.entries()) {
-    if (now > value.expiry) {
-      userCache.delete(key);
-    }
-  }
-}, CACHE_CLEANUP_INTERVAL);
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
@@ -63,32 +43,6 @@ function isValidBrowser(userAgent: string): boolean {
     /chrome/i, /firefox/i, /safari/i, /edge/i, /opera/i
   ]
   return validBrowsers.some(pattern => pattern.test(userAgent))
-}
-
-async function getUserFromCache(username: string): Promise<any | null> {
-  const cacheKey = username.toLowerCase();
-  const cached = userCache.get(cacheKey);
-  
-  if (cached && Date.now() < cached.expiry) {
-    console.log(`Cache HIT for username: ${username}`);
-    return cached.user;
-  }
-  
-  console.log(`Cache MISS for username: ${username}`);
-  return null;
-}
-
-async function setUserCache(username: string, user: any): Promise<void> {
-  const cacheKey = username.toLowerCase();
-  const now = Date.now();
-  
-  userCache.set(cacheKey, {
-    user,
-    timestamp: now,
-    expiry: now + CACHE_DURATION
-  });
-  
-  console.log(`Cached user: ${username}, total cache size: ${userCache.size}`);
 }
 
 export async function GET(
@@ -166,7 +120,7 @@ export async function GET(
     }
 
     // Try to get user from cache first
-    let cachedData = await getUserFromCache(sanitizedUsername);
+    let cachedData = getCachedPublicProfile(sanitizedUsername);
 
     if (!cachedData) {
       // Cache miss - fetch from service
@@ -188,11 +142,12 @@ export async function GET(
         discordAvatar: result.data.discordAvatar,
         createdAt: result.data.createdAt,
         binderStats: result.data.binderStats,
-        wantsCount: result.data.wantsCount
+        wantsCount: result.data.wantsCount,
+        socialLinks: result.data.socialLinks
       };
 
       // Cache the data for future requests
-      await setUserCache(sanitizedUsername, cachedData);
+      setCachedPublicProfile(sanitizedUsername, cachedData);
     }
 
     // Extract data from cache
@@ -221,7 +176,9 @@ export async function GET(
       state: user.state || null,
       country: user.country || null,
       createdAt: user.createdAt.toISOString(),
-      image: user.discordAvatar || null
+      image: user.discordAvatar || null,
+      // Handles only; the page builds links via socialLinkList.
+      socials: cachedData.socialLinks || {}
     }
 
     return NextResponse.json(
@@ -234,15 +191,13 @@ export async function GET(
           totalValue: Math.round((binderStats.totalValue || 0) * 100) / 100,
           totalWants: wantsCount
         },
-        meta: {
-          cached: user !== null, // Indicates if user data came from cache
-          cacheSize: userCache.size
-        }
       },
       { 
         status: 200,
         headers: {
-          'Cache-Control': 'public, max-age=300', // 5 minutes
+          // Revalidate in the browser so a user's own edits show at once; the
+          // server-side cache above still absorbs repeat lookups.
+          'Cache-Control': 'private, no-cache',
           'X-Content-Type-Options': 'nosniff',
           'X-Frame-Options': 'DENY'
         }
