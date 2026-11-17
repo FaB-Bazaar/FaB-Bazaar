@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance } from './group-bulk-results';
+import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance, buildCsvImportInstances, csvImportWants } from './group-bulk-results';
+import type { PrintCodeImportRow } from '@/lib/import/print-code-import';
+import type { PrintingDTO } from '@/lib/services/contracts/IPrintingsService';
 import type { ParsedCard } from './parsers/bulk-input-parser';
 
 const parsed = (over: Partial<ParsedCard>): ParsedCard => ({
@@ -110,6 +112,15 @@ describe('stageBulkInstance', () => {
     expect(results.find(r => r.instanceId === 'new')!.isStaged).toBe(true);
   });
 
+  it('keeps the same printing in two conditions as two rows', () => {
+    const current = [row({ instanceId: 'nm', isStaged: true, condition: 'NM' }), row({ instanceId: 'lp', condition: 'LP' })];
+
+    const results = stageBulkInstance(current, 'lp');
+
+    expect(results).toHaveLength(2);
+    expect(results.every(r => r.isStaged)).toBe(true);
+  });
+
   it('unstages a staged row without touching anything else', () => {
     const current = [row({ instanceId: 'a', isStaged: true }), row({ instanceId: 'b', isStaged: true, selectedPrinting: p({ printing_id: 's2' }) })];
 
@@ -118,5 +129,51 @@ describe('stageBulkInstance', () => {
     expect(results).toHaveLength(2);
     expect(results.find(r => r.instanceId === 'a')!.isStaged).toBe(false);
     expect(results.find(r => r.instanceId === 'b')!.isStaged).toBe(true);
+  });
+});
+
+// The builders only read printing_id / card_unique_id / collector_number.
+const dto = (over: Record<string, unknown>) => p(over) as unknown as PrintingDTO;
+
+describe('buildCsvImportInstances', () => {
+  const csv = (over: Partial<PrintCodeImportRow>): PrintCodeImportRow => ({
+    line: 2, printCode: 'ARC159-RF-1E', name: '', quantity: 2, condition: 'LP', forTrade: true, wantsQuantity: 0,
+    status: 'ok', printing: dto({ printing_id: 'cnc-rf', card_unique_id: 'cnc' }), ...over,
+  });
+
+  it('stages ok rows with their quantity, condition and trade flag, on the exact printing', () => {
+    const [r] = buildCsvImportInstances([csv({})]);
+    expect(r).toMatchObject({
+      card_unique_id: 'cnc', quantity: 2, condition: 'LP', forTrade: true, isStaged: true,
+      selectedPrinting: { printing_id: 'cnc-rf' },
+    });
+    expect(r.allPrintings.map((x: { printing_id: string }) => x.printing_id)).toEqual(['cnc-rf']);
+  });
+
+  it('leaves not_sure rows unstaged, offering every candidate', () => {
+    const a = dto({ printing_id: 'a', card_unique_id: 'cnc' });
+    const b = dto({ printing_id: 'b', card_unique_id: 'cnc' });
+    const [r] = buildCsvImportInstances([csv({ status: 'not_sure', printing: a, candidates: [a, b] })]);
+    expect(r.isStaged).toBe(false);
+    expect(r.allPrintings.map((x: { printing_id: string }) => x.printing_id)).toEqual(['a', 'b']);
+  });
+
+  it('skips unresolved rows and wants-only rows', () => {
+    expect(buildCsvImportInstances([
+      csv({ status: 'unresolved', printing: undefined }),
+      csv({ quantity: 0, wantsQuantity: 3 }),
+    ])).toEqual([]);
+  });
+});
+
+describe('csvImportWants', () => {
+  it('collects wants from ok rows only, folding the same printing', () => {
+    const pr = dto({ printing_id: 'cnc-rf', card_unique_id: 'cnc' });
+    const rows: PrintCodeImportRow[] = [
+      { line: 2, printCode: 'A', name: '', quantity: 0, condition: 'NM', forTrade: false, wantsQuantity: 2, status: 'ok', printing: pr },
+      { line: 3, printCode: 'A', name: '', quantity: 1, condition: 'NM', forTrade: false, wantsQuantity: 1, status: 'ok', printing: pr },
+      { line: 4, printCode: 'B', name: '', quantity: 0, condition: 'NM', forTrade: false, wantsQuantity: 5, status: 'not_sure', printing: dto({ printing_id: 'x' }) },
+    ];
+    expect(csvImportWants(rows)).toEqual([{ printingId: 'cnc-rf', quantity: 3 }]);
   });
 });

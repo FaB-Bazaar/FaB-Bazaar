@@ -11,6 +11,19 @@ import type { AsyncResult } from './common';
 // DTOs (Data Transfer Objects)
 // ====================================
 
+export type { PrintCodeCatalogRow } from '@/lib/import/print-code';
+import type { PrintCodeCatalogRow } from '@/lib/import/print-code';
+
+/** One input code's result from resolvePrintCodes. */
+export interface PrintCodeResolution {
+  code: string;
+  status: 'ok' | 'ambiguous' | 'not_found';
+  /** set when status = 'ok' */
+  printing?: PrintingDTO;
+  /** set when status = 'ambiguous' — every printing the code fits equally */
+  candidates?: PrintingDTO[];
+}
+
 /**
  * Printing document DTO (database-agnostic)
  * Plain object representation of a printing from the printings collection
@@ -723,6 +736,24 @@ export interface IPrintingsService {
     collectorNumbers: string[],
     sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format'>
   ): AsyncResult<Array<{ collectorNumber: string; printings: PrintingDTO[] }>>;
+
+  /**
+   * Resolve print codes — one string naming one exact printing — for the
+   * print-code CSV import (lib/import/print-code.ts). A code matches, in order:
+   * the printing's image id (`…/<code>/public`, or a CardVault-hosted image's
+   * file name), its stored CardVault `lss_print_code`, its printing_id; failing
+   * all three, the code is parsed into language/collector/foiling/edition/art
+   * and matched on those. One entry per input, in input order.
+   */
+  resolvePrintCodes(codes: string[]): AsyncResult<PrintCodeResolution[]>;
+
+  /**
+   * Every printing with the print code that names it (public catalog for the
+   * print-code CSV import). The code is the image id; where two printings share
+   * an image id, both get their printing_id instead, so every code is unique
+   * and resolves back to its own row through resolvePrintCodes.
+   */
+  listPrintCodeCatalog(): AsyncResult<PrintCodeCatalogRow[]>;
 
   /**
    * Get single printing by printing_id

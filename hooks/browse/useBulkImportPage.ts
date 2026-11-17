@@ -5,10 +5,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
 import { buildColorFallbackRetries, mergeColorFallbackResults } from '@/lib/browse/bulk-search-fallback';
-import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance } from '@/lib/browse/group-bulk-results';
+import { buildBulkCardInstances, mergeBulkInstances, stageBulkInstance, buildCsvImportInstances, csvImportWants } from '@/lib/browse/group-bulk-results';
 import { binderImportSummary } from '@/lib/browse/binder-import-summary';
 import { getSetName } from "@/lib/fab-formatters";
-import { bindersClient, wantsClient, searchClient } from "@/lib/client";
+import { bindersClient, wantsClient, searchClient, csvImportClient } from "@/lib/client";
+import type { PrintCodeImportRow } from "@/lib/client/csv-import-client";
 import type { BulkSearchCard } from "@/lib/client/search-client";
 
 export function useBulkImportPage() {
@@ -22,6 +23,10 @@ export function useBulkImportPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [binders, setBinders] = useState<any[]>([]);
   const [selectedBinderSlug, setSelectedBinderSlug] = useState<string>("");
+  // Print-code CSV import: rows that need a look, and the file's wants.
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvIssues, setCsvIssues] = useState<{ rows: PrintCodeImportRow[]; parseErrors: string[] } | null>(null);
+  const [csvWants, setCsvWants] = useState<Array<{ printingId: string; quantity: number }>>([]);
   
   useEffect(() => {
     const fetchUserBinders = async () => {
@@ -116,6 +121,54 @@ export function useBulkImportPage() {
     if (ok) setBulkInput(""); // Clear input for the next search
   };
 
+  // Print-code CSV (partner exports, e.g. Nanza). Sure rows arrive staged on
+  // their exact printing; not-sure rows arrive unstaged for the user to check.
+  const handleCsvUpload = async (file: File) => {
+    setCsvLoading(true);
+    setError(null);
+    try {
+      const res = await csvImportClient.resolvePrintCodeCsv(file);
+      if (!res.success) throw new Error(res.error || "Couldn't read the CSV.");
+      const { rows, parseErrors } = res.data;
+
+      const instances = buildCsvImportInstances(rows);
+      setBulkResults(current => mergeBulkInstances(current, instances).results);
+      setCsvWants(csvImportWants(rows));
+      const issues = rows.filter(r => r.status !== 'ok');
+      setCsvIssues(issues.length > 0 || parseErrors.length > 0 ? { rows: issues, parseErrors } : null);
+
+      const ok = rows.filter(r => r.status === 'ok').length;
+      toast({
+        title: "CSV read",
+        description: `${ok} of ${rows.length + parseErrors.length} row(s) matched a printing${issues.length + parseErrors.length > 0 ? ` — ${issues.length + parseErrors.length} need a look` : ''}.`,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      setError(errorMessage);
+      toast({ title: "CSV Error", description: errorMessage, variant: "destructive" });
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const handleAddCsvWants = async () => {
+    if (csvWants.length === 0) return;
+    setIsImporting(true);
+    try {
+      const result = await wantsClient.bulkAddWants(
+        csvWants.map(w => ({ printingId: w.printingId, quantity: w.quantity, priority: 'medium' as const })),
+      );
+      if (!result.success) throw new Error(result.error || "Failed to add to wants list.");
+      toast({ title: "Wants List Updated!", description: `${csvWants.length} card(s) from the CSV.` });
+      setCsvWants([]);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      toast({ title: "Wants List Error", description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleCreateBinder = async (name: string, slug: string, visibility: any) => {
     if (!user) { toast({ title: "Login Required", variant: "destructive" }); return; }
     try {
@@ -152,7 +205,7 @@ export function useBulkImportPage() {
         printingId: instance.selectedPrinting.printing_id,
         quantity: instance.quantity,
         forTrade: instance.forTrade,
-        condition: 'NM',
+        condition: instance.condition ?? 'NM',
         notes: ''
       }));
 
@@ -273,6 +326,7 @@ export function useBulkImportPage() {
       bulkInput, bulkResults, loading, error, isImporting,
       binders,
       selectedBinderSlug,
+      csvLoading, csvIssues, csvWants,
     },
     handlers: {
       setBulkInput, handleBulkSearch, runBulkSearch, updateCardPrinting,
@@ -283,6 +337,8 @@ export function useBulkImportPage() {
       toggleStagedStatus,
       clearStaged,
       setAllStagedForTrade,
+      handleCsvUpload, handleAddCsvWants,
+      dismissCsvIssues: () => setCsvIssues(null),
     }
   };
 }

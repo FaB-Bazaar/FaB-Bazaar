@@ -18,6 +18,7 @@ import {
 import { bindersClient, searchClient } from "@/lib/client";
 import IntegrationGuide from "@/components/shared/IntegrationGuide";
 import BulkImportForm from "@/components/browse/BulkImportForm";
+import CsvImportPanel from "@/components/browse/CsvImportPanel";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ImportActions from "@/components/browse/ImportActions";
@@ -213,6 +214,17 @@ const SuperSlamDisclosure = () => {
             onInputChange={handlers.setBulkInput}
             onSearch={handlers.handleBulkSearch}
             loading={state.loading}
+          />
+
+          <CsvImportPanel
+            signedIn={!!user}
+            loading={state.csvLoading}
+            isImporting={state.isImporting}
+            issues={state.csvIssues}
+            wantsCount={state.csvWants.length}
+            onUpload={handlers.handleCsvUpload}
+            onAddWants={handlers.handleAddCsvWants}
+            onDismissIssues={handlers.dismissCsvIssues}
           />
 
           {state.error && (

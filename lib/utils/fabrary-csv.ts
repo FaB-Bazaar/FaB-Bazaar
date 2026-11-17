@@ -1,5 +1,6 @@
 // lib/utils/fabrary-csv.ts
 // Pure CSV parsing utility for Fabrary collection exports. No DB or service dependencies.
+import { parseCsvLine } from './csv-line';
 
 const EXPECTED_HEADERS = [
   'Identifier', 'Name', 'Pitch', 'Set', 'Set number', 'Edition',
@@ -160,30 +161,4 @@ export function parseFabraryCsv(csvText: string): FabraryCsvParseResult {
   }
 
   return { rows, errors };
-}
-
-// Minimal RFC 4180 CSV line parser (handles quoted fields with embedded commas)
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') { current += '"'; i++; }
-        else inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else {
-      if (ch === '"') inQuotes = true;
-      else if (ch === ',') { fields.push(current); current = ''; }
-      else current += ch;
-    }
-  }
-
-  fields.push(current);
-  return fields;
 }

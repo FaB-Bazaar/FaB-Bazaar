@@ -10,6 +10,7 @@
 
 import { selectDefaultPrinting } from '@/lib/browse/utils';
 import type { ParsedCard } from '@/lib/browse/parsers/bulk-input-parser';
+import type { PrintCodeImportRow } from '@/lib/import/print-code-import';
 
 export interface BulkCardInstance {
   instanceId: string;
@@ -20,6 +21,8 @@ export interface BulkCardInstance {
   forTrade: boolean;
   allPrintings: any[];
   isStaged: boolean;
+  /** NM/LP/MP/HP/DMG — set by the CSV import; absent = NM */
+  condition?: string;
 }
 
 interface ResolvedLine {
@@ -98,8 +101,10 @@ export function stageBulkInstance<T extends BulkCardInstance>(current: T[], inst
   }
 
   const printingId = row.selectedPrinting?.printing_id;
+  const condition = row.condition ?? 'NM';
   const target = current.find(
-    c => c.isStaged && c.instanceId !== instanceId && printingId && c.selectedPrinting?.printing_id === printingId,
+    c => c.isStaged && c.instanceId !== instanceId && printingId &&
+      c.selectedPrinting?.printing_id === printingId && (c.condition ?? 'NM') === condition,
   );
   if (!target) {
     return current.map(c => (c.instanceId === instanceId ? { ...c, isStaged: true } : c));
@@ -108,4 +113,42 @@ export function stageBulkInstance<T extends BulkCardInstance>(current: T[], inst
   return current
     .filter(c => c.instanceId !== instanceId)
     .map(c => (c.instanceId === target.instanceId ? { ...c, quantity: c.quantity + row.quantity } : c));
+}
+
+/**
+ * Rows from the print-code CSV import (lib/import/print-code-import.ts). The
+ * code names one exact printing, so an 'ok' row arrives staged on it with the
+ * file's quantity/condition/trade flag; a 'not_sure' row arrives unstaged with
+ * every candidate printing for the user to check. Unresolved rows and rows
+ * with only a wants quantity don't become tiles.
+ */
+export function buildCsvImportInstances(rows: PrintCodeImportRow[]): BulkCardInstance[] {
+  return rows
+    .filter(r => r.status !== 'unresolved' && r.printing && r.quantity > 0)
+    .map(r => {
+      const printing = r.printing!;
+      const allPrintings = r.candidates && r.candidates.length > 0 ? r.candidates : [printing];
+      return {
+        instanceId: `csv-${r.line}-${printing.printing_id}-${Math.random()}`,
+        mergeKey: bulkMergeKey(printing.card_unique_id, printing.collector_number),
+        card_unique_id: printing.card_unique_id,
+        selectedPrinting: printing,
+        quantity: r.quantity,
+        forTrade: r.forTrade,
+        condition: r.condition,
+        allPrintings,
+        isStaged: r.status === 'ok',
+      };
+    });
+}
+
+/** Wants from the CSV's sure rows, one entry per printing. */
+export function csvImportWants(rows: PrintCodeImportRow[]): Array<{ printingId: string; quantity: number }> {
+  const byPrinting = new Map<string, number>();
+  for (const r of rows) {
+    if (r.status !== 'ok' || !r.printing || r.wantsQuantity <= 0) continue;
+    const id = r.printing.printing_id;
+    byPrinting.set(id, (byPrinting.get(id) ?? 0) + r.wantsQuantity);
+  }
+  return [...byPrinting].map(([printingId, quantity]) => ({ printingId, quantity }));
 }

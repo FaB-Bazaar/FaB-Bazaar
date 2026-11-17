@@ -5,10 +5,11 @@
  * Handles full card search with 50+ filters
  */
 
-import { eq, and, or, sql, inArray, notInArray, isNull, desc, asc, gte, lte } from 'drizzle-orm';
+import { eq, and, or, sql, inArray, notInArray, isNull, desc, asc, gte, lte, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { printings, cards, bannedCards, cardTranslations, cardFacetTags, cardFacetTagVotes, facetTagDefinitions, sets, tcgGroups, inventoryItems } from '@/lib/postgres/schema';
 import { isFutureReleaseCard } from '../future-release';
+import { parsePrintCode, pickPrintingForCode, printCodeFromImageUrl } from '@/lib/import/print-code';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -25,6 +26,8 @@ import type {
   HeroLegalityFlag,
   HeroLegalityRow,
   HeroFormat,
+  PrintCodeResolution,
+  PrintCodeCatalogRow,
 } from '@/lib/services/contracts/IPrintingsService';
 import { HERO_LEGALITY_FLAGS, HERO_FORMATS } from '@/lib/services/contracts/IPrintingsService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
@@ -563,6 +566,153 @@ export class PostgresPrintingsService implements IPrintingsService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to bulk resolve collector numbers',
+      };
+    }
+  }
+
+  /**
+   * Resolve print codes (image id / CardVault print_id / printing_id, else
+   * parsed attributes) to one printing each. See IPrintingsService.resolvePrintCodes.
+   */
+  async resolvePrintCodes(codes: string[]): AsyncResult<PrintCodeResolution[]> {
+    try {
+      const inputs = codes.map(c => c.trim());
+      if (inputs.length === 0) return { success: true, data: [] };
+
+      const selectWhere = (where: SQL | undefined) =>
+        db
+          .select({ ...this.buildSelectFields(), lssPrintCode: printings.lssPrintCode })
+          .from(printings)
+          .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+          .leftJoin(sets, eq(sets.code, printings.set))
+          .leftJoin(tcgGroups, eq(tcgGroups.groupId, printings.tcgGroupId))
+          .leftJoin(
+            cardTranslations,
+            and(
+              eq(cardTranslations.cardUniqueId, cards.cardUniqueId),
+              eq(cardTranslations.language, printings.language)
+            )
+          )
+          .where(where);
+
+      // Pass 1 — exact. Image ids are uppercase but printing_ids are
+      // case-sensitive nanoids, so try each code as typed and uppercased.
+      const variants = [...new Set(inputs.flatMap(c => [c, c.toUpperCase()]).filter(Boolean))];
+      const exactRows = await selectWhere(
+        or(
+          inArray(sql`substring(${printings.imageUrl} from '/([^/]+)/public$')`, variants),
+          inArray(sql`substring(${printings.imageUrl} from '/([^/]+)\\.(?:webp|png|jpe?g)$')`, variants),
+          inArray(printings.lssPrintCode, variants),
+          inArray(printings.printingId, variants),
+        )
+      );
+      const exact = exactRows.map(row => ({
+        dto: this.mapToPrintingDTO(row),
+        imageCode: printCodeFromImageUrl(row.imageUrl),
+        lssCode: row.lssPrintCode,
+      }));
+
+      const exactMatch = (code: string): PrintingDTO[] => {
+        const forms = new Set([code, code.toUpperCase()]);
+        for (const key of ['imageCode', 'lssCode'] as const) {
+          const hits = exact.filter(e => e[key] !== null && forms.has(e[key] as string));
+          if (hits.length > 0) return hits.map(e => e.dto);
+        }
+        return exact.filter(e => e.dto.printing_id === code).map(e => e.dto);
+      };
+
+      // Pass 2 — parse what didn't match exactly and pick by attributes.
+      const unmatched = inputs.filter(c => c && exactMatch(c).length === 0);
+      const parsed = new Map(unmatched.map(c => [c, parsePrintCode(c)]));
+      const collectors = [...new Set([...parsed.values()].map(p => p.collector).filter(Boolean))];
+      const byCollector = new Map<string, PrintingDTO[]>();
+      if (collectors.length > 0) {
+        const rows = await selectWhere(inArray(printings.collectorNumber, collectors));
+        for (const row of rows) {
+          const dto = this.mapToPrintingDTO(row);
+          const key = (dto.collector_number ?? '').toUpperCase();
+          byCollector.set(key, [...(byCollector.get(key) ?? []), dto]);
+        }
+      }
+
+      const data = inputs.map((code): PrintCodeResolution => {
+        const hits = code ? exactMatch(code) : [];
+        if (hits.length === 1) return { code, status: 'ok', printing: hits[0] };
+        if (hits.length > 1) return { code, status: 'ambiguous', candidates: hits };
+
+        const attrs = parsed.get(code);
+        if (!attrs) return { code, status: 'not_found' };
+        const pool = byCollector.get(attrs.collector) ?? [];
+        const pick = pickPrintingForCode(attrs, pool);
+        if (pick.status === 'ok') {
+          return { code, status: 'ok', printing: pool.find(p => p.printing_id === pick.printingId) };
+        }
+        if (pick.status === 'ambiguous') {
+          const ids = new Set(pick.printingIds);
+          return { code, status: 'ambiguous', candidates: pool.filter(p => ids.has(p.printing_id)) };
+        }
+        return { code, status: 'not_found' };
+      });
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resolve print codes',
+      };
+    }
+  }
+
+  /**
+   * Every printing + its unique print code. See IPrintingsService.listPrintCodeCatalog.
+   */
+  async listPrintCodeCatalog(): AsyncResult<PrintCodeCatalogRow[]> {
+    try {
+      const rows = await db
+        .select({
+          printingId: printings.printingId,
+          imageUrl: printings.imageUrl,
+          name: cards.displayName,
+          pitch: cards.pitch,
+          set: printings.set,
+          collectorNumber: printings.collectorNumber,
+          language: printings.language,
+          foiling: printings.foiling,
+          edition: printings.edition,
+          artVariations: printings.artVariations,
+          rarity: printings.rarity,
+        })
+        .from(printings)
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .orderBy(printings.set, printings.collectorNumber, printings.language, printings.printingId);
+
+      const imageCode = rows.map(r => printCodeFromImageUrl(r.imageUrl));
+      const uses = new Map<string, number>();
+      for (const code of imageCode) if (code) uses.set(code, (uses.get(code) ?? 0) + 1);
+
+      return {
+        success: true,
+        data: rows.map((r, i): PrintCodeCatalogRow => {
+          const code = imageCode[i];
+          return {
+            print_code: code && uses.get(code) === 1 ? code : r.printingId,
+            printing_id: r.printingId,
+            name: r.name,
+            pitch: r.pitch ?? null,
+            set: r.set ?? '',
+            collector_number: r.collectorNumber ?? '',
+            language: r.language,
+            foiling: r.foiling ?? '',
+            edition: r.edition ?? '',
+            art_variations: r.artVariations ?? [],
+            rarity: r.rarity ?? '',
+          };
+        }),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to list the print-code catalog',
       };
     }
   }
