@@ -18,7 +18,8 @@ import {
   Copy,
   Package,
   Users,
-  Send
+  Send,
+  Maximize2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn, getCardImageUrl } from "@/lib/utils";
@@ -29,6 +30,8 @@ import { sendTradeInterestNotification } from "@/lib/client/binders-client";
 import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
 import { tradeInterestFeedback } from "@/lib/discord/trade-interest-feedback";
 import { displayUsername } from "@/lib/utils/display-username";
+import { tradeCartTotals } from "@/lib/binder/trade-cart";
+import { TradeRequestReviewDialog } from "./TradeRequestReviewDialog";
 
 interface TradeRequestSidebarProps {
   selectedCards: any[];
@@ -457,10 +460,10 @@ const handleCopyToClipboard = async () => {
     }
   };
 
-  const totalEstimatedValue = cardsWithPriority.reduce((total, card) => {
-    const price = card.printingDetails?.tcg_low || 0;
-    return total + (price * card.quantity);
-  }, 0);
+  // tcg_low lives on the binder card itself; printingDetails is usually absent
+  // (reading only printingDetails.tcg_low made the total always $0 / hidden).
+  const totalEstimatedValue = tradeCartTotals(cardsWithPriority).value;
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   if (!sidebarOpen) return null;
 
@@ -490,9 +493,18 @@ const handleCopyToClipboard = async () => {
 
       <div className="p-4 border-b border-border bg-muted/50">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium">
-            {cardsWithPriority.length} card{cardsWithPriority.length !== 1 ? 's' : ''} selected
-          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReviewOpen(true)}
+            disabled={cardsWithPriority.length === 0}
+            aria-label={`Review trade request (${cardsWithPriority.length} card${cardsWithPriority.length !== 1 ? 's' : ''})`}
+            title="See every card in this request"
+            className="h-8 px-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <Maximize2 className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+            {cardsWithPriority.length} card{cardsWithPriority.length !== 1 ? 's' : ''} selected · Review
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -509,6 +521,15 @@ const handleCopyToClipboard = async () => {
           </div>
         )}
       </div>
+
+      <TradeRequestReviewDialog
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        cards={cardsWithPriority}
+        recipientUsername={recipientUsername}
+        onQuantityChange={onQuantityChange}
+        onRemove={onRemoveSelected}
+      />
 
       <div className="flex-1 overflow-y-auto p-3">
         {cardsWithPriority.map((card, index) => (

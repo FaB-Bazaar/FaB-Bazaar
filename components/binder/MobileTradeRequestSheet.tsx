@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
-import { X, Plus, Minus, ArrowLeftRight, Loader2, Copy, ShieldAlert, Package, Users, Send } from "lucide-react";
+import { X, Plus, Minus, ArrowLeftRight, Loader2, Copy, ShieldAlert, Package, Users, Send, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { cn, getCardImageUrl } from "@/lib/utils";
@@ -17,12 +17,14 @@ import { sendTradeInterestNotification } from "@/lib/client/binders-client";
 import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
 import { tradeInterestFeedback } from "@/lib/discord/trade-interest-feedback";
 import { displayUsername } from "@/lib/utils/display-username";
+import { formatPrice } from "@/lib/pricing/price-source";
+import { tradeCardDetails, tradeCardPriceLine, tradeCartTotals } from "@/lib/binder/trade-cart";
 
 // A simplified card item specifically for the mobile sheet
 const MobileTradeCardItem = ({ card, onQuantityChange, onRemove }: any) => {
     const isForTrade = card.forTrade === true;
     return (
-        <div className={cn("p-2 mb-2 border rounded-lg flex items-start gap-3", !isForTrade && "border-amber-500/50 bg-amber-50/20")}>
+        <div data-testid="mobile-trade-card" className={cn("p-2 mb-2 border rounded-lg flex items-start gap-3", !isForTrade && "border-amber-500/50 bg-amber-50/20")}>
             <img
               src={getCardImageUrl(card)}
               alt={card.display_name || card.name}
@@ -31,14 +33,18 @@ const MobileTradeCardItem = ({ card, onQuantityChange, onRemove }: any) => {
             <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start">
                     <h4 className="font-medium text-sm truncate pr-2">{card.display_name || card.name}</h4>
-                    <Button variant="ghost" size="sm" onClick={onRemove} className="h-6 w-6 p-0 text-muted-foreground"><X className="h-3 w-3" /></Button>
+                    <Button variant="ghost" size="sm" aria-label={`Remove ${card.display_name || card.name}`} onClick={onRemove} className="h-6 w-6 p-0 text-muted-foreground"><X className="h-3 w-3" /></Button>
                 </div>
+                <div className="text-sm text-muted-foreground">{tradeCardDetails(card)}</div>
                 {!isForTrade && <Badge variant="destructive" className="text-xs mt-1">Not for Trade</Badge>}
-                <div className="flex items-center gap-2 mt-2">
-                    <Button variant="outline" size="sm" onClick={() => onQuantityChange(card.id, card.quantity - 1)} disabled={card.quantity <= 1} className="h-7 w-7 p-0"><Minus className="h-4 w-4" /></Button>
-                    <span className="font-semibold w-8 text-center">{card.quantity}</span>
-                    <Button variant="outline" size="sm" onClick={() => onQuantityChange(card.id, card.quantity + 1)} disabled={card.quantity >= card.maxQuantity} className="h-7 w-7 p-0"><Plus className="h-4 w-4" /></Button>
-                    <span className="text-xs text-muted-foreground">(of {card.maxQuantity})</span>
+                {/* Price and quantity share a row so ~4 tiles fit on a phone */}
+                <div className="flex items-center justify-between gap-2 mt-1">
+                    <span className="text-sm text-muted-foreground tabular-nums truncate">{tradeCardPriceLine(card)}</span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button variant="outline" size="sm" aria-label={`Decrease quantity of ${card.display_name || card.name}`} onClick={() => onQuantityChange(card.id, card.quantity - 1)} disabled={card.quantity <= 1} className="h-7 w-7 p-0"><Minus className="h-4 w-4" /></Button>
+                        <span className="font-semibold w-10 text-center text-sm tabular-nums">{card.quantity}<span className="font-normal text-muted-foreground">/{card.maxQuantity}</span></span>
+                        <Button variant="outline" size="sm" aria-label={`Increase quantity of ${card.display_name || card.name}`} onClick={() => onQuantityChange(card.id, card.quantity + 1)} disabled={card.quantity >= card.maxQuantity} className="h-7 w-7 p-0"><Plus className="h-4 w-4" /></Button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -63,6 +69,7 @@ export const MobileTradeRequestSheet = ({
   const [isSending, setIsSending] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
   const [tradeMessage, setTradeMessage] = useState("");
+  const [messageOpen, setMessageOpen] = useState(false);
   const [tradeType, setTradeType] = useState<'shipped' | 'in-person'>('in-person');
   const [error, setError] = useState<string | null>(null);
   const [existingTradeId, setExistingTradeId] = useState<string | null>(null);
@@ -185,69 +192,94 @@ export const MobileTradeRequestSheet = ({
     }
   };
 
-  const totalCards = selectedCards.reduce((sum: number, card: any) => sum + card.quantity, 0);
+  const totals = tradeCartTotals(selectedCards);
+  const totalCards = totals.copies;
 
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-sm">
-          <DrawerHeader>
-            <DrawerTitle>Your Trade Request</DrawerTitle>
-            <div className="text-sm text-muted-foreground">For {displayUsername(recipientUsername)}</div>
+      <DrawerContent className="max-h-[calc(100dvh-1.5rem)] mt-6">
+        <div className="mx-auto w-full max-w-sm flex flex-col min-h-0 flex-1">
+          {/* Pinned summary — stays put while the card list scrolls */}
+          <DrawerHeader className="shrink-0 flex items-start justify-between gap-2 px-4 pt-2 pb-2 text-left border-b border-border">
+            <div className="min-w-0">
+              <DrawerTitle className="text-base">Your Trade Request</DrawerTitle>
+              <div className="text-sm text-muted-foreground truncate">For {displayUsername(recipientUsername)}</div>
+              <div className="text-sm font-medium" data-testid="mobile-trade-total">
+                {totals.copies} {totals.copies === 1 ? "card" : "cards"} · {formatPrice(totals.value, "tcgplayer")} TCG Low
+                {totals.unpriced > 0 && ` (${totals.unpriced} unpriced)`}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close trade request"
+              onClick={() => onOpenChange(false)}
+              className="h-9 w-9 p-0 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </DrawerHeader>
-          <div className="p-4 max-h-[50vh] overflow-y-auto">
+          <div data-testid="mobile-trade-list" className="flex-1 min-h-0 overflow-y-auto px-4 pt-3">
             {selectedCards.map((card: any, index: number) => (
-              <MobileTradeCardItem 
-                key={card.id} 
-                card={card} 
+              <MobileTradeCardItem
+                key={card.id}
+                card={card}
                 onQuantityChange={onQuantityChange}
                 onRemove={() => onRemoveSelected(index)}
               />
             ))}
           </div>
-          <DrawerFooter className="pt-2">
+          <DrawerFooter className="shrink-0 pt-2 gap-2 border-t border-border">
             {hasInvalidCards && (
-                <div className="flex items-center gap-2 p-2 mb-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/20 rounded-md">
+                <div className="flex items-center gap-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/20 rounded-md">
                     <ShieldAlert className="h-4 w-4 flex-shrink-0" />
                     <span>Only 'For Trade' items will be included.</span>
                 </div>
             )}
 
-            {/* Trade Method Selector */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Trade Method:</label>
+            {/* Trade method + message on one row; the message box opens on tap */}
+            <div className="flex gap-2">
               <Select value={tradeType} onValueChange={(value: 'shipped' | 'in-person') => setTradeType(value)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="flex-1 min-w-0 whitespace-nowrap [&>span]:truncate" aria-label="Trade method">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="shipped">
                     <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4" />
-                      <span>Ship via Mail</span>
+                      <Package className="h-4 w-4 flex-shrink-0" />
+                      <span>By mail</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="in-person">
                     <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>Meet in Person</span>
+                      <Users className="h-4 w-4 flex-shrink-0" />
+                      <span>In person</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <div className="text-xs text-muted-foreground">
-                {tradeType === 'shipped'
-                  ? 'Cards will be sent through mail with tracking'
-                  : 'You will arrange to meet locally to exchange cards'}
-              </div>
+              {!messageOpen && (
+                <Button
+                  variant="outline"
+                  onClick={() => setMessageOpen(true)}
+                  className="flex-1 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span className="truncate">{tradeMessage ? "Edit message" : "Add message"}</span>
+                </Button>
+              )}
             </div>
-
-            <Textarea
-              value={tradeMessage}
-              onChange={(e) => setTradeMessage(e.target.value)}
-              placeholder="Add an optional message..."
-              className="text-sm min-h-[60px]"
-            />
+            {messageOpen && (
+              <Textarea
+                autoFocus
+                value={tradeMessage}
+                onChange={(e) => setTradeMessage(e.target.value)}
+                onBlur={() => { if (!tradeMessage.trim()) setMessageOpen(false); }}
+                placeholder="Add an optional message..."
+                aria-label="Message"
+                className="text-sm min-h-[60px]"
+              />
+            )}
             {error && (
               <div className="p-3 bg-destructive/10 border border-destructive/50 rounded-md">
                 <div className="flex items-start gap-2">
@@ -287,7 +319,7 @@ export const MobileTradeRequestSheet = ({
               {isSending ? "Copying..." : `Copy Request (${totalCards} ${totalCards === 1 ? 'card' : 'cards'})`}
             </Button>
             <div className="text-sm text-gray-300 text-center">
-              Copies the request and pings {displayUsername(recipientUsername)} in{" "}
+              Notify pings {displayUsername(recipientUsername)} in{" "}
               <a
                 href={TRADE_REQUESTS_CHANNEL_URL}
                 target="_blank"
@@ -295,10 +327,8 @@ export const MobileTradeRequestSheet = ({
                 className="text-blue-400 underline underline-offset-2 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
               >
                 #{TRADE_REQUESTS_CHANNEL_NAME}
-              </a>{" "}
-              on the FaB Bazaar Discord
+              </a>
             </div>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           </DrawerFooter>
         </div>
       </DrawerContent>

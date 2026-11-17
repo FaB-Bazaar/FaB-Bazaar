@@ -933,7 +933,8 @@ const SuperSlamDisclosure = () => {
 
   const recipientInfo = cards.length > 0 ? {
     id: cards[0].userId,
-    username: cards[0].discordUsername,
+    // Discord handle when linked, else the owner's site username (never blank)
+    username: cards[0].discordUsername || binder?.username || 'the user',
     discordId: cards[0].discordId 
   } : {
     id: binder?.userId, // Fallback to binder's userId
@@ -1392,13 +1393,18 @@ const SuperSlamDisclosure = () => {
           ) : selectedCards.length > 0 ? (
             // Non-owner's mobile FAB and sheet for trade requests
             <>
-              <Button
-                onClick={() => setIsMobileTradeSheetOpen(true)}
-                className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-[60] flex flex-col items-center justify-center"
-              >
-                <ArrowLeftRight className="h-6 w-6" />
-                <span className="text-xs font-bold mt-1">{selectedCards.length}</span>
-              </Button>
+              {/* Hidden while the sheet is open — at z-[60] it sat on top of the
+                  z-50 drawer, over "Copy Request". */}
+              {!isMobileTradeSheetOpen && (
+                <Button
+                  onClick={() => setIsMobileTradeSheetOpen(true)}
+                  aria-label={`Open trade request (${selectedCards.length} card${selectedCards.length === 1 ? '' : 's'})`}
+                  className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-[60] flex flex-col items-center justify-center"
+                >
+                  <ArrowLeftRight className="h-6 w-6" />
+                  <span className="text-xs font-bold mt-1">{selectedCards.length}</span>
+                </Button>
+              )}
 
               <MobileTradeRequestSheet
                 selectedCards={selectedCards}
