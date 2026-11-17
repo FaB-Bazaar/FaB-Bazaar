@@ -13,6 +13,7 @@ Card collection management. All routes use `binderService` from `@/lib/services`
 | `/api/binders/[binderId]/bulk-update` | PATCH | `bulkUpdateCards()` |
 | `/api/binders/[binderId]/copy` | POST | `getBinder()`, `copyBinder()` |
 | `/api/binders/[binderId]/export` | GET | `getBinder()`, `getBinderCardsForExport()` |
+| `/api/binders/[binderId]/wanted` | GET | `getWantedItemsInBinder()` — "Add my wants": the signed-in viewer's wanted for-trade items, `requestQuantity` = min(wanted, in binder); `?match=loose` = any printing (`lib/trade/allocate-wants.ts`, shared with `getUserTradeMatches`) |
 | `/api/binders/transfer` | POST | Transfer cards between binders |
 | `/api/users/[userId]/binders` | GET | `getUserBindersWithStats()` — public profile endpoint |
 

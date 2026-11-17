@@ -5,7 +5,13 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check, Keyboard } from 'lucide-react';
+import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check, Keyboard, Heart, ChevronDown, Loader2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import { PricingStatus } from './PricingStatus';
 import { profileHref, displayUsername } from '@/lib/utils/display-username';
@@ -27,6 +33,9 @@ interface BinderHeaderProps {
   onExportList?: () => void;
   cardsCount?: number;
   priceUpdatedAt?: Date | null;
+  /** Non-owner viewers: fill the trade request from the viewer's wants list. */
+  onAddMyWants?: (match: 'exact' | 'loose') => void;
+  addingWants?: boolean;
 }
 
 export const BinderHeader: React.FC<BinderHeaderProps> = ({
@@ -39,7 +48,9 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
   onOpenSidebar,
   onExportList,
   cardsCount = 0,
-  priceUpdatedAt
+  priceUpdatedAt,
+  onAddMyWants,
+  addingWants = false,
 }) => {
   const [linkCopied, setLinkCopied] = useState(false);
   const [shortcutGuideOpen, setShortcutGuideOpen] = useState(false);
@@ -138,6 +149,35 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
               </Button>
             )}
           </>
+        )}
+        {onAddMyWants && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={addingWants}
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 flex-1 sm:flex-initial"
+                data-testid="add-my-wants"
+              >
+                {addingWants ? (
+                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 animate-spin" />
+                ) : (
+                  <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                )}
+                Add my wants
+                <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuItem onSelect={() => onAddMyWants('exact')} className="flex-col items-start">
+                <span className="font-medium">Exact printings</span>
+                <span className="text-xs text-muted-foreground">Same set, edition and foiling as on your wants list</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onAddMyWants('loose')} className="flex-col items-start">
+                <span className="font-medium">Any printing</span>
+                <span className="text-xs text-muted-foreground">Any version of a card you want (same pitch)</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         {(stats.totalCards > 0 || cardsCount > 0) && onExportList && (
           <Button

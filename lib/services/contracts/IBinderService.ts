@@ -9,6 +9,7 @@
 
 import type { AsyncResult, PaginationOptions } from './common';
 import type { ChangeHistoryEntry } from '../postgres/binder/inventory-history';
+import type { TradeMatchMode } from '@/lib/trade/allocate-wants';
 
 /**
  * Visibility settings for a binder
@@ -822,6 +823,19 @@ export interface IBinderService {
     filters: BinderCardFilters,
     options: BinderCardSearchOptions
   ): AsyncResult<BinderCardsResult>;
+
+  /**
+   * The binder's for-trade items that `viewerId` has on their wants list, each
+   * with `requestQuantity` = min(wanted, in binder) — the binder page's
+   * "Add my wants" button. `exact` matches the printing; `loose` matches any
+   * printing of the same card (wanted quantities summed per card). Cheapest
+   * (tcg_low) rows are filled first. Caller enforces binder visibility.
+   */
+  getWantedItemsInBinder(
+    binderId: string,
+    viewerId: string,
+    mode: TradeMatchMode
+  ): AsyncResult<Array<InventoryCardDTO & { requestQuantity: number }>>;
 
   /**
    * Get single card from binder

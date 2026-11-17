@@ -67,6 +67,12 @@ import { usePriceSource } from "@/hooks/usePriceSource";
 import { PriceSourceToggle } from "@/components/pricing/PriceSourceToggle";
 import { PriceSortOptions } from "@/components/pricing/PriceSortOptions";
 import { binderValue, sortForSource } from "@/lib/pricing/price-source";
+import { loadTradeCart, saveTradeCart } from "@/lib/binder/trade-cart-storage";
+import { mergeWantedIntoCart, toTradeCartEntry } from "@/lib/binder/trade-cart";
+
+function browserStorage(): Storage | null {
+  try { return window.localStorage; } catch { return null; }
+}
 
 export default function BinderPage() {
   const params = useParams();
@@ -322,6 +328,23 @@ export default function BinderPage() {
     const shouldBeOpen = selectedCards.length > 0;
     setSidebarOpen(shouldBeOpen);
   }, [selectedCards.length]);
+
+  // Trade-request cart survives leaving the page (non-owners only — the owner's
+  // selection drives transfer/delete and stays in memory).
+  const tradeCartRestoredRef = React.useRef(false);
+  const isTradeViewer = !!user && !!binder && !editable;
+  useEffect(() => {
+    if (!isTradeViewer || tradeCartRestoredRef.current) return;
+    tradeCartRestoredRef.current = true;
+    const storage = browserStorage();
+    const saved = storage ? loadTradeCart(storage, user!.id, binderId) : [];
+    if (saved.length > 0) setSelectedCards((prev) => (prev.length > 0 ? prev : saved));
+  }, [isTradeViewer, binderId]);
+  useEffect(() => {
+    if (!isTradeViewer || !tradeCartRestoredRef.current) return;
+    const storage = browserStorage();
+    if (storage) saveTradeCart(storage, user!.id, binderId, selectedCards);
+  }, [selectedCards, isTradeViewer, binderId]);
 
   // Separate effect to handle scrolling to the clicked card
   useEffect(() => {
@@ -787,27 +810,51 @@ const handleCardSelect = (card: any) => {
     // Remove from selection
     setSelectedCards(prev => prev.filter(selected => selected.id !== cardId));
   } else {
-    // Add to selection using the new flat data structure.
-    // All necessary fields are already at the top level of the `card` object.
-    setSelectedCards(prev => [...prev, {
-      ...card, // Spread all properties from the source card
-      id: cardId,
-      quantity: 1,                   // Selected quantity starts at 1
-      maxQuantity: card.quantity,    // Total available in binder
-      // Ensure printing identification for wants API
-      printingId: card.printingId ||
-                  card.printingDetails?.printing_id ||
-                  card.printingDetails?.unique_id ||
-                  card.id,
-      // Keep other essential data for dialogs
-      name: card.name || card.display_name,
-      printingDetails: card.printingDetails,
-      // Initialize wants-specific fields
-      priority: 'medium',
-      notes: ''
-    }]);
+    setSelectedCards(prev => [...prev, toTradeCartEntry(card, 1)]);
   }
 };
+
+// "Add my wants": put every for-trade card in this binder that the viewer
+// wants into the trade cart, at min(wanted, in binder).
+const [addingWants, setAddingWants] = useState(false);
+const handleAddMyWants = async (match: 'exact' | 'loose') => {
+  setAddingWants(true);
+  try {
+    const result = await bindersClient.getWantedItems(binderId, match);
+    if (!result.success) {
+      toast({ title: "Couldn't check your wants", description: result.error, variant: "destructive" });
+      return;
+    }
+    if (result.data.length === 0) {
+      toast({
+        title: "No matches",
+        description: match === 'exact'
+          ? "Nothing for trade here matches the exact printings on your wants list. Try \"Any printing\"."
+          : "Nothing for trade here is on your wants list.",
+      });
+      return;
+    }
+    setSelectedCards(prev => mergeWantedIntoCart(prev, result.data).cart);
+    const copies = result.data.reduce((sum, c) => sum + c.requestQuantity, 0);
+    toast({
+      title: "Added your wants",
+      description: `${result.data.length} card${result.data.length === 1 ? '' : 's'} (${copies} cop${copies === 1 ? 'y' : 'ies'}) from your wants list are in your trade request.`,
+    });
+  } finally {
+    setAddingWants(false);
+  }
+};
+
+// /binder/[id]?trade=wants[&match=loose] — the profile trade page's
+// "Open binder" link fills the cart on arrival.
+const autoWantsRanRef = React.useRef(false);
+useEffect(() => {
+  if (!isTradeViewer || autoWantsRanRef.current) return;
+  const search = new URLSearchParams(window.location.search);
+  if (search.get('trade') !== 'wants') return;
+  autoWantsRanRef.current = true;
+  handleAddMyWants(search.get('match') === 'loose' ? 'loose' : 'exact');
+}, [isTradeViewer]);
 
 
 const SuperSlamDisclosure = () => {
@@ -974,6 +1021,8 @@ const SuperSlamDisclosure = () => {
             onOpenSidebar={() => setSidebarOpen(true)}
             onExportList={handleExportList}
             onRefreshStats={handleRefreshStats}
+            onAddMyWants={isTradeViewer ? handleAddMyWants : undefined}
+            addingWants={addingWants}
             cardsCount={pagination?.totalCards || 0}
             priceUpdatedAt={priceSource === 'cardmarket' ? cardmarketPriceUpdatedAt : priceUpdatedAt}
           />

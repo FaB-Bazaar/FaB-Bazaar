@@ -1,66 +1,13 @@
 // app/discord-v2/commands/trade-analysis.js
 import { userService, inventoryService, locationService } from '@/lib/services';
-import { TradeAnalyzer } from "@/lib/trade-analysis/analyzer";
+import { displayUsername, profileHref } from '@/lib/utils/display-username';
+import { FOILING_MAP } from '@/lib/fab-constants';
 import { createErrorResponse, createSuccessResponse } from '../responses.js';
 
 /**
- * Handle /trade command - simple analysis showing mutual trade opportunities
- * @param {Object} body - The Discord interaction body
- * @param {Array} options - The command options from Discord
- * @returns {NextResponse} Discord interaction response
+ * Handle /trade — 1:1 trade view with a user (inventoryService.getUserTradeMatches,
+ * exact printing by default, any_printing = loose), or every match at a store.
  */
-// export async function handleTradeAnalysis(body, options) {
-//   try {
-//     const requestingDiscordId = body.member?.user?.id || body.user?.id;
-    
-//     if (!requestingDiscordId) {
-//       return createErrorResponse("Could not identify requesting user.", true);
-//     }
-
-//     const targetUserOption = options?.find(opt => opt.name === 'user');
-//     if (!targetUserOption?.value) {
-//       return createErrorResponse("Please specify a user to analyze trades with.", true);
-//     }
-
-//     const targetDiscordId = targetUserOption.value;
-
-//     if (targetDiscordId === requestingDiscordId) {
-//       return createErrorResponse("You cannot analyze trades with yourself!", true);
-//     }
-
-//     await connectToDatabase();
-
-//     const [requestingUser, targetUser] = await Promise.all([
-//       User.findOne({ discordId: requestingDiscordId }),
-//       User.findOne({ discordId: targetDiscordId })
-//     ]);
-
-//     if (!requestingUser) {
-//       return createErrorResponse("You don't have a registered account. Please register first!", true);
-//     }
-
-//     if (!targetUser) {
-//       return createErrorResponse("Target user doesn't have a registered account.", true);
-//     }
-
-//     const analyzer = new TradeAnalyzer(
-//       requestingUser._id.toString(),
-//       targetUser._id.toString(),
-//       true,   // includeCards: required to list cards in the response
-//       'full', // format: not critical for this use case, but 'full' works
-//       true    // matchOnPrintingId: Discord command uses strict matching
-//     );
-
-//     const analysisResult = await analyzer.analyze();
-    
-//     return formatTradeResponse(analysisResult, targetUser);
-
-//   } catch (error) {
-//     console.error("[Discord] Error in handleTradeAnalysis:", error);
-//     return createErrorResponse(`Error analyzing trade: ${error.message}`);
-//   }
-// }
-
 export async function handleTradeAnalysis(body, options) {
   try {
     const requestingDiscordId = body.member?.user?.id || body.user?.id;
@@ -102,17 +49,17 @@ export async function handleTradeAnalysis(body, options) {
 
     const requestingUser = requestingUserResult.data;
     const targetUser = targetUserResult.data;
+    const mode = options?.find(opt => opt.name === 'any_printing')?.value === true ? 'loose' : 'exact';
 
-    const analyzer = new TradeAnalyzer(
+    const matchResult = await inventoryService.getUserTradeMatches(
       requestingUser._id.toString(),
       targetUser._id.toString(),
-      true,
-      'full',
-      true
+      mode
     );
-
-    const analysisResult = await analyzer.analyze();
-    return formatTradeResponse(analysisResult, targetUser);
+    if (!matchResult.success) {
+      return createErrorResponse("Failed to load trade matches.", true);
+    }
+    return formatTradeResponse(matchResult.data, targetUser, mode);
 
   } catch (error) {
     console.error("[Discord] Error in handleTradeAnalysis:", error);
@@ -187,47 +134,46 @@ function formatStoreTradeResponse(matches, storeName) {
   return createSuccessResponse(content, true);
 }
 
+function describeCard(card) {
+  const foil = FOILING_MAP[String(card.foiling || '').toLowerCase()];
+  const details = [card.collectorNumber || card.set?.toUpperCase(), foil && foil !== 'Non-foil' ? foil : null]
+    .filter(Boolean)
+    .join(', ');
+  return `${card.quantity}x ${card.displayName}${details ? ` (${details})` : ''}`;
+}
+
+function formatSection(title, cards) {
+  if (cards.length === 0) return '';
+  let text = `**${title}:**\n`;
+  text += cards.slice(0, 10).map(describeCard).join('\n') + '\n';
+  if (cards.length > 10) text += `... and ${cards.length - 10} more\n`;
+  return text + '\n';
+}
+
 /**
- * Format the simple trade response from the TradeAnalyzer's output
+ * Format the 1:1 trade response (UserTradeMatchesDTO) with a link to the web
+ * trade page, which has images, prices and one-click binder requests.
  */
-function formatTradeResponse(analysisResult, targetUser) {
-  const youHaveTheyWant = analysisResult.cards?.you_have_for_them || [];
-  const theyHaveYouWant = analysisResult.cards?.they_have_for_you || [];
-  
-  const targetName = targetUser.username || targetUser.discordUsername || `User ${targetUser.discordId}`;
-  
-  let content = `**Trade with ${targetName}:**\n\n`;
-  
-  if (theyHaveYouWant.length > 0) {
-    content += `**They have for you:**\n`;
-    theyHaveYouWant.slice(0, 10).forEach(card => {
-      const foiling = card.foiling ? ` (${card.foiling})` : '';
-      content += `${card.quantity}x ${card.name}${foiling}\n`;
-    });
-    if (theyHaveYouWant.length > 10) {
-      content += `... and ${theyHaveYouWant.length - 10} more\n`;
-    }
-    content += '\n';
-  }
-  
-  if (youHaveTheyWant.length > 0) {
-    content += `**You have for them:**\n`;
-    youHaveTheyWant.slice(0, 10).forEach(card => {
-      const foiling = card.foiling ? ` (${card.foiling})` : '';
-      content += `${card.quantity}x ${card.name}${foiling}\n`;
-    });
-    if (youHaveTheyWant.length > 10) {
-      content += `... and ${youHaveTheyWant.length - 10} more\n`;
-    }
-  }
-  
-  if (theyHaveYouWant.length === 0 && youHaveTheyWant.length === 0) {
+function formatTradeResponse(matches, targetUser, mode) {
+  const rawName = targetUser.username || targetUser.discordUsername || `User ${targetUser.discordId}`;
+  const targetName = displayUsername(rawName);
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fabbazaar.app';
+  const tradeUrl = `${baseUrl}${profileHref(rawName)}/trade${mode === 'loose' ? '?match=loose' : ''}`;
+  const modeLabel = mode === 'loose' ? 'any printing' : 'exact printings';
+
+  let content = `**Trade with ${targetName}** (${modeLabel}):\n\n`;
+  content += formatSection('They have for you', matches.theyHaveYouWant);
+  content += formatSection('You have for them', matches.theyWantYouHave);
+
+  if (matches.theyHaveYouWant.length === 0 && matches.theyWantYouHave.length === 0) {
     content += `No trade matches found with ${targetName}.`;
+    if (mode === 'exact') content += ' Try again with `any_printing: True` to match any version of the cards you want.';
+    content += '\n\n';
   }
 
-  if (content.length > 2000) {
-    content = content.substring(0, 1900) + '\n... (message truncated)';
+  const footer = `Full list: <${tradeUrl}>`;
+  if (content.length + footer.length > 2000) {
+    content = content.substring(0, 1990 - footer.length) + '\n...\n';
   }
-
-  return createSuccessResponse(content, true);
+  return createSuccessResponse(content + footer, true);
 }

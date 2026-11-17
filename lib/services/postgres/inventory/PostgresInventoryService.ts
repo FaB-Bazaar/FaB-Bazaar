@@ -8,6 +8,7 @@
 import { eq, and, sql, inArray, gte, exists } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { inventoryItems, users, binders, printings, cards, wantsItems, userFollowedStores } from '@/lib/postgres/schema';
+import { allocateToWants, wantKey, type TradeMatchMode } from '@/lib/trade/allocate-wants';
 import { sumOwnedByPrintingId, sumOwnedByCardUniqueId, listBindersByCardUniqueId } from './ownership-queries';
 import type {
   BinderCardHit,
@@ -27,6 +28,8 @@ import type {
   StoreTradeCardDTO,
   StoreWantMatchDTO,
   StoreWantMatchOwnerDTO,
+  UserTradeCardDTO,
+  UserTradeMatchesDTO,
 } from '@/lib/services/contracts/IInventoryService';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 
@@ -609,6 +612,106 @@ export class PostgresInventoryService implements IInventoryService {
       totalValue,
       uniquePrintings: allUniquePrintings,
     };
+  }
+
+  async getUserTradeMatches(
+    viewerId: string,
+    targetUserId: string,
+    mode: TradeMatchMode
+  ): AsyncResult<UserTradeMatchesDTO> {
+    try {
+      const [theyHaveYouWant, theyWantYouHave] = await Promise.all([
+        this.matchHolderToWanter(targetUserId, viewerId, mode),
+        this.matchHolderToWanter(viewerId, targetUserId, mode),
+      ]);
+      return { success: true, data: { theyHaveYouWant, theyWantYouHave } };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get trade matches',
+      };
+    }
+  }
+
+  /** `holderId`'s tradeable rows that `wanterId` wants, allocated to the wants. */
+  private async matchHolderToWanter(
+    holderId: string,
+    wanterId: string,
+    mode: TradeMatchMode
+  ): Promise<UserTradeCardDTO[]> {
+    const wantRows = await db
+      .select({
+        printingId: wantsItems.printingId,
+        cardUniqueId: printings.cardUniqueId,
+        quantity: wantsItems.quantity,
+      })
+      .from(wantsItems)
+      .innerJoin(printings, eq(wantsItems.printingId, printings.printingId))
+      .where(eq(wantsItems.userId, wanterId));
+    if (wantRows.length === 0) return [];
+
+    const wanted = new Map<string, number>();
+    for (const w of wantRows) {
+      const key = wantKey(w, mode);
+      wanted.set(key, (wanted.get(key) ?? 0) + w.quantity);
+    }
+
+    const keyColumn = mode === 'loose' ? printings.cardUniqueId : inventoryItems.printingId;
+    const rows = await db
+      .select({
+        inventoryItemId: inventoryItems.id,
+        binderId: binders.id,
+        binderName: binders.name,
+        visibilityLevel: binders.visibilityLevel,
+        isPublic: binders.isPublic,
+        printingId: inventoryItems.printingId,
+        cardUniqueId: printings.cardUniqueId,
+        displayName: cards.displayName,
+        pitch: cards.pitch,
+        set: printings.set,
+        collectorNumber: printings.collectorNumber,
+        foiling: printings.foiling,
+        edition: printings.edition,
+        available: inventoryItems.quantity,
+        tcgLow: printings.tcgLow,
+        imageUrl: printings.imageUrl,
+      })
+      .from(inventoryItems)
+      .innerJoin(binders, eq(inventoryItems.binderId, binders.id))
+      .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+      .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+      .where(
+        and(
+          eq(inventoryItems.userId, holderId),
+          eq(inventoryItems.forTrade, true),
+          eq(binders.allowInMatching, true),
+          inArray(keyColumn, [...wanted.keys()])
+        )
+      )
+      .orderBy(sql`${printings.tcgLow} ASC NULLS LAST`, inventoryItems.id);
+
+    return allocateToWants(rows, wanted, (r) => wantKey(r, mode), (r) => r.available).map(
+      ({ row, quantity }) => ({
+        inventoryItemId: row.inventoryItemId,
+        binderId: row.binderId,
+        binderName: row.binderName,
+        binderViewable:
+          row.visibilityLevel === 'public' ||
+          row.visibilityLevel === 'unlisted' ||
+          (row.visibilityLevel == null && row.isPublic),
+        printingId: row.printingId,
+        cardUniqueId: row.cardUniqueId,
+        displayName: row.displayName ?? row.printingId,
+        set: row.set ?? '',
+        collectorNumber: row.collectorNumber,
+        foiling: row.foiling ?? '',
+        edition: row.edition,
+        pitch: row.pitch ?? null,
+        quantity,
+        tcgLow: row.tcgLow != null ? Number(row.tcgLow) : null,
+        imageUrl: row.imageUrl,
+      })
+    );
   }
 
   async getStoreTradeMatches(

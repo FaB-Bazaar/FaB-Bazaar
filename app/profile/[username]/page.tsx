@@ -35,7 +35,7 @@ import { decksClient } from "@/lib/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import type { PublicDeckSummaryDTO } from "@/lib/services/contracts/IDeckService"
-import { displayUsername } from "@/lib/utils/display-username"
+import { displayUsername, profileHref } from "@/lib/utils/display-username"
 
 interface UserProfile {
   _id: string
@@ -421,6 +421,15 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
                 </Button>
               )}
             </Link>
+
+            {!isOwnProfile && (
+              <Link href={`${profileHref(user.username)}/trade`} className="block w-full" data-testid="profile-trade-button">
+                <Button size="lg" variant="outline" className="w-full">
+                  <ArrowLeftRight className="h-4 w-4 mr-2" />
+                  Trade
+                </Button>
+              </Link>
+            )}
 
             {isOwnProfile && (
               <Link href="/profile/edit" className="block w-full">

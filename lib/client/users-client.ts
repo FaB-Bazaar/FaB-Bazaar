@@ -6,6 +6,7 @@
  */
 
 import type { ApiResponse } from './types';
+import type { UserTradeMatchesDTO } from '@/lib/services/contracts/IInventoryService';
 import { buildQueryParams, handleResponse, handleError } from './utils';
 
 // ====================================
@@ -504,6 +505,22 @@ export async function autocompleteUsers(
       };
     }
     return { success: true, data: body.users ?? [] };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * 1:1 trade matches between the signed-in viewer and `userId`
+ * (/profile/[username]/trade). `loose` matches any printing of a wanted card.
+ */
+export async function getTradeMatches(
+  userId: string,
+  match: 'exact' | 'loose'
+): Promise<ApiResponse<UserTradeMatchesDTO>> {
+  try {
+    const response = await fetch(`/api/users/${encodeURIComponent(userId)}/trade-matches?match=${match}`);
+    return await handleResponse<UserTradeMatchesDTO>(response);
   } catch (error) {
     return handleError(error);
   }

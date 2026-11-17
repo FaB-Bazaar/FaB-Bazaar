@@ -988,3 +988,20 @@ export async function getBindersByCard(
     return handleError(error);
   }
 }
+
+/**
+ * The binder's for-trade items on the signed-in viewer's wants list, each with
+ * `requestQuantity` = min(wanted, in binder). Backs the binder page's
+ * "Add my wants" button. `loose` matches any printing of a wanted card.
+ */
+export async function getWantedItems(
+  binderId: string,
+  match: 'exact' | 'loose'
+): Promise<ApiResponse<Array<InventoryCardDTO & { requestQuantity: number }>>> {
+  try {
+    const response = await fetch(`/api/binders/${binderId}/wanted?match=${match}`);
+    return await handleResponse<Array<InventoryCardDTO & { requestQuantity: number }>>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}

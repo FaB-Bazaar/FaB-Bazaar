@@ -8,6 +8,7 @@
  */
 
 import type { AsyncResult, PaginationOptions } from './common';
+import type { TradeMatchMode } from '@/lib/trade/allocate-wants';
 
 // ====================================
 // Filter Options
@@ -240,6 +241,19 @@ export interface IInventoryService {
   ): AsyncResult<StoreTradeMatchDTO[]>;
 
   /**
+   * 1:1 trade view between the viewer and another user (Discord /trade and
+   * /profile/[username]/trade). Tradeable = forTrade item in a binder with
+   * allowInMatching. `exact` matches the printing; `loose` matches any
+   * printing of the same card (wants summed per card). Quantities are
+   * min(wanted, for trade), filled cheapest tcg_low first.
+   */
+  getUserTradeMatches(
+    viewerId: string,
+    targetUserId: string,
+    mode: TradeMatchMode
+  ): AsyncResult<UserTradeMatchesDTO>;
+
+  /**
    * For each card on the user's wants list, which followers of the given store
    * have it for trade. Card-first view ("who at this store has what I want").
    * Only counts for-trade items in binders with allowInMatching, owned by other
@@ -306,6 +320,34 @@ export interface StoreTradeCardDTO {
   /** Canonical price used to value-rank matches (wants-page convention) */
   tcgLow?: number | null;
   imageUrl?: string | null;
+}
+
+/** One for-trade inventory row in a 1:1 trade match. */
+export interface UserTradeCardDTO {
+  inventoryItemId: string;
+  binderId: string;
+  binderName: string;
+  /** Public/unlisted — the trade page links only to binders the viewer can open. */
+  binderViewable: boolean;
+  printingId: string;
+  cardUniqueId: string;
+  displayName: string;
+  set: string;
+  collectorNumber?: string | null;
+  foiling: string;
+  edition?: string | null;
+  pitch?: number | null;
+  /** min(wanted, for trade in this row) */
+  quantity: number;
+  tcgLow?: number | null;
+  imageUrl?: string | null;
+}
+
+export interface UserTradeMatchesDTO {
+  /** The target's for-trade rows the viewer wants. */
+  theyHaveYouWant: UserTradeCardDTO[];
+  /** The viewer's for-trade rows the target wants. */
+  theyWantYouHave: UserTradeCardDTO[];
 }
 
 export interface StoreTradeMatchDTO {

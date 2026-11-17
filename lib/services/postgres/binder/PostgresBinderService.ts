@@ -16,6 +16,7 @@ import { db } from '@/lib/postgres/db';
 import { binders, inventoryItems, users, printings, cards, siteSettings, wantsItems } from '@/lib/postgres/schema';
 // The `cards` table under a non-shadowed name — addCardsToBinder's `cards` param hides the import
 import { cards as cardsTable } from '@/lib/postgres/schema';
+import { allocateToWants, wantKey, type TradeMatchMode } from '@/lib/trade/allocate-wants';
 import type {
   IBinderService,
   BinderDTO,
@@ -566,6 +567,65 @@ export class PostgresBinderService implements IBinderService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get binder cards',
+      };
+    }
+  }
+
+  async getWantedItemsInBinder(
+    binderId: string,
+    viewerId: string,
+    mode: TradeMatchMode
+  ): AsyncResult<Array<InventoryCardDTO & { requestQuantity: number }>> {
+    try {
+      const wantRows = await db
+        .select({
+          printingId: wantsItems.printingId,
+          cardUniqueId: printings.cardUniqueId,
+          quantity: wantsItems.quantity,
+        })
+        .from(wantsItems)
+        .innerJoin(printings, eq(wantsItems.printingId, printings.printingId))
+        .where(eq(wantsItems.userId, viewerId));
+      if (wantRows.length === 0) return { success: true, data: [] };
+
+      const wanted = new Map<string, number>();
+      for (const w of wantRows) {
+        const key = wantKey(w, mode);
+        wanted.set(key, (wanted.get(key) ?? 0) + w.quantity);
+      }
+
+      const keyColumn = mode === 'loose' ? printings.cardUniqueId : inventoryItems.printingId;
+      const rows = await db
+        .select(this.buildInventoryCardSelectFields())
+        .from(inventoryItems)
+        .innerJoin(binders, eq(inventoryItems.binderId, binders.id))
+        .innerJoin(users, eq(inventoryItems.userId, users.id))
+        .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .where(
+          and(
+            eq(inventoryItems.binderId, binderId),
+            eq(inventoryItems.forTrade, true),
+            inArray(keyColumn, [...wanted.keys()])
+          )
+        )
+        .orderBy(sql`${printings.tcgLow} ASC NULLS LAST`, asc(inventoryItems.id));
+
+      const dtos = rows.map((row) => this.mapToInventoryCardDTO(row));
+      const allocated = allocateToWants(
+        dtos,
+        wanted,
+        (d) => wantKey({ printingId: d.printingId, cardUniqueId: d.card_unique_id }, mode),
+        (d) => d.quantity
+      );
+      return {
+        success: true,
+        data: allocated.map(({ row, quantity }) => ({ ...row, requestQuantity: quantity })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to match wants in binder',
       };
     }
   }

@@ -52,6 +52,12 @@ const commands = [
         .setDescription('Your favorited store — shows all trade matches with other followers')
         .setRequired(false)
         .setAutocomplete(true)
+    )
+    .addBooleanOption(opt =>
+      opt
+        .setName('any_printing')
+        .setDescription('With a user: match any printing of the cards you want, not just the exact one')
+        .setRequired(false)
     ),
 
   // 5. /deck - View a user's deck list
