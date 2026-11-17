@@ -853,7 +853,14 @@ useEffect(() => {
   const search = new URLSearchParams(window.location.search);
   if (search.get('trade') !== 'wants') return;
   autoWantsRanRef.current = true;
-  handleAddMyWants(search.get('match') === 'loose' ? 'loose' : 'exact');
+  const match = search.get('match') === 'loose' ? 'loose' : 'exact';
+  // One-shot: drop the params from this history entry, or going Back to the
+  // binder re-adds the wants after the user cleared the cart.
+  search.delete('trade');
+  search.delete('match');
+  const rest = search.toString();
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`);
+  handleAddMyWants(match);
 }, [isTradeViewer]);
 
 
