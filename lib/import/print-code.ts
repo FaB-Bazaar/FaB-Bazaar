@@ -168,7 +168,17 @@ export function pickPrintingForCode(
 
 // ── CSV ────────────────────────────────────────────────────────────────────
 
+// resolvePrintCodes sends each code twice (as typed + uppercased) into four
+// IN lists — ~8 bind parameters per row, and Postgres caps a query at 65,535.
+// Raising this past ~8,000 needs the lookup chunked first.
 export const PRINT_CODE_CSV_MAX_ROWS = 5000;
+// Real codes are well under 40 characters (JA_DYN000-CF-EA-AA-EA).
+const PRINT_CODE_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+const clip = (v: string | undefined) => {
+  const t = v ?? '';
+  return t.length > 20 ? `${t.slice(0, 20)}…` : t;
+};
 const CONDITIONS = ['NM', 'LP', 'MP', 'HP', 'DMG'] as const;
 export type CsvCondition = (typeof CONDITIONS)[number];
 
@@ -222,6 +232,10 @@ export function parsePrintCodeCsv(csvText: string): PrintCodeCsvParseResult {
       errors.push(`Row ${lineNo}: missing print_code, skipped.`);
       continue;
     }
+    if (!PRINT_CODE_RE.test(printCode)) {
+      errors.push(`Row ${lineNo}: print_code isn't a valid code (letters, digits, _ and - only, up to 64 characters), skipped.`);
+      continue;
+    }
 
     const qty = (name: string, absentDefault: number): number | null => {
       const raw = get(name);
@@ -239,13 +253,13 @@ export function parsePrintCodeCsv(csvText: string): PrintCodeCsvParseResult {
     const rawCondition = (get('condition') ?? '').toUpperCase();
     const condition = (rawCondition || 'NM') as CsvCondition;
     if (!CONDITIONS.includes(condition)) {
-      errors.push(`Row ${lineNo} (${printCode}): condition "${get('condition')}" isn't one of ${CONDITIONS.join('/')}, skipped.`);
+      errors.push(`Row ${lineNo} (${printCode}): condition "${clip(get('condition'))}" isn't one of ${CONDITIONS.join('/')}, skipped.`);
       continue;
     }
 
     const rawTrade = (get('for_trade') ?? '').toLowerCase();
     if (!TRUE_VALUES.has(rawTrade) && !FALSE_VALUES.has(rawTrade)) {
-      errors.push(`Row ${lineNo} (${printCode}): for_trade "${get('for_trade')}" isn't true/false, skipped.`);
+      errors.push(`Row ${lineNo} (${printCode}): for_trade "${clip(get('for_trade'))}" isn't true/false, skipped.`);
       continue;
     }
 

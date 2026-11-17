@@ -184,6 +184,24 @@ describe('parsePrintCodeCsv', () => {
     expect(errors.join(' ')).toMatch(/Row 5/);
   });
 
+  it('rejects codes that are not letters/digits/_/- or are too long', () => {
+    const { rows, errors } = parsePrintCodeCsv([
+      'print_code,quantity',
+      "x'); DROP TABLE printings; --,1",
+      `${'A'.repeat(65)},1`,
+      'ARC159 RF,1',
+      `${'A'.repeat(64)},1`,
+    ].join('\n'));
+    expect(rows.map(r => r.printCode)).toEqual(['A'.repeat(64)]);
+    expect(errors).toHaveLength(3);
+    expect(errors[0]).toMatch(/Row 2: print_code isn't a valid code/);
+  });
+
+  it('keeps long junk out of the error message', () => {
+    const { errors } = parsePrintCodeCsv(`print_code,quantity\n${'A'.repeat(5000)},1`);
+    expect(errors[0].length).toBeLessThan(120);
+  });
+
   it('strips a UTF-8 BOM (Excel exports)', () => {
     expect(parsePrintCodeCsv('﻿print_code,quantity\nWTR001,1').rows).toHaveLength(1);
   });
