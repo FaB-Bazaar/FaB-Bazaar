@@ -227,7 +227,7 @@ function calculateTotalValue(cards: TradeRequestCard[]): number {
  *   tradeType: "shipped",
  *   cards: [...]
  * });
- * // Output: "1x Golden Tipple [Red] - $14.34 - SEA (Common, CF)"
+ * // Output: "1x Golden Tipple [Red] - $14.34 - SEA123 (Common, CF)"
  */
 export function formatTradeRequestForDiscord(data: TradeRequestFormData): string {
   const lines: string[] = [];
@@ -247,14 +247,14 @@ export function formatTradeRequestForDiscord(data: TradeRequestFormData): string
       ? `$${details.tcg_low.toFixed(2)}`
       : 'Price N/A';
 
-    // Set ID
-    const setId = details?.set_id || 'Unknown';
+    // Collector number names the exact printing (SUP000); set code is the fallback
+    const setId = (details?.collector_number || details?.set_id || 'Unknown').toUpperCase();
 
     // Rarity and Foiling
     const rarity = getRarityDisplay(details?.rarity);
     const foiling = getFoilingAbbreviation(details?.foiling);
 
-    // Build line: "1x Golden Tipple [Red] - $14.34 - SEA (Common, CF)"
+    // Build line: "1x Golden Tipple [Red] - $14.34 - SEA123 (Common, CF)"
     lines.push(`${quantity} ${name} - ${price} - ${setId} (${rarity}, ${foiling})`);
   });
 

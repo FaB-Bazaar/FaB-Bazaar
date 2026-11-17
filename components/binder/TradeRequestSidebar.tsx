@@ -19,7 +19,8 @@ import {
   Package,
   Users,
   Send,
-  Maximize2
+  Maximize2,
+  MessageSquare
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn, getCardImageUrl } from "@/lib/utils";
@@ -30,7 +31,7 @@ import { sendTradeInterestNotification } from "@/lib/client/binders-client";
 import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
 import { tradeInterestFeedback } from "@/lib/discord/trade-interest-feedback";
 import { displayUsername } from "@/lib/utils/display-username";
-import { tradeCartTotals } from "@/lib/binder/trade-cart";
+import { tradeCardDetails, tradeCardPriceLine, tradeCartTotals } from "@/lib/binder/trade-cart";
 import { TradeRequestReviewDialog } from "./TradeRequestReviewDialog";
 
 interface TradeRequestSidebarProps {
@@ -73,8 +74,8 @@ const TradeCardItem: React.FC<TradeCardItemProps> = ({
   };
 
   return (
-    <Card className={cn("mb-3", !isForTrade && "border-amber-500/50 bg-amber-50/20 dark:bg-amber-900/10")}>
-      <CardContent className="p-3">
+    <Card data-testid="trade-sidebar-card" className={cn("mb-2", !isForTrade && "border-amber-500/50 bg-amber-50/20 dark:bg-amber-900/10")}>
+      <CardContent className="p-2.5">
         {!isForTrade && (
             <div className="flex items-center gap-2 p-2 mb-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/20 rounded-md">
                 <ShieldAlert className="h-4 w-4 flex-shrink-0" />
@@ -92,128 +93,103 @@ const TradeCardItem: React.FC<TradeCardItemProps> = ({
           </div>
           
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-sm truncate">{card.display_name || card.name}</h4>
-                <div className="flex items-center gap-2 mt-1">
-                  {card.printingDetails?.set_id && (
-                    <Badge variant="outline" className="text-xs">
-                      {card.printingDetails.set_id}
-                    </Badge>
-                  )}
-                  {card.printingDetails?.foiling && card.printingDetails.foiling !== 'S' && (
-                    <Badge variant="outline" className="text-xs">
-                      {card.printingDetails.foiling === 'RF' ? 'Rainbow Foil' : 
-                       card.printingDetails.foiling === 'CF' ? 'Cold Foil' : 
-                       card.printingDetails.foiling}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
+            <div className="flex items-start justify-between gap-1">
+              <h4 className="font-medium text-sm truncate">{card.display_name || card.name}</h4>
               <Button
                 variant="ghost"
                 size="sm"
+                aria-label={`Remove ${card.display_name || card.name}`}
                 onClick={() => onRemove(index)}
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                className="h-6 w-6 p-0 flex-shrink-0 text-muted-foreground hover:text-destructive"
               >
                 <X className="h-3 w-3" />
               </Button>
             </div>
+            <div className="text-xs text-muted-foreground truncate">{tradeCardDetails(card)}</div>
+            <div className="text-xs text-muted-foreground tabular-nums truncate">{tradeCardPriceLine(card)}</div>
 
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-muted-foreground">Qty:</span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onQuantityChange(card.id, Math.max(1, card.quantity - 1))}
-                  className="h-6 w-6 p-0"
-                  disabled={card.quantity <= 1}
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                <Input
-                  type="number"
-                  value={card.quantity}
-                  onChange={(e) => {
-                    const newQty = Math.max(1, Math.min(parseInt(e.target.value) || 1, card.maxQuantity));
-                    onQuantityChange(card.id, newQty);
-                  }}
-                  className="w-14 h-6 text-center text-sm"
-                  min="1"
-                  max={card.maxQuantity}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onQuantityChange(card.id, Math.min(card.quantity + 1, card.maxQuantity))}
-                  className="h-6 w-6 p-0"
-                  disabled={card.quantity >= card.maxQuantity}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                (of {card.maxQuantity})
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-muted-foreground">Priority:</span>
-              <Select
-                value={card.priority || 'medium'}
-                onValueChange={(value) => onPriorityChange(card.id, value)}
+            <div className="flex items-center gap-1 mt-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={`Decrease quantity of ${card.display_name || card.name}`}
+                onClick={() => onQuantityChange(card.id, Math.max(1, card.quantity - 1))}
+                className="h-6 w-6 p-0"
+                disabled={card.quantity <= 1}
               >
-                <SelectTrigger className="w-24 h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
+                <Minus className="h-3 w-3" />
+              </Button>
+              <Input
+                type="number"
+                aria-label={`Quantity of ${card.display_name || card.name}`}
+                value={card.quantity}
+                onChange={(e) => {
+                  const newQty = Math.max(1, Math.min(parseInt(e.target.value) || 1, card.maxQuantity));
+                  onQuantityChange(card.id, newQty);
+                }}
+                className="w-12 h-6 px-1 text-center text-sm"
+                min="1"
+                max={card.maxQuantity}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={`Increase quantity of ${card.display_name || card.name}`}
+                onClick={() => onQuantityChange(card.id, Math.min(card.quantity + 1, card.maxQuantity))}
+                className="h-6 w-6 p-0"
+                disabled={card.quantity >= card.maxQuantity}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">of {card.maxQuantity}</span>
+              {/* Priority + notes live behind a toggle so more cards fit */}
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-expanded={notesExpanded}
+                aria-label={`Priority and notes for ${card.display_name || card.name}`}
+                onClick={() => setNotesExpanded(!notesExpanded)}
+                className="ml-auto h-6 px-1 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                More
+                <ChevronRight className={`h-3 w-3 ml-0.5 transition-transform ${notesExpanded ? 'rotate-90' : ''}`} />
+              </Button>
             </div>
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Notes:</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setNotesExpanded(!notesExpanded)}
-                  className="h-5 w-5 p-0"
-                >
-                  <ChevronRight className={`h-3 w-3 transition-transform ${notesExpanded ? 'rotate-90' : ''}`} />
-                </Button>
-              </div>
-              
-              {notesExpanded && (
+            {!notesExpanded && (card.priority && card.priority !== 'medium' || localNotes) && (
+              <p className="mt-1 text-xs text-muted-foreground truncate">
+                {card.priority && card.priority !== 'medium' && `${card.priority === 'high' ? 'High' : 'Low'} priority`}
+                {card.priority && card.priority !== 'medium' && localNotes && ' · '}
+                {localNotes}
+              </p>
+            )}
+
+            {notesExpanded && (
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Priority:</span>
+                  <Select
+                    value={card.priority || 'medium'}
+                    onValueChange={(value) => onPriorityChange(card.id, value)}
+                  >
+                    <SelectTrigger className="w-24 h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Textarea
                   value={localNotes}
                   onChange={(e) => setLocalNotes(e.target.value)}
                   onBlur={handleNotesBlur}
-                  placeholder="Why do you want this card?"
+                  placeholder="Notes — why do you want this card?"
+                  aria-label={`Notes for ${card.display_name || card.name}`}
                   className="text-xs min-h-[60px] resize-none"
                 />
-              )}
-              
-              {!notesExpanded && localNotes && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {localNotes}
-                </p>
-              )}
-            </div>
-            
-            {card.printingDetails?.tcg_low && (
-              <div className="mt-2 text-xs text-muted-foreground">
-                Est. ${(card.printingDetails.tcg_low * card.quantity).toFixed(2)}
-                {card.quantity > 1 && (
-                  <span className="ml-1">
-                    (${card.printingDetails.tcg_low.toFixed(2)} each)
-                  </span>
-                )}
               </div>
             )}
           </div>
@@ -241,6 +217,7 @@ export const TradeRequestSidebar: React.FC<TradeRequestSidebarProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
   const [tradeMessage, setTradeMessage] = useState("");
+  const [messageOpen, setMessageOpen] = useState(false);
   const [tradeType, setTradeType] = useState<'shipped' | 'in-person'>('in-person');
   const [error, setError] = useState<string | null>(null);
   const [existingTradeId, setExistingTradeId] = useState<string | null>(null);
@@ -468,11 +445,14 @@ const handleCopyToClipboard = async () => {
   if (!sidebarOpen) return null;
 
   return (
-    <div className="fixed right-0 top-0 h-full w-72 bg-background border-l border-border shadow-lg z-50 flex flex-col">
+    <div data-testid="trade-request-sidebar" className="fixed right-0 top-0 h-full w-72 bg-background border-l border-border shadow-lg z-50 flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <ArrowLeftRight className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">Trade Request</h2>
+        <div className="flex items-center gap-2 min-w-0">
+          <ArrowLeftRight className="h-5 w-5 text-primary flex-shrink-0" />
+          <div className="min-w-0">
+            <h2 className="font-semibold leading-tight">Trade Request</h2>
+            <div className="text-sm text-muted-foreground truncate">with {displayUsername(recipientUsername)}</div>
+          </div>
         </div>
         <Button
           variant="ghost"
@@ -484,15 +464,8 @@ const handleCopyToClipboard = async () => {
         </Button>
       </div>
 
-      <div className="p-4 border-b border-border bg-muted/50">
-        <div className="text-sm">
-          <span className="text-muted-foreground">Trading with:</span>
-          <span className="ml-2 font-medium">{displayUsername(recipientUsername)}</span>
-        </div>
-      </div>
-
-      <div className="p-4 border-b border-border bg-muted/50">
-        <div className="flex justify-between items-center mb-2">
+      <div className="px-4 py-2 border-b border-border bg-muted/50">
+        <div className="flex justify-between items-center mb-1">
           <Button
             variant="outline"
             size="sm"
@@ -545,7 +518,7 @@ const handleCopyToClipboard = async () => {
         ))}
       </div>
 
-      <div className="p-4 border-t border-border space-y-3">
+      <div className="p-3 border-t border-border space-y-2">
         {hasInvalidCards && (
             <div className="flex items-center gap-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/20 rounded-md">
                 <ShieldAlert className="h-4 w-4 flex-shrink-0" />
@@ -553,51 +526,56 @@ const handleCopyToClipboard = async () => {
             </div>
         )}
 
-        <div>
-          <label className="text-sm font-medium mb-2 block">
-            Trade Method:
-          </label>
+        {/* Trade method + message share a row; the message box opens on click */}
+        <div className="flex gap-2">
           <Select value={tradeType} onValueChange={(value: 'shipped' | 'in-person') => setTradeType(value)}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="flex-1 min-w-0 whitespace-nowrap [&>span]:truncate" aria-label="Trade method">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="shipped">
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  <span>Ship via Mail</span>
+                  <Package className="h-4 w-4 flex-shrink-0" />
+                  <span>By mail</span>
                 </div>
               </SelectItem>
               <SelectItem value="in-person">
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span>Meet in Person</span>
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span>In person</span>
                 </div>
               </SelectItem>
             </SelectContent>
           </Select>
-          <div className="text-xs text-muted-foreground mt-1">
-            {tradeType === 'shipped'
-              ? 'Cards will be sent through mail with tracking'
-              : 'You will arrange to meet locally to exchange cards'}
-          </div>
+          {!messageOpen && (
+            <Button
+              variant="outline"
+              onClick={() => setMessageOpen(true)}
+              aria-label={tradeMessage ? "Edit message" : "Add message"}
+              className="flex-1 min-w-0 px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              <MessageSquare className="h-4 w-4 mr-1.5 flex-shrink-0" />
+              <span className="truncate">Message</span>
+            </Button>
+          )}
         </div>
-
-        <div>
-          <label className="text-sm font-medium mb-2 block">
-            Message to {displayUsername(recipientUsername)}:
-          </label>
-          <Textarea
-            value={tradeMessage}
-            onChange={(e) => setTradeMessage(e.target.value)}
-            placeholder="Hi! I'm interested in trading for these cards..."
-            className="text-sm min-h-[80px] resize-none"
-            maxLength={500}
-          />
-          <div className="text-xs text-muted-foreground mt-1">
-            {tradeMessage.length}/500 characters
+        {messageOpen && (
+          <div>
+            <Textarea
+              autoFocus
+              value={tradeMessage}
+              onChange={(e) => setTradeMessage(e.target.value)}
+              onBlur={() => { if (!tradeMessage.trim()) setMessageOpen(false); }}
+              placeholder={`Message to ${displayUsername(recipientUsername)}…`}
+              aria-label="Message"
+              className="text-sm min-h-[72px] resize-none"
+              maxLength={500}
+            />
+            <div className="text-xs text-muted-foreground mt-1 text-right">
+              {tradeMessage.length}/500
+            </div>
           </div>
-        </div>
+        )}
 
         {error && (
           <div className="p-3 bg-destructive/10 border border-destructive/50 rounded-md">
@@ -650,7 +628,7 @@ const handleCopyToClipboard = async () => {
         </Button>
 
         <div className="text-sm text-gray-300 text-center">
-          Copies the request and pings {displayUsername(recipientUsername)} in{" "}
+          Notify posts in{" "}
           <a
             href={TRADE_REQUESTS_CHANNEL_URL}
             target="_blank"
@@ -658,8 +636,7 @@ const handleCopyToClipboard = async () => {
             className="text-blue-400 underline underline-offset-2 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
           >
             #{TRADE_REQUESTS_CHANNEL_NAME}
-          </a>{" "}
-          on the FaB Bazaar Discord
+          </a>
         </div>
       </div>
     </div>
