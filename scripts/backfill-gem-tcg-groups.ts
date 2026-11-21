@@ -30,6 +30,7 @@ const GEM_GROUPS: Record<number, string> = {
   24446: 'GEM Pack 3',
   24620: 'GEM Pack 4',
   24720: 'GEM Pack 5',
+  24774: 'GEM Pack 6', // migration 0132
 }
 const TCGCSV_CATEGORY = 62 // Flesh and Blood
 const UA = 'FaBBazaar-backfill/1.0 (tcg_group_id backfill)'

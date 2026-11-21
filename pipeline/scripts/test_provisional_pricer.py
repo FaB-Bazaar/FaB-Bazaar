@@ -48,8 +48,9 @@ def _product(pid, name, number):
 
 
 def _row(printing_id, number, foiling="s", rarity="c", art=None, set_code="iar",
-         edition="n", product_id=None, name=None):
+         edition="n", product_id=None, name=None, print_code=None):
     return {
+        "lss_print_code": print_code,
         "printing_id": printing_id,
         "name": name,
         "set": set_code,
@@ -85,6 +86,25 @@ class MatchProductsTest(unittest.TestCase):
         result = pricer.match_products(rows, {"iar": products})
         self.assertEqual(result["assignments"]["base"]["productId"], 710)
         self.assertEqual(result["assignments"]["marvel"]["productId"], 711)
+
+    def test_cardvault_marvel_print_code_matches_the_marvel_product(self):
+        # GEM184 Malice: CardVault rows carry rarity 'p' + {FA}; only the
+        # print code ('-MV', '-MV_BACK' on the back face) says Marvel.
+        rows = [_row("front", "GEM184", foiling="c", rarity="p", art=["FA"], set_code="gem",
+                     print_code="GEM184-MV"),
+                _row("back", "GEM184", foiling="c", rarity="p", art=["FA"], set_code="gem",
+                     print_code="GEM184-MV_BACK")]
+        products = [_product(706940, "Malice, Domina of the Dead (Marvel)", "GEM184")]
+        result = pricer.match_products(rows, {"gem": products})
+        self.assertEqual({k: v["productId"] for k, v in result["assignments"].items()},
+                         {"front": 706940, "back": 706940})
+
+    def test_full_art_without_a_marvel_print_code_is_not_a_marvel(self):
+        rows = [_row("fa", "GEM184", foiling="c", rarity="p", art=["FA"], set_code="gem",
+                     print_code="GEM184-CF")]
+        products = [_product(706940, "Malice, Domina of the Dead (Marvel)", "GEM184")]
+        result = pricer.match_products(rows, {"gem": products})
+        self.assertNotIn("fa", result["assignments"])
 
     def test_marvel_without_its_own_product_stays_unmatched(self):
         # IAR Runechant Marvels: TCGplayer lists only the regular token.

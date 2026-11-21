@@ -49,11 +49,18 @@ transformer = _load_module("cards_transformer_003_for_009", "003_cards_to_printi
 PRICE_FIELDS = ('tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market')
 
 
+_MARVEL_PRINT_CODE_RE = re.compile(r"-MV(_BACK)?$", re.IGNORECASE)
+
+
 def row_variant(row):
     """DB printing row -> variant class, mirroring 002's printing_variant.
     Any other art variation (e.g. 'FA' on a non-Marvel) is its own class so it
     never takes the base product."""
     if str(row.get("rarity") or "").lower() == "v":
+        return "marvel"
+    # CardVault rows store a Marvel as rarity 'p' + {FA}; only the print code
+    # says Marvel ('GEM184-MV', 'GEM184-MV_BACK').
+    if _MARVEL_PRINT_CODE_RE.search(str(row.get("lss_print_code") or "")):
         return "marvel"
     art = [str(a).upper() for a in (row.get("art_variations") or [])]
     if "EA" in art:
@@ -190,7 +197,7 @@ def fetch_prices_for_groups(group_ids):
 
 ROWS_SQL = """
     SELECT p.printing_id, p.set, p.collector_number, p.edition, p.foiling, p.rarity,
-           p.art_variations, p.tcgplayer_product_id, c.name
+           p.art_variations, p.lss_print_code, p.tcgplayer_product_id, c.name
     FROM printings p
     JOIN cards c ON c.card_unique_id = p.card_unique_id
     WHERE p.fab_cube_printing_id IS NULL
