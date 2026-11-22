@@ -18,7 +18,7 @@ import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
   BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield, Table2, Globe2,
-  Maximize2,
+  Maximize2, Crosshair,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -57,6 +57,10 @@ import { MarkdownMessage } from './MarkdownMessage';
 import { formatWantsRemoved } from '@/lib/wants/format-wants-removed';
 import { uiStrings, SUPPORTED_LANGUAGES } from './ui-strings';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
+import {
+  EMPTY_SCOPE_FILTER, EMPTY_FOCUS_LEDGER, isScopeFilterActive, narrowItem, scopeCardCounts, buildScope, planFocusContext,
+  type ScopeFilter, type FocusLedger,
+} from './scope-context';
 import { parseInstantActionParam } from './instant-link';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
@@ -915,7 +919,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; uid?: string; sourceAction?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; deckStats?: DeckStats; compareDrill?: DrillTarget; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
+  | { kind: 'data'; uid?: string; sourceAction?: string; title: string; /** AI context for this item — attached at send time while it is the focus (scope-context.ts). */ context?: string; /** A manual edit outdated `context`; the next send re-drills first. */ contextStale?: boolean; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; deckStats?: DeckStats; compareDrill?: DrillTarget; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
 
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 
@@ -1284,6 +1288,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // everything still renders inline as before.
   const [workspaceStack, setWorkspaceStack] = useState<Array<Extract<UiItem, { kind: 'data' }>>>([]);
   const workspace = workspaceStack.length > 0 ? workspaceStack[workspaceStack.length - 1] : null;
+  // Dual focus: the workspace's top item is what Volzar is asked about. Its
+  // context is derived at SEND time (see sendTurn), narrowed by this filter;
+  // `scopeOffUid` = the user dismissed sharing for that one item (the scope
+  // chip's ✕). Both reset when the focus moves to another item.
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>(EMPTY_SCOPE_FILTER);
+  const [scopeOffUid, setScopeOffUid] = useState<string | null>(null);
+  const scopeOff = !!workspace && workspace.uid === scopeOffUid;
+  const scopeShareable = !!workspace && !!buildScope(workspace, EMPTY_SCOPE_FILTER);
+  const scopeCounts = workspace && !scopeOff ? scopeCardCounts(workspace, scopeFilter) : null;
+  // The focus as the filter shows it (same row objects; identity when the
+  // filter is off) — what the workspace panel and its chat card render.
+  const workspaceShown = useMemo(
+    () => (workspace && !scopeOff ? narrowItem(workspace, scopeFilter) : workspace),
+    [workspace, scopeOff, scopeFilter],
+  );
+  const focusLedgerRef = useRef<FocusLedger>(EMPTY_FOCUS_LEDGER);
   // Talishar performance per deck (from the rail's one /api/results/performance
   // fetch) — feeds the deck dashboard's Insights bullets.
   const [deckPerf, setDeckPerf] = useState<Map<string, DeckPerfRow>>(new Map());
@@ -1348,6 +1368,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     // Red / Yellow / Blue subsections; rows sort by pitch → type → name.
     return splitSectionsByPitch(sections);
   }, [workspace]);
+  // Same regrouping over the NARROWED focus — what the strip view renders
+  // (the raw memo above still decides whether a strip view exists at all).
+  const workspaceShownStripSections = useMemo(() => {
+    if (!workspaceShown || !workspaceStripSections) return null;
+    if (workspaceShown === workspace) return workspaceStripSections;
+    const sections = workspaceShown.tableSections
+      ?? [{ title: '', count: workspaceShown.tableRows?.length ?? 0, rows: workspaceShown.tableRows ?? [] }];
+    return splitSectionsByPitch(sections);
+  }, [workspaceShown, workspace, workspaceStripSections]);
   // Strips vs table, toggled from the panel header. Decks DEFAULT to strips
   // (glanceable reference); binders/comparisons default to the table, whose
   // rows carry their primary actions (± qty, quick-add).
@@ -1375,6 +1404,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // Best-effort: one instant inventory-comparison fetch per deck open.
   const [deckOwnership, setDeckOwnership] = useState<DeckOwnership | null>(null);
   useEffect(() => {
+    // A filter belongs to the item it was typed over — never carry it to the
+    // next focus.
+    setScopeFilter(EMPTY_SCOPE_FILTER);
     if (!workspaceUid) return;
     // The workspace is a constant-width reference rail; the composer gets DOM
     // focus — deck work happens FROM the chat. Desktop only (the aside isn't
@@ -1483,9 +1515,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     setRailStatus({});
   }, [previewCard?.printingId]);
 
-  // Zero-token context queue: quick-action results wait here and ride along
-  // with the NEXT free-text message, then clear. Tokens are spent only if an
-  // AI question actually follows the button press.
+  // Zero-token EVENT queue: one-shot facts (a binder was created, cards were
+  // added via search, a matchup panel was opened, the /opt handoff) wait here
+  // and ride along with the NEXT message, then clear. What the user is LOOKING
+  // AT is not queued — it is the focus, derived at send time (sendTurn).
   const pendingContextRef = useRef<string[]>(initialContext ?? []);
 
   // Working state for the in-flight AI turn. `committed` flips once the turn
@@ -1500,6 +1533,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
 
   // Set after refreshItemsForTarget is declared (handleEvent runs with no deps)
   const refreshAfterAiWriteRef = useRef<(() => void) | null>(null);
+  // Same late binding for sendTurn: re-drill a stale focus item's source and
+  // return its fresh AI context.
+  const refreshForContextRef = useRef<((item: Extract<UiItem, { kind: 'data' }>) => Promise<string | undefined>) | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -1617,14 +1653,18 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           : undefined;
       // uid: stable identity across optimistic row-qty updates (each update
       // replaces the item object in both the transcript and workspace stack).
-      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, sourceAction: actionId.includes(':') ? undefined : actionId, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, deckStats: result.deckStats, compareDrill: result.compareDrill, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
+      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, sourceAction: actionId.includes(':') ? undefined : actionId, title: result.title, context: result.context, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, deckStats: result.deckStats, compareDrill: result.compareDrill, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
       setItems((prev) => [...prev, dataItem]);
       // Tables and listings take over the workspace panel on desktop; drills
       // (actionId with ':') push so Back returns to the list they came from.
       if (shouldOpenInWorkspace(dataItem)) {
+        // Becomes the focus: its context rides at send time, derived from the
+        // item's CURRENT state (edits, filter) — not queued as a snapshot.
         setWorkspaceStack((prev) => advanceWorkspace(prev, dataItem, actionId));
+      } else {
+        // Informational cards never hold the focus — one-shot event context.
+        pendingContextRef.current.push(result.context);
       }
-      pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
     } finally {
@@ -1862,17 +1902,38 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // context, which is attached here and then cleared). They differ for
   // programmatic turns like the Game-results Analyze button, where the
   // content carries deckName/resultId the bubble doesn't need to show.
-  const sendTurn = useCallback(async (display: string, rawContent: string) => {
-    if (busy) return;
-    const content = buildMessageWithContext(pendingContextRef.current, rawContent);
-    pendingContextRef.current = [];
+  //
+  // Focus: the workspace's top item (or `scopeItem`, for a button that lives
+  // on a specific card) contributes its context here — narrowed by the scope
+  // filter, re-drilled first when a manual edit outdated it, and skipped
+  // entirely when the model already has this exact version (planFocusContext).
+  const sendingRef = useRef(false);
+  const sendTurn = useCallback(async (display: string, rawContent: string, scopeItem?: Extract<UiItem, { kind: 'data' }>) => {
+    if (busy || sendingRef.current) return;
+    sendingRef.current = true;
+    try {
+      const focus = scopeItem ?? (workspace && workspace.uid !== scopeOffUid ? workspace : null);
+      const filter = focus && focus.uid === workspace?.uid && workspace?.uid !== scopeOffUid ? scopeFilter : EMPTY_SCOPE_FILTER;
+      let scope = focus ? buildScope(focus, filter) : null;
+      if (focus && scope && !scope.narrowed && focus.contextStale) {
+        // Best-effort: a failed re-drill falls back to the last known context.
+        const fresh = await refreshForContextRef.current?.(focus);
+        if (fresh) scope = { ...scope, context: fresh };
+      }
+      const plan = planFocusContext(scope, focusLedgerRef.current);
+      focusLedgerRef.current = plan.ledger;
+      const content = buildMessageWithContext([...pendingContextRef.current, ...plan.lines], rawContent);
+      pendingContextRef.current = [];
 
-    const nextMessages: ChatMessage[] = [...apiMessages, { role: 'user', content }];
-    setApiMessages(nextMessages);
-    setItems((prev) => [...prev, { kind: 'user', text: display }]);
+      const nextMessages: ChatMessage[] = [...apiMessages, { role: 'user', content }];
+      setApiMessages(nextMessages);
+      setItems((prev) => [...prev, { kind: 'user', text: display }]);
 
-    await performTurn(nextMessages, model);
-  }, [busy, apiMessages, model, performTurn]);
+      await performTurn(nextMessages, model);
+    } finally {
+      sendingRef.current = false;
+    }
+  }, [busy, apiMessages, model, performTurn, workspace, scopeOffUid, scopeFilter]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -2066,13 +2127,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             : <Swords className="h-3.5 w-3.5" aria-hidden="true" />}
           {matchupPanels[index] ? 'Hide matchups' : 'View matchups'}
         </button>
-        {/* Deck-scoped AI launchers — deck contents already ride the
-            pending-context queue, so each is a one-message question. */}
+        {/* Deck-scoped AI launchers — THIS card's deck rides as the turn's
+            scope (even when another item holds the workspace), so each is a
+            one-message question. */}
         {DECK_AI_PROMPTS.map(({ label, build }) => (
           <button
             key={label}
             type="button"
-            onClick={() => void sendTurn(label, build(item.title.replace(/^Deck: /, '').replace(/ \([^)]*\)$/, '')))}
+            onClick={() => void sendTurn(label, build(item.title.replace(/^Deck: /, '').replace(/ \([^)]*\)$/, '')), item)}
             disabled={busy || runningAction !== null}
             title={`${label} — uses AI (1 message)`}
             className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
@@ -2124,6 +2186,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     setErrorBanner(null);
     setBusy(false);
     pendingContextRef.current = [];
+    focusLedgerRef.current = EMPTY_FOCUS_LEDGER;
+    setScopeFilter(EMPTY_SCOPE_FILTER);
+    setScopeOffUid(null);
     setWantsAddStatus({});
     setAddDialog(null);
     addedCardsRef.current = [];
@@ -2339,7 +2404,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // matching item (transcript + workspace) by uid-preserving refresh. The seq
   // guard drops out-of-order responses from rapid consecutive adds.
   const refreshSeqRef = useRef(0);
-  const refreshItemsForTarget = useCallback(async (target: { destination: 'binder' | 'wants' | 'deck'; binderId?: string; binderName?: string; deckPublicId?: string }) => {
+  const refreshItemsForTarget = useCallback(async (target: { destination: 'binder' | 'wants' | 'deck'; binderId?: string; binderName?: string; deckPublicId?: string }): Promise<string | undefined> => {
     const matches = (i: UiItem) =>
       i.kind === 'data' && !!i.mutate && (
         (target.destination === 'binder' && i.mutate.kind === 'binder' && i.mutate.binderId === target.binderId)
@@ -2357,12 +2422,16 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         fresh = await QUICK_ACTIONS.find((a) => a.id === 'wants')!.run();
       }
     } catch {
-      return; // refresh is best-effort; the add itself already succeeded
+      return undefined; // refresh is best-effort; the add itself already succeeded
     }
-    if (!fresh || seq !== refreshSeqRef.current) return;
+    if (!fresh) return undefined;
+    // A superseded response still read fresh server state — its context is
+    // valid for the caller even though the newer refresh owns the UI swap.
+    if (seq !== refreshSeqRef.current) return fresh.context;
     const apply = <T extends UiItem>(i: T): T => (matches(i) ? (refreshDataItem(i as any, fresh!) as T) : i);
     setItems((prev) => prev.map(apply));
     setWorkspaceStack((prev) => prev.map((i) => apply(i)));
+    return fresh.context;
   }, [binderOptions]);
 
   // Tile-menu writes that restructure the deck (delete-all / move between
@@ -2437,6 +2506,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       for (const target of collectMutationTargets(itemsRef.current as any)) {
         void refreshItemsForTarget(target);
       }
+    };
+    refreshForContextRef.current = async (item) => {
+      const [target] = collectMutationTargets([item]);
+      return target ? refreshItemsForTarget(target) : undefined;
     };
   }, [refreshItemsForTarget]);
 
@@ -3151,6 +3224,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               // and comparisons stay tables (their quick-add lives there).
               const deckTiles = !binderTiles && !item.compareRefresh
                 && !!item.tableSections?.length && item.tableSections.some((s) => s.rows.some((r) => r.image));
+              // The focused item renders through the scope filter here too —
+              // on phones this card IS the workspace.
+              const shown = workspaceShown && item.uid && item.uid === workspaceShown.uid ? workspaceShown : item;
               const chatViewKey = item.uid ?? `i${index}`;
               const chatView = binderTiles || deckTiles ? (chatCardView[chatViewKey] ?? 'tiles') : 'table';
               return (
@@ -3193,7 +3269,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       keep the table (user request, 2026-07-12). */}
                   {item.tableRows && item.tableRows.length > 0 && (binderTiles && chatView === 'tiles' ? (
                     <BinderTileGrid
-                      rows={item.tableRows}
+                      rows={shown.tableRows ?? []}
                       editable={!!item.mutate}
                       onPreview={showPreview}
                       onImageClick={item.mutate ? (row, e) => setTileMenu({ item, row, x: e.clientX, y: e.clientY }) : undefined}
@@ -3204,7 +3280,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       isRowBusy={(row) => qtyBusyKeys.has(qtyRowKey(row))}
                     />
                   ) : (
-                    <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
+                    <CardTable rows={shown.tableRows ?? []} onPreview={showPreview} noteHeader={item.tableNoteHeader}
                       onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
                       onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined}
                       onImageClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
@@ -3294,13 +3370,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                         // header toggle away for ± editing).
                         <div data-testid="chat-deck-tiles" className="mt-1 max-h-[32rem] overflow-y-auto">
                           <WorkspaceStrips
-                            sections={splitSectionsByPitch(item.tableSections)}
+                            sections={splitSectionsByPitch(shown.tableSections ?? [])}
                             onPreview={showPreview}
                             onTileClick={item.mutate ? (row, sourceTitle, e) => setTileMenu({ item, row, sourceTitle, x: e.clientX, y: e.clientY }) : undefined}
                           />
                         </div>
                       ) : (
-                        <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
+                        <CardTable sections={shown.tableSections ?? []} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
                           onQuickAdd={item.compareRefresh ? (row, dest) => void quickAddRow(item, row, dest) : undefined} quickAddStatus={quickAddStatus}
                           onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
                           onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined}
@@ -3801,6 +3877,84 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         )}
 
+        {/* Scope chip — what the next message is ABOUT. The workspace's top
+            item rides as context (derived at send time); the pitch dots + text
+            box narrow it to a subset, ✕ stops sharing it. Lives above the
+            composer so it works on phones, where the workspace panel doesn't
+            render. */}
+        {workspace && scopeShareable && (
+          <div
+            data-testid="scope-chip"
+            className={`flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-muted/40 dark:bg-muted px-2 py-1 text-xs ${chatEmpty ? 'mx-auto w-full max-w-2xl' : ''}`}
+          >
+            {scopeOff ? (
+              <button
+                type="button"
+                onClick={() => setScopeOffUid(null)}
+                className={`inline-flex min-w-0 items-center gap-1 rounded-sm py-0.5 text-blue-700 dark:text-blue-400 hover:underline ${focusRing}`}
+              >
+                <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 truncate">Ask about {workspace.title}</span>
+              </button>
+            ) : (
+              <>
+                <span className="flex min-w-0 flex-1 basis-40 items-center gap-1.5">
+                  <Crosshair className="h-3.5 w-3.5 shrink-0 text-violet-700 dark:text-violet-400" aria-hidden="true" />
+                  <span className="shrink-0 text-gray-600 dark:text-gray-300">Asking about</span>
+                  <span data-testid="scope-title" className="min-w-0 truncate font-medium text-gray-900 dark:text-gray-100">{workspace.title}</span>
+                  {scopeCounts && isScopeFilterActive(scopeFilter) && (
+                    <span data-testid="scope-count" className="shrink-0 tabular-nums text-gray-600 dark:text-gray-300">
+                      · {scopeCounts.shown} of {scopeCounts.total} cards
+                    </span>
+                  )}
+                </span>
+                {scopeCounts && scopeCounts.total > 0 && (
+                  <span className="flex items-center gap-1" role="group" aria-label="Narrow to pitch">
+                    {([[1, 'Red', 'bg-red-600'], [2, 'Yellow', 'bg-yellow-400 text-gray-900'], [3, 'Blue', 'bg-blue-600']] as const).map(([pitch, name, color]) => {
+                      const on = scopeFilter.pitches.includes(pitch);
+                      return (
+                        <button
+                          key={pitch}
+                          type="button"
+                          aria-pressed={on}
+                          aria-label={`${name} (pitch ${pitch}) only`}
+                          title={`${name} (pitch ${pitch})`}
+                          onClick={() => setScopeFilter((f) => ({
+                            ...f,
+                            pitches: on ? f.pitches.filter((p) => p !== pitch) : [...f.pitches, pitch],
+                          }))}
+                          className={`flex h-7 w-7 items-center justify-center rounded-full ${focusRing} ${on ? 'ring-2 ring-violet-500 ring-offset-1 ring-offset-background' : 'opacity-60 hover:opacity-100'}`}
+                        >
+                          <span className={`flex h-[1.125rem] w-[1.125rem] items-center justify-center rounded-full text-[10px] font-bold leading-none text-white ${color}`}>{pitch}</span>
+                        </button>
+                      );
+                    })}
+                  </span>
+                )}
+                {scopeCounts && scopeCounts.total > 0 && (
+                  <input
+                    type="search"
+                    value={scopeFilter.text}
+                    onChange={(e) => setScopeFilter((f) => ({ ...f, text: e.target.value }))}
+                    placeholder="Filter cards…"
+                    aria-label="Narrow to cards matching name or type"
+                    className={`h-7 w-28 min-w-0 flex-1 basis-24 rounded-md border border-border bg-background px-2 text-base sm:text-xs text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 ${focusRing}`}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setScopeFilter(EMPTY_SCOPE_FILTER); setScopeOffUid(workspace.uid ?? null); }}
+                  aria-label={`Stop sharing ${workspace.title} with Volzar`}
+                  title="Don't send this with my next message"
+                  className={`ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Composer — centered with the greeting pre-first-turn, docked to the
             bottom edge (full width) once the conversation starts. */}
         {/* Send/Stop rides INSIDE the textarea (bottom-right) — an external
@@ -3917,9 +4071,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           {/* Deck stat chips sit right above the card grid — the dense
               "context toolbar" treatment (2026-07-14 feedback). */}
           {workspace.deckStats && <div className="px-0.5 pt-0.5"><DeckStatsChips stats={workspace.deckStats} /></div>}
-          {workspaceView === 'strips' && workspaceStripSections ? (
+          {scopeCounts && scopeCounts.total > 0 && scopeCounts.shown === 0 ? (
+            <p data-testid="scope-empty" className="px-2 py-3 text-sm text-gray-600 dark:text-gray-300">No cards match the filter.</p>
+          ) : workspaceView === 'strips' && workspaceShownStripSections ? (
             <WorkspaceStrips
-              sections={workspaceStripSections}
+              sections={workspaceShownStripSections}
               onPreview={showPreview}
               ownership={deckOwnership}
               onTileClick={workspace.mutate
@@ -3931,13 +4087,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 : (row) => presentRows([row], workspace.title)}
             />
           ) : workspace.tableSections && workspace.tableSections.length > 0 ? (
-            <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
+            <CardTable sections={workspaceShown?.tableSections ?? workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
               onQuickAdd={workspace.compareRefresh ? (row, dest) => void quickAddRow(workspace, row, dest) : undefined} quickAddStatus={quickAddStatus}
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
               onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined}
               onImageClick={workspace.mutate ? (row, s, e) => setTileMenu({ item: workspace, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
           ) : workspace.tableRows && workspace.tableRows.length > 0 ? (
-            <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
+            <CardTable rows={workspaceShown?.tableRows ?? workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
               onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined}
               onImageClick={workspace.mutate ? (row, s, e) => setTileMenu({ item: workspace, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />

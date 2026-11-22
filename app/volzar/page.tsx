@@ -5,8 +5,8 @@ import { DEFAULT_CHAT_MODEL, defaultChatModelFor } from '@/lib/ai/tiers';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { VolzarChat } from './VolzarChat';
 import { AccessGate } from './AccessGate';
-import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
-import { describeOptState, optStateToChips } from '@/lib/search/opt-state-describe';
+import { buildOptHandoff } from '@/lib/search/opt-handoff';
+import { loadOptHandoffResults } from '@/lib/search/opt-handoff-results';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +36,14 @@ export default async function VolzarPage({ searchParams }: {
   // surface here.
   void syncSupporterTierIfStale(user.id);
 
-  const [access, suggestedPrompts, basicInfo] = await Promise.all([
+  // Bridge B: /opt hands its current search off via its own URL params plus
+  // from=opt & total=N (lib/search/opt-handoff.ts). The description + the
+  // first result names ride the chat's one-shot context queue; the data card
+  // makes the handoff visible.
+  const sp = await searchParams;
+  const optQuery = buildOptHandoff(sp)?.optQuery;
+
+  const [access, suggestedPrompts, basicInfo, optResultNames] = await Promise.all([
     // Flags feed only isSuperAdmin (model picker) now — a failed read degrades
     // to a standard user instead of blocking the page.
     userService.getVolzarAccess(user.id),
@@ -51,38 +58,23 @@ export default async function VolzarPage({ searchParams }: {
     Promise.resolve()
       .then(() => userService.getBasicInfo(user.id))
       .catch(() => null),
+    // The first results of the /opt search being handed off (normally a
+    // search-cache hit). Best-effort: a failed read degrades to the
+    // description-only handoff.
+    optQuery === undefined
+      ? undefined
+      : Promise.resolve()
+          .then(() => loadOptHandoffResults(optQuery))
+          .catch(() => undefined),
   ]);
   const needsLanguage = !!basicInfo?.success
     && !basicInfo.data?.preferredLanguage
     && !basicInfo.data?.countryCode;
   const language = resolveUserLanguage(basicInfo?.success ? basicInfo.data ?? {} : {});
 
-  // Bridge B: /opt hands its current search off via its own URL params plus
-  // from=opt & total=N. The context string rides the pendingContext queue
-  // (same mechanism as quick actions); the data card makes it visible.
-  const sp = await searchParams;
-  let initialContext: string[] | undefined;
-  let initialData: { title: string; lines: string[] } | undefined;
-  if (sp.from === 'opt') {
-    const params = new URLSearchParams(
-      Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === 'string'),
-    );
-    const optState: OptUiState = { ...DEFAULT_OPT_STATE, ...paramsToUiState(params) };
-    const qs = uiStateToParams(optState).toString();
-    const optUrl = qs ? `/opt?${qs}` : '/opt';
-    const total = Number(sp.total);
-    const hasTotal = Number.isFinite(total) && total >= 0;
-    initialContext = [describeOptState(optState, { optUrl, ...(hasTotal ? { total } : {}) })];
-    const q = optState.query.trim();
-    initialData = {
-      title: 'Current /opt search',
-      lines: [
-        ...(q ? [`Query: "${q}"${optState.searchMode === 'text' ? ' (rule text)' : ''}`] : []),
-        ...optStateToChips(optState).map(c => c.label),
-        ...(hasTotal ? [`${total.toLocaleString()} results`] : []),
-      ],
-    };
-  }
+  const handoff = buildOptHandoff(sp, optResultNames);
+  const initialContext = handoff?.context;
+  const initialData = handoff?.data;
 
   const isSuperAdmin = access.success && !!access.data?.isSuperAdmin;
   const mockMode = !process.env.OPENROUTER_API_KEY;

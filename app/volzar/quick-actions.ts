@@ -1365,7 +1365,9 @@ export type RowMutation =
 
 /**
  * Pure optimistic update: returns a copy of a data item with one row's qty
- * adjusted (row removed at zero, section count kept in sync). Rows match by
+ * adjusted (row removed at zero, section count kept in sync) and its AI
+ * context marked stale (`contextStale` — the context string was built from the
+ * pre-edit data; the next send re-drills before attaching it). Rows match by
  * itemId when both sides have one (binder conditions), else printingId;
  * `section` scopes deck updates (a printing can sit in Maindeck AND Inventory).
  */
@@ -1381,13 +1383,14 @@ export function adjustItemRowQty<T extends {
   if (item.tableSections) {
     return {
       ...item,
+      contextStale: true,
       tableSections: item.tableSections.map((s) =>
         key.section && s.title !== key.section
           ? s
           : { ...s, rows: adjustRows(s.rows), count: Math.max(0, s.count + (s.rows.some(matches) ? delta : 0)) }),
     };
   }
-  if (item.tableRows) return { ...item, tableRows: adjustRows(item.tableRows) };
+  if (item.tableRows) return { ...item, contextStale: true, tableRows: adjustRows(item.tableRows) };
   return item;
 }
 
@@ -1403,7 +1406,7 @@ export function setItemRowForTrade<T extends { tableRows?: CardRow[] }>(
   if (!item.tableRows) return item;
   const matches = (r: CardRow) =>
     key.itemId && r.itemId ? r.itemId === key.itemId : r.preview.printingId === key.printingId;
-  return { ...item, tableRows: item.tableRows.map((r) => (matches(r) ? { ...r, forTrade } : r)) };
+  return { ...item, contextStale: true, tableRows: item.tableRows.map((r) => (matches(r) ? { ...r, forTrade } : r)) };
 }
 
 /** Persist a binder row's For Trade toggle (the binder-tile switch). */
@@ -1515,6 +1518,8 @@ export function refreshDataItem<T extends { kind: string; uid?: string }>(
   return {
     ...item,
     title: fresh.title,
+    context: fresh.context,
+    contextStale: false,
     lines: fresh.lines,
     cards: fresh.cards,
     cardsSubtitle: fresh.cardsSubtitle,

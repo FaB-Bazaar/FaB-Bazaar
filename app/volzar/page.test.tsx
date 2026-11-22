@@ -14,6 +14,7 @@ vi.mock('@/lib/services', () => ({
 vi.mock('@/lib/metafy/sync-tier', () => ({ syncSupporterTierIfStale: vi.fn() }));
 vi.mock('@/lib/ai/volzar-suggestions', () => ({ getVolzarSuggestedPrompts: vi.fn(), resolveUserLanguage: vi.fn().mockReturnValue('en') }));
 vi.mock('./VolzarChat', () => ({ VolzarChat: () => null }));
+vi.mock('@/lib/search/opt-handoff-results', () => ({ loadOptHandoffResults: vi.fn() }));
 
 import VolzarPage from './page';
 import { AccessGate } from './AccessGate';
@@ -22,6 +23,8 @@ import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { getVolzarSuggestedPrompts } from '@/lib/ai/volzar-suggestions';
+import { loadOptHandoffResults } from '@/lib/search/opt-handoff-results';
+import { VolzarChat } from './VolzarChat';
 
 const mockAuth = vi.mocked(auth);
 const mockGetVolzarAccess = vi.mocked(userService.getVolzarAccess);
@@ -180,6 +183,53 @@ describe('VolzarPage first-paint latency (no server waterfall)', () => {
     const outcome = await raceRender(VolzarPage({ searchParams: emptySearchParams() }));
 
     expect(outcome).toBe('rendered');
+  });
+});
+
+describe('VolzarPage /opt handoff (Bridge B)', () => {
+  const mockLoad = vi.mocked(loadOptHandoffResults);
+  const signedIn = () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
+    mockGetVolzarAccess.mockResolvedValue({
+      success: true,
+      data: { isSuperAdmin: false, metafySupporterTier: null, volzarAccess: false },
+    } as any);
+    mockGetSuggestions.mockResolvedValue([] as any);
+  };
+  const chatProps = (tree: unknown) =>
+    (findElements(tree, (el) => el.type === VolzarChat)[0].props as any);
+
+  it('hands the chat the search description AND the first result names', async () => {
+    signedIn();
+    mockLoad.mockResolvedValue(['Harmonized Kodachi (Ninja Weapon - Dagger (1H))', 'Mask of Momentum (Ninja Equipment - Head)']);
+
+    const tree = await VolzarPage({ searchParams: Promise.resolve({ from: 'opt', q: 'kodachi', total: '40' }) });
+
+    expect(mockLoad).toHaveBeenCalledWith(expect.stringContaining('q=kodachi'));
+    const props = chatProps(tree);
+    expect(props.initialContext).toHaveLength(2);
+    expect(props.initialContext[1]).toContain('Harmonized Kodachi');
+    expect(props.initialData.lines).toContain('Volzar can see the first 2 results');
+  });
+
+  it('still renders with the description alone when the results read fails', async () => {
+    signedIn();
+    mockLoad.mockRejectedValue(new Error('db down'));
+
+    const tree = await VolzarPage({ searchParams: Promise.resolve({ from: 'opt', q: 'kodachi' }) });
+
+    const props = chatProps(tree);
+    expect(props.initialContext).toHaveLength(1);
+    expect(props.initialContext[0]).toContain('query "kodachi"');
+  });
+
+  it('runs no search on an ordinary visit', async () => {
+    signedIn();
+
+    const tree = await VolzarPage({ searchParams: emptySearchParams() });
+
+    expect(mockLoad).not.toHaveBeenCalled();
+    expect(chatProps(tree).initialContext).toBeUndefined();
   });
 });
 

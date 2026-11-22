@@ -1869,3 +1869,33 @@ describe('noTalisharGamesMessage', () => {
     expect(noTalisharGamesMessage('Deck: ' + 'x'.repeat(40)).length).toBeLessThanOrEqual(220);
   });
 });
+
+// Dual focus: the AI context is derived from the focused item at send time,
+// so the item must carry its context, know when a manual edit outdated it,
+// and pick up the fresh one on every re-drill.
+describe('data-item context freshness', () => {
+  const row = (printingId: string, qty: number) =>
+    ({ qty, name: printingId, preview: { imageUrl: '', name: printingId, printingId } }) as any;
+
+  it('a ± quantity edit marks the item context stale', () => {
+    const item = { context: 'old', tableRows: [row('p1', 3)] } as any;
+    expect(adjustItemRowQty(item, { printingId: 'p1' }, -1).contextStale).toBe(true);
+  });
+
+  it('a sectioned (deck) edit marks the item context stale', () => {
+    const item = { context: 'old', tableSections: [{ title: 'Maindeck', count: 3, rows: [row('p1', 3)] }] } as any;
+    expect(adjustItemRowQty(item, { printingId: 'p1', section: 'Maindeck' }, 1).contextStale).toBe(true);
+  });
+
+  it('a for-trade flip marks the item context stale (binder context names for-trade cards)', () => {
+    const item = { context: 'old', tableRows: [{ ...row('p1', 1), forTrade: false }] } as any;
+    expect(setItemRowForTrade(item, { printingId: 'p1' }, true).contextStale).toBe(true);
+  });
+
+  it('a re-drill swaps in the fresh context and clears the stale mark', () => {
+    const item = { kind: 'data', uid: 'd1', title: 'Deck: X', context: 'old', contextStale: true } as any;
+    const next = refreshDataItem(item, { title: 'Deck: X', lines: [], context: 'fresh' } as any) as any;
+    expect(next.context).toBe('fresh');
+    expect(next.contextStale).toBe(false);
+  });
+});
