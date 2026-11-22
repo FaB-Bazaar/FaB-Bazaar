@@ -44,6 +44,7 @@ import {
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
   collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, harvestCardsFromDataItem, type StripSection,
   moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection, fetchLatestGameForDeck, noTalisharGamesMessage,
+  fetchRailDecks, type RailDeck,
   type DeckOwnership, type DeckSectionCategory,
   type RowMutation, type QuickActionResult, type DeckStats,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
@@ -1345,6 +1346,20 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     void wantsClient.getUserWants().then((r) => {
       if (r.success) setRailCounts((c) => ({ ...c, wants: (r.data as any)?.wantsList?.cards?.length }));
     }).catch(() => {});
+  }, []);
+  // Deck shortcuts under the My decks launcher — the navbar's own list (pinned,
+  // else recent), refetched on the same window events the navbar listens to.
+  const [railDecks, setRailDecks] = useState<{ decks: RailDeck[]; hasPinned: boolean }>({ decks: [], hasPinned: false });
+  useEffect(() => {
+    let alive = true;
+    const load = () => { void fetchRailDecks().then((r) => { if (alive) setRailDecks(r); }); };
+    load();
+    const events = ['decksUpdated', 'deckCreated', 'deckDeleted'];
+    events.forEach((e) => window.addEventListener(e, load));
+    return () => {
+      alive = false;
+      events.forEach((e) => window.removeEventListener(e, load));
+    };
   }, []);
   const dataUidRef = useRef(0);
   // Focus-follows-engagement between the chat column and the workspace panel:
@@ -2861,7 +2876,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             );
             if (!addSide) return main;
             return (
-              <span key={action.id} className="inline-flex shrink-0 lg:w-full">
+              <Fragment key={action.id}>
+              <span className="inline-flex shrink-0 lg:w-full">
                 {main}
                 {addSide === 'binder' ? (
                   // Tri-button: middle segment shows the target binder (click
@@ -2928,6 +2944,47 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                   </Button>
                 )}
               </span>
+              {/* Deck shortcuts: the navbar's pinned decks (or recent ones
+                  when nothing is pinned), one click from an open deck — the
+                  full listing is long. Vertical rail only (lg+). */}
+              {addSide === 'deck' && railDecks.decks.length > 0 && (
+                <div data-testid="rail-decks" className="hidden lg:block lg:w-full">
+                  <p className="flex items-baseline justify-between gap-2 px-2 text-[11px] leading-4 text-gray-600 dark:text-gray-300">
+                    <span>{railDecks.hasPinned ? 'Pinned decks' : 'Recent decks'}</span>
+                    {!railDecks.hasPinned && (
+                      <Link href="/decks" className={`rounded-sm text-blue-700 dark:text-blue-400 hover:underline ${focusRing}`} title="Pin decks on the Decks page to choose what appears here">
+                        Pin decks
+                      </Link>
+                    )}
+                  </p>
+                  {/* Rows stay tight on purpose: every pixel here pushes the
+                      rail preview down, and it must fit above the fold at
+                      laptop heights (e2e/volzar-rail "short viewport"). */}
+                  <ul>
+                    {railDecks.decks.map((d) => {
+                      const open = workspace?.deckPublicId === d.publicId;
+                      return (
+                        <li key={d.publicId}>
+                          <button
+                            type="button"
+                            disabled={busy || runningAction !== null}
+                            onClick={() => drill({ kind: 'deck', id: d.publicId, name: d.name })}
+                            aria-current={open ? 'true' : undefined}
+                            title={`Open ${d.name} — instant, no AI`}
+                            className={`flex w-full items-center gap-1.5 rounded-md border-l-[3px] py-0.5 pl-4 pr-2 text-left text-xs hover:bg-muted disabled:opacity-60 ${open ? 'border-primary bg-primary/10 font-semibold' : 'border-transparent'} ${focusRing}`}
+                          >
+                            {runningAction === `deck:${d.publicId}`
+                              ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+                              : <Layers className="h-3.5 w-3.5 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />}
+                            <span className="min-w-0 truncate">{d.name}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              </Fragment>
             );
           })}
           <Popover open={toBeatOpen && isLgViewport} onOpenChange={(o) => { if (o) { if (!toBeatOpen) toggleToBeat(); } else setToBeatOpen(false); }}>

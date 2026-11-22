@@ -17,6 +17,7 @@ import {
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   adjustRowQuantity, createBinderTarget, swapRowPrinting, undoRowRemoval,
   moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, fetchLatestGameForDeck,
+  fetchRailDecks,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
@@ -558,5 +559,43 @@ describe('addSearchSelectionToBinder — wants auto-removal note', () => {
     const result = await addSearchSelectionToBinder('binder-9', selection() as any);
 
     expect(result).toEqual({ ok: true, name: 'Enlightened Strike (Red)' });
+  });
+});
+
+// The rail's pinned decks must be the SAME list the navbar's Decks menu shows
+// — same endpoint, same params, same pinned→recent fallback, same default sort.
+describe('fetchRailDecks', () => {
+  const deck = (publicId: string, name: string, updatedAt: string, heroName?: string) => ({ publicId, name, updatedAt, heroName });
+
+  it('asks the navbar\'s endpoint (5 pinned decks, falling back to recent)', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, json: async () => ({ success: true, decks: [], hasPinned: false }),
+    } as any);
+    await fetchRailDecks();
+    expect(spy.mock.calls[0][0]).toBe('/api/decks/user?limit=5&pinned=true');
+  });
+
+  it('returns the decks newest-updated first (the navbar default) with the pinned flag', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, hasPinned: true, decks: [
+        deck('a', 'Older', '2026-10-01T00:00:00Z', 'dash i/o'),
+        deck('b', 'Newer', '2026-11-01T00:00:00Z'),
+      ] }),
+    } as any);
+    expect(await fetchRailDecks()).toEqual({
+      hasPinned: true,
+      decks: [
+        { publicId: 'b', name: 'Newer', heroName: undefined },
+        { publicId: 'a', name: 'Older', heroName: 'dash i/o' },
+      ],
+    });
+  });
+
+  it('degrades to an empty list on a failed or unsuccessful read', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, json: async () => ({ success: false, decks: [] }) } as any);
+    expect(await fetchRailDecks()).toEqual({ decks: [], hasPinned: false });
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
+    expect(await fetchRailDecks()).toEqual({ decks: [], hasPinned: false });
   });
 });

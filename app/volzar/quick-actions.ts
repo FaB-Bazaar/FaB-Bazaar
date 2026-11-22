@@ -425,6 +425,34 @@ export async function fetchLatestGameForDeck(deckPublicId: string): Promise<Game
  * clicked), then Connect on FaB Bazaar, then the per-deck toggle. Kept short
  * because the error banner truncates at 220 chars.
  */
+/** A deck shortcut in the rail (drills straight into the deck). */
+export interface RailDeck {
+  publicId: string;
+  name: string;
+  heroName?: string;
+}
+
+/**
+ * The rail's deck shortcuts — deliberately the SAME request the navbar's Decks
+ * menu makes (`components/navbar.tsx`): up to 5 pinned decks, falling back to
+ * the most recent when nothing is pinned (`hasPinned: false`), ordered
+ * newest-updated first like the navbar's default sort. Best-effort: any
+ * failure is an empty list (the rail just shows no shortcuts).
+ */
+export async function fetchRailDecks(): Promise<{ decks: RailDeck[]; hasPinned: boolean }> {
+  try {
+    const res = await fetch('/api/decks/user?limit=5&pinned=true', { credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok || !data?.success) return { decks: [], hasPinned: false };
+    const decks = [...(data.decks ?? [])]
+      .sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .map((d: any): RailDeck => ({ publicId: d.publicId, name: d.name, heroName: d.heroName ?? undefined }));
+    return { decks, hasPinned: Boolean(data.hasPinned) };
+  } catch {
+    return { decks: [], hasPinned: false };
+  }
+}
+
 export function noTalisharGamesMessage(deckTitle: string): string {
   const name = deckTitle.replace(/^Deck: /, '').slice(0, 40);
   return `No Talishar games for ${name} yet. Setup: join the FabBazaar + Talishar Metafy communities, then Profile › Connected Accounts › Connect, then switch on the deck's Talishar toggle.`;
