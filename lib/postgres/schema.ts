@@ -798,6 +798,9 @@ export const decks = pgTable('decks', {
 
   // Talishar integration (opt-in to appearing in Talishar deck list)
   availableOnTalishar: boolean('available_on_talishar').notNull().default(true),
+  // The saved version (deck_versions.version_number) the Talishar export serves;
+  // NULL = the live deck (migration 0134).
+  talisharVersion: integer('talishar_version'),
 
   // Featured flag for "Decks to Beat" section (curators/superadmins can toggle)
   featured: boolean('featured').notNull().default(false),

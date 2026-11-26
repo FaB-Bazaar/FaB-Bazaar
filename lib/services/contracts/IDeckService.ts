@@ -87,6 +87,8 @@ export interface DeckDTO {
   isPublic: boolean;  // Computed: visibility !== 'private' (backward compat)
   metafyGuideId?: string | null;
   availableOnTalishar?: boolean;
+  /** The saved version the Talishar export serves for this deck; null = the deck as it is now. */
+  talisharVersion?: number | null;
   featured?: boolean;
   isSystemDeck?: boolean;
 
@@ -833,6 +835,20 @@ export interface IDeckService {
    * no such version. Owner or co-owner only. Nothing is written.
    */
   getDeckVersionAsDeck(publicId: string, userId: string, versionNumber: number): AsyncResult<DeckDTO | null>;
+
+  /**
+   * Pick the list the Talishar export serves for this deck: a saved version's
+   * number, or null for the deck as it is now. Owner or co-owner; the version
+   * must exist.
+   */
+  setTalisharVersion(publicId: string, userId: string, versionNumber: number | null): AsyncResult<{ talisharVersion: number | null }>;
+
+  /**
+   * The deck as Talishar should import it — the picked saved version (its
+   * cards, format and hero; the deck's own name and matchups), else the live
+   * deck. Same access rule as findByPublicId.
+   */
+  findTalisharDeck(publicId: string, userId?: string): AsyncResult<DeckDTO | null>;
 
   /**
    * Delete a deck

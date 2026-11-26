@@ -51,17 +51,20 @@ export const MAX_VERSION_LABEL_LENGTH = 80
 
 /** What the service answers when the caller is not the deck's owner or a co-owner (routes map it to 403). */
 export const DECK_VERSION_NOT_EDITABLE = 'Deck not found or not editable'
+/** What the service answers when asked for a version number the deck does not have (routes map it to 404). */
+export const DECK_VERSION_NOT_FOUND = 'That version does not exist'
 /** What the service answers for a deck with no cards (routes map it to 400). */
 export const DECK_VERSION_EMPTY = 'This deck has no cards to save'
 
 /**
- * The HTTP answer for a failed versions call. Only the two refusals a person
+ * The HTTP answer for a failed versions call. Only the refusals a person
  * can act on keep their wording; anything else (a database error) becomes a
  * plain 500 so its text never reaches the page.
  */
 export function deckVersionFailure(error: string): { status: number; error: string } {
   if (error === DECK_VERSION_NOT_EDITABLE) return { status: 403, error }
   if (error === DECK_VERSION_EMPTY) return { status: 400, error }
+  if (error === DECK_VERSION_NOT_FOUND) return { status: 404, error }
   return { status: 500, error: 'Something went wrong with deck versions. Please try again.' }
 }
 

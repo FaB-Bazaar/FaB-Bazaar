@@ -3,7 +3,7 @@
  * Versions view).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getDeckVersion, getDeckVersionDeck, listDeckVersions, saveDeckVersion } from './decks-client';
+import { getDeckVersion, getDeckVersionDeck, listDeckVersions, saveDeckVersion, setTalisharVersion } from './decks-client';
 
 const fetchMock = vi.fn();
 const ok = (body: unknown, status = 200) => ({ ok: true, status, statusText: 'OK', json: async () => body }) as unknown as Response;
@@ -44,5 +44,19 @@ describe('decksClient deck versions', () => {
     const res = await getDeckVersionDeck('deck-1', 3);
     expect(fetchMock.mock.calls[0][0]).toBe('/api/decks/deck-1/versions/3/deck');
     expect(res).toEqual({ success: true, data: { deck } });
+  });
+
+  it('setTalisharVersion PUTs the version number (or null) to /api/decks/<id>/talishar-version', async () => {
+    fetchMock.mockResolvedValue(ok({ success: true, data: { talisharVersion: 2 } }));
+    const res = await setTalisharVersion('deck-1', 2);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/decks/deck-1/talishar-version');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ versionNumber: 2 });
+    expect(res).toEqual({ success: true, data: { talisharVersion: 2 } });
+
+    fetchMock.mockResolvedValue(ok({ success: true, data: { talisharVersion: null } }));
+    await setTalisharVersion('deck-1', null);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ versionNumber: null });
   });
 });

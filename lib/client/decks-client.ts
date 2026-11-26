@@ -485,6 +485,26 @@ export async function getDeckVersionDeck(
 }
 
 /**
+ * Pick the list Talishar imports for this deck: a saved version's number, or
+ * null for the deck as it is now.
+ */
+export async function setTalisharVersion(
+  publicId: string,
+  versionNumber: number | null
+): Promise<ApiResponse<{ talisharVersion: number | null }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/talishar-version`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ versionNumber }),
+    });
+    return await handleResponse<{ talisharVersion: number | null }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Calculate deck statistics
  *
  * @param publicId - The deck's public ID

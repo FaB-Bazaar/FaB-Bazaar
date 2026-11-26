@@ -150,6 +150,19 @@ function DeckV2Page() {
   const setViewedVersion = (versionNumber: number | null) => {
     window.history.pushState(null, "", versionHref(window.location.pathname, window.location.search, versionNumber));
   };
+  // Which list Talishar imports for this deck (a saved version, or the deck itself).
+  const chooseTalisharVersion = async (versionNumber: number | null) => {
+    const res = await decksClient.setTalisharVersion(deckId, versionNumber);
+    if (!res.success) {
+      toast({ title: "Couldn't change the Talishar list", description: res.error, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: "Talishar list changed",
+      description: versionNumber == null ? "Talishar now imports the deck as it is." : `Talishar now imports version ${versionNumber}.`,
+    });
+    await handlers.refreshDeck();
+  };
   const goSaveVersion = () => {
     window.history.pushState(null, "", saveVersionHref(window.location.pathname, window.location.search));
   };
@@ -591,6 +604,7 @@ function DeckV2Page() {
               <VersionPicker
                 versions={versionList.versions}
                 openVersion={viewedVersion}
+                talisharVersion={liveDeck.availableOnTalishar === false ? undefined : (liveDeck.talisharVersion ?? null)}
                 onCurrent={() => setViewedVersion(null)}
                 onOpen={setViewedVersion}
                 onSave={goSaveVersion}
@@ -693,7 +707,7 @@ function DeckV2Page() {
             </section>
           ) : mainMode === "versions" ? (
             <section aria-label="Versions">
-              <VersionsView deckId={deckId} deck={liveDeck} list={versionList} openNumber={viewedVersion} onOpen={setViewedVersion} />
+              <VersionsView deckId={deckId} deck={liveDeck} list={versionList} openNumber={viewedVersion} onOpen={setViewedVersion} onTalisharVersion={chooseTalisharVersion} />
             </section>
           ) : (
           <>

@@ -280,8 +280,9 @@ export async function GET(
     // Check authentication (optional for public decks)
     const authResult = await authenticateRequest(request, {});
 
-    // Fetch deck using service layer
-    const result = await deckService.findByPublicId(
+    // The list the owner picked for Talishar: a saved version, or (the default)
+    // the deck as it is now. Resolved in the deck service.
+    const result = await deckService.findTalisharDeck(
       resolvedParams.deckId,
       authResult.success ? authResult.userId : undefined
     );

@@ -13,7 +13,7 @@ import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createHash } from 'node:crypto';
 import {
-  DECK_VERSION_EMPTY, DECK_VERSION_NOT_EDITABLE, normalizeVersionCards, sanitizeVersionLabel, versionContentKey, versionCounts,
+  DECK_VERSION_EMPTY, DECK_VERSION_NOT_EDITABLE, DECK_VERSION_NOT_FOUND, normalizeVersionCards, sanitizeVersionLabel, versionContentKey, versionCounts,
   type DeckVersion, type DeckVersionSnapshot, type DeckVersionSummary, type VersionCard,
 } from '@/lib/deck/deck-versions';
 import { sumOwnedByPrintingId, sumForTradeByPrintingId } from '../inventory/ownership-queries';
@@ -239,6 +239,7 @@ export class PostgresDeckService implements IDeckService {
       isPublic: deckRow.visibility !== 'private',
       metafyGuideId: deckRow.metafyGuideId || undefined,
       availableOnTalishar: deckRow.availableOnTalishar ?? false,
+      talisharVersion: deckRow.talisharVersion ?? null,
       featured: deckRow.featured ?? false,
       isSystemDeck: deckRow.isSystemDeck ?? false,
 
@@ -998,47 +999,99 @@ export class PostgresDeckService implements IDeckService {
         .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
         .limit(1);
       if (!deckRow) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
-
-      const [version] = await db
-        .select({ snapshot: deckVersions.snapshot })
-        .from(deckVersions)
-        .where(and(eq(deckVersions.deckId, deckRow.id), eq(deckVersions.versionNumber, versionNumber)))
-        .limit(1);
-      if (!version) return { success: true, data: null };
-
-      const snapshot = version.snapshot as DeckVersionSnapshot;
-      const versionCards = snapshot.cards ?? [];
-      const printingIds = [...new Set(versionCards.map(c => c.printingId))];
-      const details = printingIds.length > 0
-        ? await db
-            .select({ printingId: printings.printingId, ...DECK_CARD_DETAIL_COLUMNS })
-            .from(printings)
-            .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
-            .where(inArray(printings.printingId, printingIds))
-        : [];
-      const byPrinting = new Map(details.map(d => [d.printingId, d]));
-
-      // One row per saved card, in buildDeckDTO's shape. A printing that no
-      // longer exists keeps the name and pitch the version stored.
-      const rows = versionCards.map(card => ({
-        id: `version-${versionNumber}-${card.category}-${card.printingId}`,
-        printingId: card.printingId,
-        quantity: card.quantity,
-        category: card.category,
-        notes: null,
-        addedAt: null,
-        cardDisplayName: card.name,
-        cardUniqueId: card.cardUniqueId,
-        pitch: card.pitch,
-        otherFacePrintingId: null as string | null,
-        ...(byPrinting.get(card.printingId) ?? {}),
-      }));
-
-      const versionDeckRow = { ...deckRow, format: snapshot.format ?? deckRow.format, heroName: snapshot.heroName ?? deckRow.heroName };
-      return { success: true, data: this.buildDeckDTO(versionDeckRow, rows, await this.otherFaceImages(rows)) };
+      return { success: true, data: await this.versionDeckDTO(deckRow, versionNumber) };
     } catch (error) {
       console.error('[deck versions] failed to load the version as a deck:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to load the version' };
+    }
+  }
+
+  /** The deck row's saved version `versionNumber` as a DeckDTO; null when there is no such version. */
+  private async versionDeckDTO(deckRow: any, versionNumber: number): Promise<DeckDTO | null> {
+    const [version] = await db
+      .select({ snapshot: deckVersions.snapshot })
+      .from(deckVersions)
+      .where(and(eq(deckVersions.deckId, deckRow.id), eq(deckVersions.versionNumber, versionNumber)))
+      .limit(1);
+    if (!version) return null;
+
+    const snapshot = version.snapshot as DeckVersionSnapshot;
+    const versionCards = snapshot.cards ?? [];
+    const printingIds = [...new Set(versionCards.map(c => c.printingId))];
+    const details = printingIds.length > 0
+      ? await db
+          .select({ printingId: printings.printingId, ...DECK_CARD_DETAIL_COLUMNS })
+          .from(printings)
+          .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+          .where(inArray(printings.printingId, printingIds))
+      : [];
+    const byPrinting = new Map(details.map(d => [d.printingId, d]));
+
+    // One row per saved card, in buildDeckDTO's shape. A printing that no
+    // longer exists keeps the name and pitch the version stored.
+    const rows = versionCards.map(card => ({
+      id: `version-${versionNumber}-${card.category}-${card.printingId}`,
+      printingId: card.printingId,
+      quantity: card.quantity,
+      category: card.category,
+      notes: null,
+      addedAt: null,
+      cardDisplayName: card.name,
+      cardUniqueId: card.cardUniqueId,
+      pitch: card.pitch,
+      otherFacePrintingId: null as string | null,
+      ...(byPrinting.get(card.printingId) ?? {}),
+    }));
+
+    const versionDeckRow = { ...deckRow, format: snapshot.format ?? deckRow.format, heroName: snapshot.heroName ?? deckRow.heroName };
+    return this.buildDeckDTO(versionDeckRow, rows, await this.otherFaceImages(rows));
+  }
+
+  // ── Which list Talishar gets (migration 0134) ─────────────────────────────
+
+  /**
+   * Pick the list the Talishar export serves for this deck: a saved version's
+   * number, or null for the deck as it is now. Owner or co-owner.
+   */
+  async setTalisharVersion(publicId: string, userId: string, versionNumber: number | null): AsyncResult<{ talisharVersion: number | null }> {
+    try {
+      const deck = await this.editableDeckForVersions(publicId, userId);
+      if (!deck) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
+      if (versionNumber !== null) {
+        const [version] = await db
+          .select({ id: deckVersions.id })
+          .from(deckVersions)
+          .where(and(eq(deckVersions.deckId, deck.id), eq(deckVersions.versionNumber, versionNumber)))
+          .limit(1);
+        if (!version) return { success: false, error: DECK_VERSION_NOT_FOUND };
+      }
+      // Not a change to the list itself, so updatedAt is left alone.
+      await db.update(decks).set({ talisharVersion: versionNumber }).where(eq(decks.id, deck.id));
+      return { success: true, data: { talisharVersion: versionNumber } };
+    } catch (error) {
+      console.error('[deck versions] failed to set the Talishar version:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to set the Talishar version' };
+    }
+  }
+
+  /**
+   * The deck as Talishar should import it: the saved version picked with
+   * setTalisharVersion (its cards, format and hero; the deck's own name and
+   * matchups), or the live deck when none is picked — or when the picked
+   * number has no version behind it. Same access rule as findByPublicId.
+   */
+  async findTalisharDeck(publicId: string, userId?: string): AsyncResult<DeckDTO | null> {
+    try {
+      const conditions = userId
+        ? and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`))
+        : eq(decks.publicId, publicId);
+      const [deckRow] = await db.select().from(decks).where(conditions).limit(1);
+      if (!deckRow) return { success: true, data: null };
+      const pinned = deckRow.talisharVersion != null ? await this.versionDeckDTO(deckRow, deckRow.talisharVersion) : null;
+      return { success: true, data: pinned ?? await this.toDeckDTO(deckRow) };
+    } catch (error) {
+      console.error('[PostgresDeckService.findTalisharDeck] Error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to find deck for Talishar' };
     }
   }
 
