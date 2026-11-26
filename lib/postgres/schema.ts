@@ -1035,6 +1035,22 @@ export const deckCards = pgTable('deck_cards', {
     .on(table.deckId, table.printingId, table.category),
 }));
 
+// Immutable copies of a deck's list, saved when the owner asks for one
+// (migration 0133). deck_cards stays the working copy; rows here are never
+// updated. Payload shape: DeckVersionSnapshot in lib/deck/deck-versions.
+export const deckVersions = pgTable('deck_versions', {
+  id: text('id').primaryKey(),
+  deckId: text('deck_id').notNull().references(() => decks.id, { onDelete: 'cascade' }),
+  versionNumber: integer('version_number').notNull(),
+  label: text('label'),
+  contentHash: text('content_hash').notNull(),
+  snapshot: jsonb('snapshot').notNull(),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueDeckNumber: uniqueIndex('unique_deck_versions_deck_number').on(table.deckId, table.versionNumber),
+}));
+
 // ============================================================================
 // LEAGUES (community-run tournament series — e.g. InkBlade League)
 // ============================================================================

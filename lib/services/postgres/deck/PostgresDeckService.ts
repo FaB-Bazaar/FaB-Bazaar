@@ -8,9 +8,14 @@
  */
 
 import { db } from '@/lib/postgres/db';
-import { decks, deckCards, printings, cards, inventoryItems, binders, users, articles, bannedCards, gameResults } from '@/lib/postgres/schema';
+import { decks, deckCards, deckVersions, printings, cards, inventoryItems, binders, users, articles, bannedCards, gameResults } from '@/lib/postgres/schema';
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { createHash } from 'node:crypto';
+import {
+  DECK_VERSION_NOT_EDITABLE, normalizeVersionCards, sanitizeVersionLabel, versionContentKey, versionCounts,
+  type DeckVersion, type DeckVersionSnapshot, type DeckVersionSummary, type VersionCard,
+} from '@/lib/deck/deck-versions';
 import { sumOwnedByPrintingId, sumForTradeByPrintingId } from '../inventory/ownership-queries';
 import { DECK_FOLDER_MAX_LENGTH } from '@/lib/services/contracts/IDeckService';
 import type {
@@ -851,6 +856,122 @@ export class PostgresDeckService implements IDeckService {
       return { success: true, data: { ratios } };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to save ratios' };
+    }
+  }
+
+  // ── Deck versions (migration 0133) ────────────────────────────────────────
+  // deck_cards is the working copy; a version is an immutable copy of it,
+  // written only when an editor asks. Owner or co-owner for every call.
+
+  private async editableDeckForVersions(publicId: string, userId: string) {
+    const [deck] = await db
+      .select({ id: decks.id, name: decks.name, format: decks.format, heroName: decks.heroName })
+      .from(decks)
+      .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
+      .limit(1);
+    return deck ?? null;
+  }
+
+  private toVersionSummary(row: { versionNumber: number; label: string | null; createdAt: Date; snapshot: unknown }): DeckVersionSummary {
+    const snapshot = row.snapshot as DeckVersionSnapshot;
+    return {
+      versionNumber: row.versionNumber,
+      label: row.label,
+      createdAt: row.createdAt.toISOString(),
+      counts: versionCounts(snapshot?.cards ?? []),
+    };
+  }
+
+  async saveDeckVersion(
+    publicId: string,
+    userId: string,
+    input: { label?: unknown } = {}
+  ): AsyncResult<{ version: DeckVersionSummary; created: boolean }> {
+    try {
+      const deck = await this.editableDeckForVersions(publicId, userId);
+      if (!deck) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
+
+      const rows = await db
+        .select({
+          printingId: deckCards.printingId,
+          cardUniqueId: printings.cardUniqueId,
+          name: cards.displayName,
+          pitch: cards.pitch,
+          quantity: deckCards.quantity,
+          category: deckCards.category,
+        })
+        .from(deckCards)
+        .innerJoin(printings, eq(printings.printingId, deckCards.printingId))
+        .innerJoin(cards, eq(cards.cardUniqueId, printings.cardUniqueId))
+        .where(eq(deckCards.deckId, deck.id));
+      const versionCards = normalizeVersionCards(rows as VersionCard[]);
+      if (versionCards.length === 0) return { success: false, error: 'This deck has no cards to save' };
+
+      const contentHash = createHash('sha256').update(versionContentKey(versionCards)).digest('hex');
+      const snapshot: DeckVersionSnapshot = { name: deck.name, format: deck.format, heroName: deck.heroName, cards: versionCards };
+      const columns = {
+        versionNumber: deckVersions.versionNumber, label: deckVersions.label,
+        createdAt: deckVersions.createdAt, snapshot: deckVersions.snapshot, contentHash: deckVersions.contentHash,
+      };
+
+      // Two saves at once would both pick the same next number; the unique
+      // (deck, number) index rejects one, which then re-reads. Bounded.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const [latest] = await db.select(columns).from(deckVersions)
+          .where(eq(deckVersions.deckId, deck.id)).orderBy(desc(deckVersions.versionNumber)).limit(1);
+        if (latest && latest.contentHash === contentHash) {
+          return { success: true, data: { version: this.toVersionSummary(latest), created: false } };
+        }
+        try {
+          const [inserted] = await db.insert(deckVersions).values({
+            id: nanoid(21),
+            deckId: deck.id,
+            versionNumber: (latest?.versionNumber ?? 0) + 1,
+            label: sanitizeVersionLabel(input.label),
+            contentHash,
+            snapshot,
+            createdBy: userId,
+          }).returning(columns);
+          return { success: true, data: { version: this.toVersionSummary(inserted), created: true } };
+        } catch (error) {
+          const code = (error as any)?.code ?? (error as any)?.cause?.code;
+          if (code !== '23505') throw error;
+        }
+      }
+      return { success: false, error: 'Could not save the version — please try again' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to save the version' };
+    }
+  }
+
+  async listDeckVersions(publicId: string, userId: string): AsyncResult<DeckVersionSummary[]> {
+    try {
+      const deck = await this.editableDeckForVersions(publicId, userId);
+      if (!deck) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
+      const rows = await db
+        .select({ versionNumber: deckVersions.versionNumber, label: deckVersions.label, createdAt: deckVersions.createdAt, snapshot: deckVersions.snapshot })
+        .from(deckVersions)
+        .where(eq(deckVersions.deckId, deck.id))
+        .orderBy(desc(deckVersions.versionNumber));
+      return { success: true, data: rows.map(row => this.toVersionSummary(row)) };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to list versions' };
+    }
+  }
+
+  async getDeckVersion(publicId: string, userId: string, versionNumber: number): AsyncResult<DeckVersion | null> {
+    try {
+      const deck = await this.editableDeckForVersions(publicId, userId);
+      if (!deck) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
+      const [row] = await db
+        .select({ versionNumber: deckVersions.versionNumber, label: deckVersions.label, createdAt: deckVersions.createdAt, snapshot: deckVersions.snapshot })
+        .from(deckVersions)
+        .where(and(eq(deckVersions.deckId, deck.id), eq(deckVersions.versionNumber, versionNumber)))
+        .limit(1);
+      if (!row) return { success: true, data: null };
+      return { success: true, data: { ...this.toVersionSummary(row), snapshot: row.snapshot as DeckVersionSnapshot } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to load the version' };
     }
   }
 

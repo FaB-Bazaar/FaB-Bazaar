@@ -5,6 +5,7 @@
  * Supports deck CRUD, card management, and backwards-compatible lookups.
  */
 
+import type { DeckVersion, DeckVersionSummary } from '@/lib/deck/deck-versions';
 import type { AsyncResult, PaginationOptions } from './common';
 
 /** Max length of the user-defined deck `folder` label (trimmed; empty → NULL). */
@@ -807,6 +808,24 @@ export interface IDeckService {
     userId: string,
     ratios: unknown[]
   ): AsyncResult<{ ratios: unknown[] }>;
+
+  /**
+   * Save the deck's current cards as a new, immutable version (deck_versions,
+   * migration 0133) — owner or co-owner only. Nothing is saved when the list
+   * is identical to the latest version: `created` is false and that version
+   * comes back. The live deck is never changed.
+   */
+  saveDeckVersion(
+    publicId: string,
+    userId: string,
+    input?: { label?: unknown }
+  ): AsyncResult<{ version: DeckVersionSummary; created: boolean }>;
+
+  /** The deck's saved versions, newest first, without their cards — owner or co-owner only. */
+  listDeckVersions(publicId: string, userId: string): AsyncResult<DeckVersionSummary[]>;
+
+  /** One saved version with its cards; null when the deck has no such version — owner or co-owner only. */
+  getDeckVersion(publicId: string, userId: string, versionNumber: number): AsyncResult<DeckVersion | null>;
 
   /**
    * Delete a deck

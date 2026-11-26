@@ -28,6 +28,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 | `wants_items` | Want list entries. One per (user, printing) | `users.id` CASCADE |
 | `decks` | Decks with `publicId` (nanoid for URLs), `metadata` (JSONB for matchups etc.), `folder` (free-form user label for /decks grouping; NULL = unfiled, service trims + caps at `DECK_FOLDER_MAX_LENGTH`; migration 0103) | `users.id` CASCADE |
 | `deck_cards` | Join table: deck + printing + category + quantity | `decks.id` CASCADE |
+| `deck_versions` | Immutable copies of a deck's list, saved on request and numbered per deck (`snapshot` JSONB: cards with printing, zone, quantity, name, pitch; `content_hash` skips a save identical to the latest). `deck_cards` stays the working copy. Migration 0133 | `decks.id` CASCADE, `users.id` SET NULL (`created_by`) |
 | `articles` | CMS content. `contentType`: hero/article/guide/news/strategy/tournament. `sections` is JSONB | `users.id` CASCADE |
 | `oauth_clients` | Registered OAuth 2.1 clients | `users.id` CASCADE (nullable) |
 | `oauth_authorization_codes` | Short-lived auth codes with PKCE support | — |

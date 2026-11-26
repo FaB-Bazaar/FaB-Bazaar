@@ -32,6 +32,7 @@ import type {
 import type { ImportFabraryResult } from '@/lib/deck/import-fabrary';
 import type { DeckMatchup } from '@/types/deck';
 import type { FinishPrices } from '@/lib/deck/deck-prices';
+import type { DeckVersion, DeckVersionSummary } from '@/lib/deck/deck-versions';
 
 // ====================================
 // Deck CRUD Operations
@@ -413,6 +414,55 @@ export async function getPrintingPrices(
   try {
     const response = await fetch(`/api/decks/${publicId}/printing-prices`);
     return await handleResponse<{ byCard: FinishPrices }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * The deck's saved versions, newest first, without their cards (editors only).
+ */
+export async function listDeckVersions(
+  publicId: string
+): Promise<ApiResponse<{ versions: DeckVersionSummary[] }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/versions`);
+    return await handleResponse<{ versions: DeckVersionSummary[] }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Save the deck's current cards as a new version. `created` is false when the
+ * list has not changed since the latest version (nothing new is stored).
+ */
+export async function saveDeckVersion(
+  publicId: string,
+  label?: string
+): Promise<ApiResponse<{ version: DeckVersionSummary; created: boolean }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label }),
+    });
+    return await handleResponse<{ version: DeckVersionSummary; created: boolean }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * One saved version with its cards.
+ */
+export async function getDeckVersion(
+  publicId: string,
+  versionNumber: number
+): Promise<ApiResponse<{ version: DeckVersion }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/versions/${versionNumber}`);
+    return await handleResponse<{ version: DeckVersion }>(response);
   } catch (error) {
     return handleError(error);
   }

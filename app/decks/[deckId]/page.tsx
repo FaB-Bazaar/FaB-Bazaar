@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, 
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, DollarSign, FileText, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, DollarSign, FileText, History, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -45,6 +45,7 @@ import BrewView, { BREW_DETAILS_SLOT } from "./_components/BrewView";
 import RatiosSection from "./_components/RatiosSection";
 import RatioCompare from "./_components/RatioCompare";
 import PricesView from "./_components/PricesView";
+import VersionsView from "./_components/VersionsView";
 import DeckHeader from "./_components/DeckHeader";
 import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
 import { mainModeHref, resolveMainMode, type MainMode } from "@/lib/deck/deck-page-url";
@@ -356,6 +357,7 @@ function DeckV2Page() {
     ...(canEdit ? [{ kind: "main" as const, id: "import" as const, label: "Import list", icon: ClipboardList }] : []),
     ...(canEdit ? [{ kind: "main" as const, id: "results" as const, label: "Results", icon: Trophy }] : []),
     ...(canEdit ? [{ kind: "main" as const, id: "notes" as const, label: "Notes", icon: FileText }] : []),
+    ...(canEdit ? [{ kind: "main" as const, id: "versions" as const, label: "Versions", icon: History }] : []),
     { kind: "link", href: `/decks/${deckId}/matchups`, label: "Matchups", icon: Swords, gap: true },
     { kind: "link", href: `/decks/${deckId}/present`, label: "Present", icon: Tv },
   ];
@@ -561,6 +563,10 @@ function DeckV2Page() {
           ) : mainMode === "notes" ? (
             <section aria-label="Notes">
               <DeckNotesTab deckId={deckId} deck={deck} />
+            </section>
+          ) : mainMode === "versions" ? (
+            <section aria-label="Versions">
+              <VersionsView deckId={deckId} deck={deck} />
             </section>
           ) : (
           <>

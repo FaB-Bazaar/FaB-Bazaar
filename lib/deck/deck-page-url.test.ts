@@ -15,7 +15,7 @@ describe('resolveMainMode', () => {
     expect(resolveMainMode('prices', false)).toBe('prices');
   });
 
-  it.each(['results', 'notes', 'import'] as const)('opens %s for an editor only', tab => {
+  it.each(['results', 'notes', 'import', 'versions'] as const)('opens %s for an editor only', tab => {
     expect(resolveMainMode(tab, true)).toBe(tab);
     expect(resolveMainMode(tab, false)).toBe('deck');
   });

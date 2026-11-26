@@ -2,9 +2,9 @@
 // refresh, and Back returns to the deck. (The classic page reads the same
 // param for notes / results and ignores the rest.)
 
-export type MainMode = "deck" | "results" | "notes" | "import" | "prices";
+export type MainMode = "deck" | "results" | "notes" | "import" | "prices" | "versions";
 
-const EDITOR_ONLY: ReadonlySet<string> = new Set(["results", "notes", "import"]);
+const EDITOR_ONLY: ReadonlySet<string> = new Set(["results", "notes", "import", "versions"]);
 
 /** The main view a `?tab=` value opens for this viewer; anything else is the deck. */
 export function resolveMainMode(tab: string | null, canEdit: boolean): MainMode {
