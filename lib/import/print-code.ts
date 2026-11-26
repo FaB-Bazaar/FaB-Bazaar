@@ -45,7 +45,10 @@ export function parsePrintCode(code: string): ParsedPrintCodeAttrs {
   }
 
   let edition: string | null = null;
-  if (rest.startsWith('U-')) {
+  // 'R-' is CardVault's "Welcome to Rathe - Unlimited Revised" print run. We
+  // keep no separate rows for it (nothing on the card tells it apart), so it
+  // reads as plain Unlimited.
+  if (rest.startsWith('U-') || rest.startsWith('R-')) {
     edition = 'u';
     rest = rest.slice(2);
   }

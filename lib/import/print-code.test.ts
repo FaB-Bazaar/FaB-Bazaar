@@ -39,6 +39,14 @@ describe('parsePrintCode', () => {
     expect(p.foiling).toBe('r');
   });
 
+  it('reads the CardVault R- "Unlimited Revised" prefix as Unlimited', () => {
+    const p = parsePrintCode('R-WTR160-RF');
+    expect(p.edition).toBe('u');
+    expect(p.collector).toBe('WTR160');
+    expect(p.foiling).toBe('r');
+    expect(p.unknownTokens).toEqual([]);
+  });
+
   it('reads a CardVault marvel back face', () => {
     const p = parsePrintCode('FR_IAR106-MV_BACK');
     expect(p).toMatchObject({ language: 'fr', collector: 'IAR106', marvel: true, back: true });
@@ -98,6 +106,11 @@ describe('pickPrintingForCode', () => {
 
   it('reads U- as Unlimited', () => {
     expect(pickPrintingForCode(parsePrintCode('U-ARC159-RF'), arc)).toEqual({ status: 'ok', printingId: 'u-r' });
+  });
+
+  it('reads R- (Unlimited Revised, a print run we keep no rows for) as the Unlimited printing', () => {
+    expect(pickPrintingForCode(parsePrintCode('R-ARC159'), arc)).toEqual({ status: 'ok', printingId: 'u-s' });
+    expect(pickPrintingForCode(parsePrintCode('R-ARC159-RF'), arc)).toEqual({ status: 'ok', printingId: 'u-r' });
   });
 
   it('matches language and face', () => {
