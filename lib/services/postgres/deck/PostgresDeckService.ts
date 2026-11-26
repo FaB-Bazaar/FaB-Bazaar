@@ -13,7 +13,7 @@ import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createHash } from 'node:crypto';
 import {
-  DECK_VERSION_NOT_EDITABLE, normalizeVersionCards, sanitizeVersionLabel, versionContentKey, versionCounts,
+  DECK_VERSION_EMPTY, DECK_VERSION_NOT_EDITABLE, normalizeVersionCards, sanitizeVersionLabel, versionContentKey, versionCounts,
   type DeckVersion, type DeckVersionSnapshot, type DeckVersionSummary, type VersionCard,
 } from '@/lib/deck/deck-versions';
 import { sumOwnedByPrintingId, sumForTradeByPrintingId } from '../inventory/ownership-queries';
@@ -905,7 +905,7 @@ export class PostgresDeckService implements IDeckService {
         .innerJoin(cards, eq(cards.cardUniqueId, printings.cardUniqueId))
         .where(eq(deckCards.deckId, deck.id));
       const versionCards = normalizeVersionCards(rows as VersionCard[]);
-      if (versionCards.length === 0) return { success: false, error: 'This deck has no cards to save' };
+      if (versionCards.length === 0) return { success: false, error: DECK_VERSION_EMPTY };
 
       const contentHash = createHash('sha256').update(versionContentKey(versionCards)).digest('hex');
       const snapshot: DeckVersionSnapshot = { name: deck.name, format: deck.format, heroName: deck.heroName, cards: versionCards };
@@ -940,6 +940,7 @@ export class PostgresDeckService implements IDeckService {
       }
       return { success: false, error: 'Could not save the version — please try again' };
     } catch (error) {
+      console.error('[deck versions] failed to save the version:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to save the version' };
     }
   }
@@ -955,6 +956,7 @@ export class PostgresDeckService implements IDeckService {
         .orderBy(desc(deckVersions.versionNumber));
       return { success: true, data: rows.map(row => this.toVersionSummary(row)) };
     } catch (error) {
+      console.error('[deck versions] failed to list versions:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to list versions' };
     }
   }
@@ -971,6 +973,7 @@ export class PostgresDeckService implements IDeckService {
       if (!row) return { success: true, data: null };
       return { success: true, data: { ...this.toVersionSummary(row), snapshot: row.snapshot as DeckVersionSnapshot } };
     } catch (error) {
+      console.error('[deck versions] failed to load the version:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to load the version' };
     }
   }

@@ -6,12 +6,13 @@
 // the working copy. The card shape and the comparison live in
 // lib/deck/deck-versions.
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import {
   deckToVersionCards, diffVersionCards, MAX_VERSION_LABEL_LENGTH, VERSION_ZONE_LABEL,
-  type DeckVersion, type DeckVersionSummary, type VersionCard, type VersionChange, type VersionZone,
+  type DeckVersion, type VersionCard, type VersionChange, type VersionZone,
 } from "@/lib/deck/deck-versions";
+import type { DeckVersionsState } from "@/hooks/deck/useDeckVersions";
 import { decksClient } from "@/lib/client";
 import { cn } from "@/lib/utils";
 
@@ -25,27 +26,21 @@ const savedAt = (iso: string) => new Date(iso).toLocaleString(undefined, { dateS
 
 const BUTTON = "rounded-sm border border-gray-400 bg-gray-100 px-3 py-1 text-sm text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700";
 
-export default function VersionsView({ deckId, deck }: { deckId: string; deck: DeckDTO }) {
-  const [versions, setVersions] = useState<DeckVersionSummary[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+export default function VersionsView({ deckId, deck, list, openNumber, onOpen }: {
+  deckId: string;
+  deck: DeckDTO;
+  /** The saved versions (shared with the header's version picker). */
+  list: DeckVersionsState;
+  /** The version shown below the table — from `?version=`, so it can be linked. */
+  openNumber: number | null;
+  onOpen: (versionNumber: number | null) => void;
+}) {
+  const { versions, error: loadError, reload: loadVersions } = list;
   const [label, setLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const [openNumber, setOpenNumber] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, DeckVersion>>({});
   const [detailError, setDetailError] = useState<string | null>(null);
-
-  const loadVersions = useCallback(async () => {
-    const res = await decksClient.listDeckVersions(deckId);
-    if (res.success) {
-      setVersions(res.data.versions);
-      setLoadError(null);
-    } else {
-      setLoadError(res.error || "Could not load this deck's versions.");
-    }
-  }, [deckId]);
-
-  useEffect(() => { loadVersions(); }, [loadVersions]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -71,19 +66,23 @@ export default function VersionsView({ deckId, deck }: { deckId: string; deck: D
     }
   };
 
-  const open = async (versionNumber: number) => {
-    if (openNumber === versionNumber) { setOpenNumber(null); return; }
-    setOpenNumber(versionNumber);
+  // Load the open version's cards once (it stays cached while the view is up).
+  const hasOpenDetail = openNumber != null && !!details[openNumber];
+  useEffect(() => {
+    if (openNumber == null || hasOpenDetail) return;
+    let cancelled = false;
     setDetailError(null);
-    if (details[versionNumber]) return;
-    const res = await decksClient.getDeckVersion(deckId, versionNumber);
-    if (res.success) {
-      const version = res.data.version;
-      setDetails(prev => ({ ...prev, [versionNumber]: version }));
-    } else {
-      setDetailError(res.error || "Could not load that version.");
-    }
-  };
+    decksClient.getDeckVersion(deckId, openNumber).then(res => {
+      if (cancelled) return;
+      if (res.success) {
+        const version = res.data.version;
+        setDetails(prev => ({ ...prev, [version.versionNumber]: version }));
+      } else {
+        setDetailError(res.error || "Could not load that version.");
+      }
+    });
+    return () => { cancelled = true; };
+  }, [deckId, openNumber, hasOpenDetail]);
 
   const liveCards = useMemo(() => deckToVersionCards(deck), [deck]);
   const opened = openNumber != null ? details[openNumber] ?? null : null;
@@ -162,7 +161,7 @@ export default function VersionsView({ deckId, deck }: { deckId: string; deck: D
                       type="button"
                       aria-expanded={isOpen}
                       aria-label={`${isOpen ? "Close" : "View"} version ${v.versionNumber}`}
-                      onClick={() => open(v.versionNumber)}
+                      onClick={() => onOpen(isOpen ? null : v.versionNumber)}
                       className={BUTTON}
                     >
                       {isOpen ? "Close" : "View"}

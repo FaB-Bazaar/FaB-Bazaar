@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, 
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, DollarSign, FileText, History, Loader2, MoreHorizontal, Search, Swords, Trophy, Tv } from "lucide-react";
+import { AlertCircle, ArrowLeft, BarChart3, ClipboardList, Command, DollarSign, FileText, History, Loader2, MoreHorizontal, MoreVertical, Search, Swords, Trophy, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, type SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -48,7 +48,8 @@ import PricesView from "./_components/PricesView";
 import VersionsView from "./_components/VersionsView";
 import DeckHeader from "./_components/DeckHeader";
 import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
-import { mainModeHref, resolveMainMode, type MainMode } from "@/lib/deck/deck-page-url";
+import { mainModeHref, resolveMainMode, resolveOpenVersion, versionHref, type MainMode } from "@/lib/deck/deck-page-url";
+import { useDeckVersions } from "@/hooks/deck/useDeckVersions";
 import type { BrewFacets } from "@/lib/deck/brew";
 
 // Phones only — desktop never downloads the classic page's bundle.
@@ -122,6 +123,13 @@ function DeckV2Page() {
   const setMainMode = (mode: MainMode) => {
     if (mode === mainMode) return;
     window.history.pushState(null, "", mainModeHref(window.location.pathname, window.location.search, mode));
+  };
+  // Saved versions (editors): one list for the header's picker and the Versions
+  // view. The open version lives in ?version= so it can be linked.
+  const versionList = useDeckVersions(deckId, canEdit);
+  const openVersion = mainMode === "versions" ? resolveOpenVersion(searchParams.get("version")) : null;
+  const setOpenVersion = (versionNumber: number | null) => {
+    window.history.pushState(null, "", versionHref(window.location.pathname, window.location.search, versionNumber));
   };
   // The side panels (Find, Stats) describe the deck views only; the pick is
   // kept while another main view shows, so coming back restores it.
@@ -379,6 +387,21 @@ function DeckV2Page() {
 
   const heroName = deck.heroName || deck.hero?.[0]?.printingDetails?.display_name;
 
+  // The Options menu shows twice — the rail's bottom item and the kebab in the
+  // header's top right — with the same items.
+  const optionsMenu = {
+    isOwner,
+    onCopyList: options.handleCopyList,
+    onExport: options.handleExportList,
+    onExportImage: () => options.setExportImageOpen(true),
+    onPresent: () => router.push(`/decks/${deckId}/present`),
+    onStickers: () => router.push(`/decks/${deckId}/stickers`),
+    onSettings: () => options.setSettingsOpen(true),
+    onUpdateOwnedPrintings: canEdit ? options.handleUpgradePrintings : undefined,
+    onConvertLanguage: canEdit ? options.handleConvertLanguage : undefined,
+    onStreamOverlay: canEdit ? () => options.setStreamOverlayOpen(true) : undefined,
+  };
+
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-[calc(100vh-4rem)]">
       <div className="flex">
@@ -451,18 +474,9 @@ function DeckV2Page() {
           </Link>
           {/* The classic page's "More" menu, at the very bottom (no Analyze on v2). */}
           <DeckToolbarMoreMenu
-            isOwner={isOwner}
+            {...optionsMenu}
             side="right"
             align="end"
-            onCopyList={options.handleCopyList}
-            onExport={options.handleExportList}
-            onExportImage={() => options.setExportImageOpen(true)}
-            onPresent={() => router.push(`/decks/${deckId}/present`)}
-            onStickers={() => router.push(`/decks/${deckId}/stickers`)}
-            onSettings={() => options.setSettingsOpen(true)}
-            onUpdateOwnedPrintings={canEdit ? options.handleUpgradePrintings : undefined}
-            onConvertLanguage={canEdit ? options.handleConvertLanguage : undefined}
-            onStreamOverlay={canEdit ? () => options.setStreamOverlayOpen(true) : undefined}
             trigger={
               <button
                 type="button"
@@ -509,21 +523,65 @@ function DeckV2Page() {
 
         {/* Deck */}
         <main className="min-w-0 flex-1 px-6 py-5">
-          <DeckHeader deck={deck} heroName={heroName} line={[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}>
-            {/* Someone else's deck: read only, but you can take a copy (classic parity). */}
-            {!canEdit && (
-              <div className="flex shrink-0 items-center gap-3 text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Read only</span>
-                <button
-                  type="button"
-                  onClick={copyDeck}
-                  disabled={copying}
-                  className="rounded-sm border border-gray-400 bg-gray-100 px-3 py-1 text-gray-900 hover:bg-gray-200 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-                >
-                  {copying ? "Copying…" : "Copy deck"}
-                </button>
-              </div>
+          <DeckHeader
+            deck={deck}
+            heroName={heroName}
+            line={[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
+            nameAddon={canEdit && (
+              // Which list is showing: the deck itself, or one of its saved versions
+              // (opens it in the Versions view). A plain select, like the Table's Zone cell.
+              <select
+                aria-label="Deck version"
+                value={openVersion != null ? String(openVersion) : ""}
+                onChange={e => {
+                  const value = e.target.value;
+                  if (value === "") setMainMode("deck");
+                  else setOpenVersion(value === "save" ? null : Number(value));
+                }}
+                className="max-w-64 shrink-0 truncate rounded-sm border border-gray-400 bg-gray-100 px-2 py-1 text-sm text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+              >
+                <option value="">Current deck</option>
+                {(versionList.versions ?? []).map(v => (
+                  <option key={v.versionNumber} value={v.versionNumber}>
+                    Version {v.versionNumber}{v.label ? ` — ${v.label}` : ""}
+                  </option>
+                ))}
+                <option value="save">Save a version…</option>
+              </select>
             )}
+          >
+            <div className="flex shrink-0 items-center gap-3 self-start text-sm">
+              {/* Someone else's deck: read only, but you can take a copy (classic parity). */}
+              {!canEdit && (
+                <>
+                  <span className="text-gray-600 dark:text-gray-400">Read only</span>
+                  <button
+                    type="button"
+                    onClick={copyDeck}
+                    disabled={copying}
+                    className="rounded-sm border border-gray-400 bg-gray-100 px-3 py-1 text-gray-900 hover:bg-gray-200 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                  >
+                    {copying ? "Copying…" : "Copy deck"}
+                  </button>
+                </>
+              )}
+              {/* The same Options menu as the rail's bottom item, where the eye looks for it. */}
+              <DeckToolbarMoreMenu
+                {...optionsMenu}
+                side="bottom"
+                align="end"
+                trigger={
+                  <button
+                    type="button"
+                    aria-label="Deck options"
+                    title="Options"
+                    className="rounded-sm border border-gray-400 bg-gray-100 p-1.5 text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <MoreVertical className="h-5 w-5" aria-hidden />
+                  </button>
+                }
+              />
+            </div>
           </DeckHeader>
           {mainMode === "import" ? (
             <section aria-label="Import list">
@@ -566,7 +624,7 @@ function DeckV2Page() {
             </section>
           ) : mainMode === "versions" ? (
             <section aria-label="Versions">
-              <VersionsView deckId={deckId} deck={deck} />
+              <VersionsView deckId={deckId} deck={deck} list={versionList} openNumber={openVersion} onOpen={setOpenVersion} />
             </section>
           ) : (
           <>

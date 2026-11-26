@@ -4,7 +4,7 @@
  * deck. Editor-only views fall back to the deck for everyone else.
  */
 import { describe, it, expect } from 'vitest';
-import { mainModeHref, resolveMainMode } from './deck-page-url';
+import { mainModeHref, resolveMainMode, resolveOpenVersion, versionHref } from './deck-page-url';
 
 describe('resolveMainMode', () => {
   it('opens the deck with no tab', () => {
@@ -37,5 +37,36 @@ describe('mainModeHref', () => {
   it('keeps other params', () => {
     expect(mainModeHref('/decks/abc', '?ref=discord&tab=notes', 'results')).toBe('/decks/abc?ref=discord&tab=results');
     expect(mainModeHref('/decks/abc', '?ref=discord&tab=notes', 'deck')).toBe('/decks/abc?ref=discord');
+  });
+});
+
+describe('resolveOpenVersion', () => {
+  it('reads a positive whole number', () => {
+    expect(resolveOpenVersion('3')).toBe(3);
+  });
+
+  it.each([null, '', '0', '-2', '1.5', 'abc', '99999999999'])('ignores %s', value => {
+    expect(resolveOpenVersion(value)).toBeNull();
+  });
+});
+
+describe('versionHref', () => {
+  it('opens the Versions view on one version', () => {
+    expect(versionHref('/decks/abc', '', 3)).toBe('/decks/abc?tab=versions&version=3');
+  });
+
+  it('switches version and keeps other params', () => {
+    expect(versionHref('/decks/abc', '?ref=discord&tab=versions&version=3', 1)).toBe('/decks/abc?ref=discord&tab=versions&version=1');
+  });
+
+  it('with no version, opens the Versions view with none open', () => {
+    expect(versionHref('/decks/abc', '?tab=versions&version=3', null)).toBe('/decks/abc?tab=versions');
+  });
+});
+
+describe('mainModeHref and the open version', () => {
+  it('drops the open version when leaving the Versions view', () => {
+    expect(mainModeHref('/decks/abc', '?tab=versions&version=3', 'deck')).toBe('/decks/abc');
+    expect(mainModeHref('/decks/abc', '?tab=versions&version=3', 'prices')).toBe('/decks/abc?tab=prices');
   });
 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateRequest } from "@/lib/auth/multi-auth"
 import { deckService } from "@/lib/services"
-import { DECK_VERSION_NOT_EDITABLE } from "@/lib/deck/deck-versions"
+import { deckVersionFailure } from "@/lib/deck/deck-versions"
 
 /**
  * GET /api/decks/[deckId]/versions/[versionNumber] — one saved version with
@@ -21,7 +21,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const result = await deckService.getDeckVersion(deckId, authResult.userId, number)
   if (!result.success) {
-    return NextResponse.json({ error: result.error }, { status: result.error === DECK_VERSION_NOT_EDITABLE ? 403 : 500 })
+    const failure = deckVersionFailure(result.error)
+    return NextResponse.json({ error: failure.error }, { status: failure.status })
   }
   if (!result.data) {
     return NextResponse.json({ error: "Version not found" }, { status: 404 })

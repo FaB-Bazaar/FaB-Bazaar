@@ -7,7 +7,7 @@ vi.mock('@/lib/auth/multi-auth', () => ({ authenticateRequest: vi.fn() }));
 import { GET, POST } from './route';
 import { deckService } from '@/lib/services';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { DECK_VERSION_NOT_EDITABLE } from '@/lib/deck/deck-versions';
+import { DECK_VERSION_EMPTY, DECK_VERSION_NOT_EDITABLE } from '@/lib/deck/deck-versions';
 
 const saveDeckVersion = vi.mocked(deckService.saveDeckVersion);
 const listDeckVersions = vi.mocked(deckService.listDeckVersions);
@@ -44,6 +44,13 @@ describe('GET /api/decks/[deckId]/versions', () => {
   it('403s when the caller cannot edit the deck', async () => {
     listDeckVersions.mockResolvedValue({ success: false, error: DECK_VERSION_NOT_EDITABLE });
     expect((await GET(get(), { params })).status).toBe(403);
+  });
+
+  it('500s without passing a database error through', async () => {
+    listDeckVersions.mockResolvedValue({ success: false, error: 'Failed query: select "id" from "decks" … params: abc,123' });
+    const res = await GET(get(), { params });
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toMatch(/query|select|params/i);
   });
 
   it('accepts OAuth / MCP callers (allowOAuth)', async () => {
@@ -88,11 +95,18 @@ describe('POST /api/decks/[deckId]/versions', () => {
     expect((await POST(post({}), { params })).status).toBe(403);
   });
 
-  it('400s for any other refusal (an empty deck)', async () => {
-    saveDeckVersion.mockResolvedValue({ success: false, error: 'This deck has no cards to save' });
+  it('400s for an empty deck, with the reason', async () => {
+    saveDeckVersion.mockResolvedValue({ success: false, error: DECK_VERSION_EMPTY });
     const res = await POST(post({}), { params });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: 'This deck has no cards to save' });
+    expect(await res.json()).toEqual({ error: DECK_VERSION_EMPTY });
+  });
+
+  it('500s without passing a database error through', async () => {
+    saveDeckVersion.mockResolvedValue({ success: false, error: 'Failed query: insert into "deck_versions" … params: abc,123' });
+    const res = await POST(post({}), { params });
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toMatch(/query|insert|params/i);
   });
 
   it('accepts OAuth / MCP callers (allowOAuth)', async () => {

@@ -55,6 +55,13 @@ describe('GET /api/decks/[deckId]/versions/[versionNumber]', () => {
     expect((await call('2')).status).toBe(403);
   });
 
+  it('500s without passing a database error through', async () => {
+    getDeckVersion.mockResolvedValue({ success: false, error: 'Failed query: select "snapshot" from "deck_versions" … params: abc,2' });
+    const res = await call('2');
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toMatch(/query|select|params/i);
+  });
+
   it('accepts OAuth / MCP callers (allowOAuth)', async () => {
     getDeckVersion.mockResolvedValue({ success: true, data: VERSION });
     await call('2');

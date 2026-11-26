@@ -16,11 +16,13 @@ const PITCHES = [
   { key: "blue", fill: "bg-blue-500" },
 ] as const;
 
-export default function DeckHeader({ deck, heroName, line, children }: {
+export default function DeckHeader({ deck, heroName, line, nameAddon, children }: {
   deck: DeckDTO;
   heroName?: string;
   /** "Hero · Format · 64 cards + 16 inventory" */
   line: string;
+  /** Sits right after the deck's name (editors: the version picker). */
+  nameAddon?: ReactNode;
   /** Right-hand actions (read-only viewers: Copy deck). */
   children?: ReactNode;
 }) {
@@ -72,7 +74,10 @@ export default function DeckHeader({ deck, heroName, line, children }: {
         </button>
       )}
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{deck.name}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="min-w-0 truncate text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{deck.name}</h1>
+          {nameAddon}
+        </div>
         <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">{line}</p>
         {pitched > 0 && (
           <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-gray-700 dark:text-gray-300">
