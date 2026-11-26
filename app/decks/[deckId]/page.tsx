@@ -46,6 +46,7 @@ import RatiosSection from "./_components/RatiosSection";
 import RatioCompare from "./_components/RatioCompare";
 import PricesView from "./_components/PricesView";
 import VersionsView from "./_components/VersionsView";
+import VersionPicker from "./_components/VersionPicker";
 import DeckHeader from "./_components/DeckHeader";
 import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
 import { mainModeHref, resolveMainMode, resolveOpenVersion, versionHref, type MainMode } from "@/lib/deck/deck-page-url";
@@ -529,25 +530,14 @@ function DeckV2Page() {
             line={[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
             nameAddon={canEdit && (
               // Which list is showing: the deck itself, or one of its saved versions
-              // (opens it in the Versions view). A plain select, like the Table's Zone cell.
-              <select
-                aria-label="Deck version"
-                value={openVersion != null ? String(openVersion) : ""}
-                onChange={e => {
-                  const value = e.target.value;
-                  if (value === "") setMainMode("deck");
-                  else setOpenVersion(value === "save" ? null : Number(value));
-                }}
-                className="max-w-64 shrink-0 truncate rounded-sm border border-gray-400 bg-gray-100 px-2 py-1 text-sm text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-              >
-                <option value="">Current deck</option>
-                {(versionList.versions ?? []).map(v => (
-                  <option key={v.versionNumber} value={v.versionNumber}>
-                    Version {v.versionNumber}{v.label ? ` — ${v.label}` : ""}
-                  </option>
-                ))}
-                <option value="save">Save a version…</option>
-              </select>
+              // (opens it in the Versions view).
+              <VersionPicker
+                versions={versionList.versions}
+                openVersion={openVersion}
+                onCurrent={() => setMainMode("deck")}
+                onOpen={setOpenVersion}
+                onSave={() => setOpenVersion(null)}
+              />
             )}
           >
             <div className="flex shrink-0 items-center gap-3 self-start text-sm">
