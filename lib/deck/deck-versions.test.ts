@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { DeckDTO } from '@/lib/services/contracts/IDeckService'
 import {
-  deckToVersionCards, diffVersionCards, normalizeVersionCards, sanitizeVersionLabel,
+  applyVersionToDeck, deckToVersionCards, diffVersionCards, normalizeVersionCards, sanitizeVersionLabel,
   versionContentKey, versionCounts, type VersionCard,
 } from './deck-versions'
 
@@ -133,5 +133,46 @@ describe('sanitizeVersionLabel', () => {
     expect(sanitizeVersionLabel('   ')).toBeNull()
     expect(sanitizeVersionLabel(undefined)).toBeNull()
     expect(sanitizeVersionLabel(42)).toBeNull()
+  })
+})
+
+describe('applyVersionToDeck', () => {
+  const live = {
+    publicId: 'pub', userId: 'u1', name: 'Crankiest Maxx', format: 'Classic Constructed', heroName: 'Maxx', isPublic: false,
+    metadata: { ratios: [1] }, canEdit: true,
+    hero: [{ printingId: 'live-hero' }], equipment: [{ printingId: 'live-eq' }], maindeck: [{ printingId: 'live-main' }],
+    inventory: [{ printingId: 'live-inv' }], benched: [{ printingId: 'live-bench' }], tokens: [{ printingId: 'live-token' }],
+  } as unknown as DeckDTO
+  const saved = {
+    publicId: 'pub', userId: 'u1', name: 'Old name', format: 'Blitz', heroName: 'Dash',
+    hero: [{ printingId: 'v-hero' }], equipment: [], maindeck: [{ printingId: 'v-main', quantity: 3 }],
+    inventory: [{ printingId: 'v-inv' }], benched: [], tokens: [],
+  } as unknown as DeckDTO
+
+  it('shows the version\'s cards, hero and format in place of the deck\'s', () => {
+    const shown = applyVersionToDeck(live, saved)
+    expect(shown.hero).toEqual(saved.hero)
+    expect(shown.equipment).toEqual([])
+    expect(shown.maindeck).toEqual(saved.maindeck)
+    expect(shown.inventory).toEqual(saved.inventory)
+    expect(shown.benched).toEqual([])
+    expect(shown.tokens).toEqual([])
+    expect(shown.format).toBe('Blitz')
+    expect(shown.heroName).toBe('Dash')
+  })
+
+  it('keeps everything that belongs to the deck itself', () => {
+    const shown = applyVersionToDeck(live, saved) as any
+    expect(shown.name).toBe('Crankiest Maxx')
+    expect(shown.publicId).toBe('pub')
+    expect(shown.isPublic).toBe(false)
+    expect(shown.metadata).toEqual({ ratios: [1] })
+    expect(shown.canEdit).toBe(true)
+  })
+
+  it('leaves the live deck object untouched', () => {
+    applyVersionToDeck(live, saved)
+    expect(live.maindeck).toEqual([{ printingId: 'live-main' }])
+    expect(live.format).toBe('Classic Constructed')
   })
 })

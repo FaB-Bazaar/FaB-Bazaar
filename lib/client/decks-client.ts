@@ -469,6 +469,22 @@ export async function getDeckVersion(
 }
 
 /**
+ * One saved version in the shape the deck page renders (cards in their zones
+ * with card details) — what the deck views show while a version is picked.
+ */
+export async function getDeckVersionDeck(
+  publicId: string,
+  versionNumber: number
+): Promise<ApiResponse<{ deck: DeckDTO }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/versions/${versionNumber}/deck`);
+    return await handleResponse<{ deck: DeckDTO }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Calculate deck statistics
  *
  * @param publicId - The deck's public ID

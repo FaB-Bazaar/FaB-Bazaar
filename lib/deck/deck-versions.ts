@@ -115,6 +115,25 @@ export function deckToVersionCards(deck: DeckDTO): VersionCard[] {
     })))
 }
 
+/**
+ * The deck as the page shows it while a saved version is picked: the version's
+ * cards, hero and format in the live deck's place. Everything that belongs to
+ * the deck itself — its name, owner, visibility, notes, matchups — stays.
+ */
+export function applyVersionToDeck(live: DeckDTO, version: DeckDTO): DeckDTO {
+  return {
+    ...live,
+    format: version.format,
+    heroName: version.heroName,
+    hero: version.hero ?? [],
+    equipment: version.equipment ?? [],
+    maindeck: version.maindeck ?? [],
+    inventory: version.inventory ?? [],
+    benched: version.benched ?? [],
+    tokens: version.tokens ?? [],
+  }
+}
+
 export interface VersionChange { name: string; pitch: number | null; quantity: number }
 export interface VersionZoneDiff { zone: VersionZone; label: string; added: VersionChange[]; removed: VersionChange[] }
 

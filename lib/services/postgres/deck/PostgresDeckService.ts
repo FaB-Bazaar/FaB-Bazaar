@@ -67,6 +67,47 @@ import {
 import { inferDeckCategory } from '@/lib/deck/classify-deck-zone';
 import { isOverlayVisible } from '@/lib/overlay/deck-overlay';
 
+// The card + printing fields a deck card row carries (buildDeckDTO reads them).
+// Shared by the live deck (deck_cards) and a saved version (deck_versions).
+const DECK_CARD_DETAIL_COLUMNS = {
+  // card fields (via printings -> cards JOIN)
+  cardName: cards.name,
+  cardDisplayName: cards.displayName,
+  cardUniqueId: cards.cardUniqueId,
+  types: cards.types,
+  classes: cards.classes,
+  talents: cards.talents,
+  keywords: cards.keywords,
+  keywordsDisplay: cards.keywordsDisplay,
+  pitch: cards.pitch,
+  cost: cards.cost,
+  defense: cards.defense,
+  power: cards.power,
+  text: cards.text,
+  typeTextDisplay: cards.typeTextDisplay,
+  // printing fields
+  set: printings.set,
+  edition: printings.edition,
+  foiling: printings.foiling,
+  rarity: printings.rarity,
+  collectorNumber: printings.collectorNumber,
+  imageUrl: printings.imageUrl,
+  tcgMarket: printings.tcgMarket,
+  tcgLow: printings.tcgLow,
+  tcgMid: printings.tcgMid,
+  tcgHigh: printings.tcgHigh,
+  tcgplayerUrl: printings.tcgplayerUrl,
+  otherFacePrintingId: printings.otherFacePrintingId,
+  isFrontFace: printings.isFrontFace,
+  isExtendedArt: printings.isExtendedArt,
+  artVariations: printings.artVariations,
+  foilInsetTop: printings.foilInsetTop,
+  foilInsetRight: printings.foilInsetRight,
+  foilInsetBottom: printings.foilInsetBottom,
+  foilInsetLeft: printings.foilInsetLeft,
+  foilInsetRound: printings.foilInsetRound,
+};
+
 export class PostgresDeckService implements IDeckService {
   // ====================================
   // Helper Methods
@@ -86,42 +127,7 @@ export class PostgresDeckService implements IDeckService {
         category: deckCards.category,
         notes: deckCards.notes,
         addedAt: deckCards.addedAt,
-        // card fields (via printings -> cards JOIN)
-        cardName: cards.name,
-        cardDisplayName: cards.displayName,
-        cardUniqueId: cards.cardUniqueId,
-        types: cards.types,
-        classes: cards.classes,
-        talents: cards.talents,
-        keywords: cards.keywords,
-        keywordsDisplay: cards.keywordsDisplay,
-        pitch: cards.pitch,
-        cost: cards.cost,
-        defense: cards.defense,
-        power: cards.power,
-        text: cards.text,
-        typeTextDisplay: cards.typeTextDisplay,
-        // printing fields
-        set: printings.set,
-        edition: printings.edition,
-        foiling: printings.foiling,
-        rarity: printings.rarity,
-        collectorNumber: printings.collectorNumber,
-        imageUrl: printings.imageUrl,
-        tcgMarket: printings.tcgMarket,
-        tcgLow: printings.tcgLow,
-        tcgMid: printings.tcgMid,
-        tcgHigh: printings.tcgHigh,
-        tcgplayerUrl: printings.tcgplayerUrl,
-        otherFacePrintingId: printings.otherFacePrintingId,
-        isFrontFace: printings.isFrontFace,
-        isExtendedArt: printings.isExtendedArt,
-        artVariations: printings.artVariations,
-        foilInsetTop: printings.foilInsetTop,
-        foilInsetRight: printings.foilInsetRight,
-        foilInsetBottom: printings.foilInsetBottom,
-        foilInsetLeft: printings.foilInsetLeft,
-        foilInsetRound: printings.foilInsetRound,
+        ...DECK_CARD_DETAIL_COLUMNS,
       })
       .from(deckCards)
       .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
@@ -129,10 +135,12 @@ export class PostgresDeckService implements IDeckService {
       .where(eq(deckCards.deckId, deckRow.id));
 
 
-    // Batch-fetch other face image URLs for DFC cards
-    const otherFaceIds = [...new Set(
-      deckCardsWithDetails.map(dc => dc.otherFacePrintingId).filter(Boolean) as string[]
-    )];
+    return this.buildDeckDTO(deckRow, deckCardsWithDetails, await this.otherFaceImages(deckCardsWithDetails));
+  }
+
+  /** Batch-fetch other face image URLs for DFC cards */
+  private async otherFaceImages(rows: Array<{ otherFacePrintingId: string | null }>): Promise<Map<string, string>> {
+    const otherFaceIds = [...new Set(rows.map(dc => dc.otherFacePrintingId).filter(Boolean) as string[])];
     const otherFaceImageMap = new Map<string, string>();
     if (otherFaceIds.length > 0) {
       const otherFaceRows = await db
@@ -143,8 +151,7 @@ export class PostgresDeckService implements IDeckService {
         if (row.imageUrl) otherFaceImageMap.set(row.printingId, row.imageUrl);
       }
     }
-
-    return this.buildDeckDTO(deckRow, deckCardsWithDetails, otherFaceImageMap);
+    return otherFaceImageMap;
   }
 
   /**
@@ -974,6 +981,63 @@ export class PostgresDeckService implements IDeckService {
       return { success: true, data: { ...this.toVersionSummary(row), snapshot: row.snapshot as DeckVersionSnapshot } };
     } catch (error) {
       console.error('[deck versions] failed to load the version:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to load the version' };
+    }
+  }
+
+  /**
+   * A saved version in the shape the deck page renders: the live deck's own
+   * fields with the version's cards (current card + printing details), format
+   * and hero in place. Read-only by construction — nothing is written.
+   */
+  async getDeckVersionAsDeck(publicId: string, userId: string, versionNumber: number): AsyncResult<DeckDTO | null> {
+    try {
+      const [deckRow] = await db
+        .select()
+        .from(decks)
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
+        .limit(1);
+      if (!deckRow) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
+
+      const [version] = await db
+        .select({ snapshot: deckVersions.snapshot })
+        .from(deckVersions)
+        .where(and(eq(deckVersions.deckId, deckRow.id), eq(deckVersions.versionNumber, versionNumber)))
+        .limit(1);
+      if (!version) return { success: true, data: null };
+
+      const snapshot = version.snapshot as DeckVersionSnapshot;
+      const versionCards = snapshot.cards ?? [];
+      const printingIds = [...new Set(versionCards.map(c => c.printingId))];
+      const details = printingIds.length > 0
+        ? await db
+            .select({ printingId: printings.printingId, ...DECK_CARD_DETAIL_COLUMNS })
+            .from(printings)
+            .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+            .where(inArray(printings.printingId, printingIds))
+        : [];
+      const byPrinting = new Map(details.map(d => [d.printingId, d]));
+
+      // One row per saved card, in buildDeckDTO's shape. A printing that no
+      // longer exists keeps the name and pitch the version stored.
+      const rows = versionCards.map(card => ({
+        id: `version-${versionNumber}-${card.category}-${card.printingId}`,
+        printingId: card.printingId,
+        quantity: card.quantity,
+        category: card.category,
+        notes: null,
+        addedAt: null,
+        cardDisplayName: card.name,
+        cardUniqueId: card.cardUniqueId,
+        pitch: card.pitch,
+        otherFacePrintingId: null as string | null,
+        ...(byPrinting.get(card.printingId) ?? {}),
+      }));
+
+      const versionDeckRow = { ...deckRow, format: snapshot.format ?? deckRow.format, heroName: snapshot.heroName ?? deckRow.heroName };
+      return { success: true, data: this.buildDeckDTO(versionDeckRow, rows, await this.otherFaceImages(rows)) };
+    } catch (error) {
+      console.error('[deck versions] failed to load the version as a deck:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to load the version' };
     }
   }

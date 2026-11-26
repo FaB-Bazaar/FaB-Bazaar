@@ -828,6 +828,13 @@ export interface IDeckService {
   getDeckVersion(publicId: string, userId: string, versionNumber: number): AsyncResult<DeckVersion | null>;
 
   /**
+   * A saved version in the shape the deck page renders — the deck's own fields
+   * with the version's cards, format and hero in place; null when the deck has
+   * no such version. Owner or co-owner only. Nothing is written.
+   */
+  getDeckVersionAsDeck(publicId: string, userId: string, versionNumber: number): AsyncResult<DeckDTO | null>;
+
+  /**
    * Delete a deck
    *
    * @param publicId - The deck's public ID

@@ -49,8 +49,11 @@ import VersionsView from "./_components/VersionsView";
 import VersionPicker from "./_components/VersionPicker";
 import DeckHeader from "./_components/DeckHeader";
 import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
-import { mainModeHref, resolveMainMode, resolveOpenVersion, versionHref, type MainMode } from "@/lib/deck/deck-page-url";
+import { mainModeHref, resolveMainMode, resolveOpenVersion, saveVersionHref, versionHref, type MainMode } from "@/lib/deck/deck-page-url";
 import { useDeckVersions } from "@/hooks/deck/useDeckVersions";
+import { useVersionDeck } from "@/hooks/deck/useVersionDeck";
+import { applyVersionToDeck } from "@/lib/deck/deck-versions";
+import { buildDeckExportText } from "@/lib/deck/deck-export-text";
 import type { BrewFacets } from "@/lib/deck/brew";
 
 // Phones only — desktop never downloads the classic page's bundle.
@@ -93,11 +96,27 @@ function DeckV2Page() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { state, handlers } = useDeckEditor(deckId);
-  const deck = state.deck;
+  // The deck as it is saved — the working copy every edit goes to.
+  const liveDeck = state.deck;
   // Add / remove / move / quantity — shared with the classic page.
-  const mutations = useDeckMutations({ deckId, deck, refreshDeck: handlers.refreshDeck, applyDeck: handlers.applyDeck, refreshOwnership: handlers.refreshOwnership });
+  const mutations = useDeckMutations({ deckId, deck: liveDeck, refreshDeck: handlers.refreshDeck, applyDeck: handlers.applyDeck, refreshOwnership: handlers.refreshOwnership });
 
-  const canEdit = !!(user && deck && (deck.userId === user.id || (deck.coOwners ?? []).includes(user.id)));
+  // May this viewer edit the deck at all (owner or co-owner)?
+  const isEditor = !!(user && liveDeck && (liveDeck.userId === user.id || (liveDeck.coOwners ?? []).includes(user.id)));
+  const searchParams = useSearchParams();
+  // A saved version picked in the header (?version=N, editors): every deck view
+  // shows that list instead of the live deck, read-only, until "Current deck".
+  const viewedVersion = isEditor ? resolveOpenVersion(searchParams.get("version")) : null;
+  const viewingVersion = viewedVersion != null;
+  const versionDeck = useVersionDeck(deckId, viewedVersion);
+  // What the views show: the live deck, or the picked version in its place
+  // (null while that version loads — never the live list under a version's name).
+  const deck = useMemo(
+    () => (!viewingVersion ? liveDeck : liveDeck && versionDeck.deck ? applyVersionToDeck(liveDeck, versionDeck.deck) : null),
+    [viewingVersion, liveDeck, versionDeck.deck],
+  );
+  // Editing is for the live deck only — a saved version never changes.
+  const canEdit = isEditor && !viewingVersion;
   // Every deck opens on its cards; the Find panel is a tool you open (below).
   const [panel, setPanel] = useState<PanelId | null>(null);
   const [active, setActive] = useState<Active>(null);
@@ -119,18 +138,20 @@ function DeckV2Page() {
   // Main area: the deck views, or Results / Notes / Import list / Prices. Kept
   // in ?tab= (lib/deck/deck-page-url) so a view can be linked, survives a
   // refresh, and Back returns to the deck. /decks/[id]/notes redirects here.
-  const searchParams = useSearchParams();
-  const mainMode = resolveMainMode(searchParams.get("tab"), canEdit);
+  const mainMode = resolveMainMode(searchParams.get("tab"), isEditor, viewingVersion);
   const setMainMode = (mode: MainMode) => {
     if (mode === mainMode) return;
     window.history.pushState(null, "", mainModeHref(window.location.pathname, window.location.search, mode));
   };
   // Saved versions (editors): one list for the header's picker and the Versions
-  // view. The open version lives in ?version= so it can be linked.
-  const versionList = useDeckVersions(deckId, canEdit);
-  const openVersion = mainMode === "versions" ? resolveOpenVersion(searchParams.get("version")) : null;
-  const setOpenVersion = (versionNumber: number | null) => {
+  // view. Picking one keeps the view that is open and swaps the list it shows.
+  const versionList = useDeckVersions(deckId, isEditor);
+  const viewedVersionInfo = viewingVersion ? versionList.versions?.find(v => v.versionNumber === viewedVersion) : undefined;
+  const setViewedVersion = (versionNumber: number | null) => {
     window.history.pushState(null, "", versionHref(window.location.pathname, window.location.search, versionNumber));
+  };
+  const goSaveVersion = () => {
+    window.history.pushState(null, "", saveVersionHref(window.location.pathname, window.location.search));
   };
   // The side panels (Find, Stats) describe the deck views only; the pick is
   // kept while another main view shows, so coming back restores it.
@@ -226,7 +247,7 @@ function DeckV2Page() {
   }, []);
 
   const { chordMode, setChordMode, hud: commandHud } = useDeckCommandHud({
-    deck: state.deck ?? null,
+    deck: deck ?? null,
     deckId,
     canEdit,
     openQuickAdd: t => { if (canEdit) setAddTarget(t.category); },
@@ -239,8 +260,9 @@ function DeckV2Page() {
 
   // Options menu (the classic page's "More": copy/export, export image, stream
   // overlay, settings, owned printings, language) + its dialogs — shared hook.
-  const isOwner = !!(user && deck && deck.userId === user.id);
-  const options = useDeckOptions({ deck: deck ?? null, deckId, canEdit, isOwner, refreshDeck: handlers.refreshDeck });
+  // (Its dialogs — settings, owned printings, language — act on the live deck.)
+  const isOwner = !!(user && liveDeck && liveDeck.userId === user.id);
+  const options = useDeckOptions({ deck: liveDeck ?? null, deckId, canEdit: isEditor, isOwner, refreshDeck: handlers.refreshDeck });
 
   // A bare "+" (outside a text box, HUD closed) opens the card search for the main deck.
   useEffect(() => {
@@ -262,9 +284,9 @@ function DeckV2Page() {
   // Same visibility rule as the classic page: a private deck the viewer can't
   // edit falls through to the read-only analyze view.
   useEffect(() => {
-    if (authLoading || state.deckLoading || !deck) return;
-    if (!canEdit && !deck.isPublic) router.replace(`/decks/${deckId}/analyze`);
-  }, [authLoading, state.deckLoading, deck, canEdit, deckId, router]);
+    if (authLoading || state.deckLoading || !liveDeck) return;
+    if (!isEditor && !liveDeck.isPublic) router.replace(`/decks/${deckId}/analyze`);
+  }, [authLoading, state.deckLoading, liveDeck, isEditor, deckId, router]);
 
   const fail = (title: string, description?: string) => toast({ title, description, variant: "destructive" });
 
@@ -363,10 +385,11 @@ function DeckV2Page() {
     { kind: "panel", id: "find", label: "Deck", icon: Search },
     { kind: "panel", id: "stats", label: "Stats", icon: BarChart3 },
     { kind: "main", id: "prices", label: "Prices", icon: DollarSign },
+    // Import list adds cards to the live deck, so it steps aside while a version shows.
     ...(canEdit ? [{ kind: "main" as const, id: "import" as const, label: "Import list", icon: ClipboardList }] : []),
-    ...(canEdit ? [{ kind: "main" as const, id: "results" as const, label: "Results", icon: Trophy }] : []),
-    ...(canEdit ? [{ kind: "main" as const, id: "notes" as const, label: "Notes", icon: FileText }] : []),
-    ...(canEdit ? [{ kind: "main" as const, id: "versions" as const, label: "Versions", icon: History }] : []),
+    ...(isEditor ? [{ kind: "main" as const, id: "results" as const, label: "Results", icon: Trophy }] : []),
+    ...(isEditor ? [{ kind: "main" as const, id: "notes" as const, label: "Notes", icon: FileText }] : []),
+    ...(isEditor ? [{ kind: "main" as const, id: "versions" as const, label: "Versions", icon: History }] : []),
     { kind: "link", href: `/decks/${deckId}/matchups`, label: "Matchups", icon: Swords, gap: true },
     { kind: "link", href: `/decks/${deckId}/present`, label: "Present", icon: Tv },
   ];
@@ -374,7 +397,7 @@ function DeckV2Page() {
   if (state.deckLoading || authLoading) {
     return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-gray-400" aria-label="Loading deck" /></div>;
   }
-  if (!deck) {
+  if (!liveDeck) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <AlertCircle className="mx-auto h-8 w-8 text-red-500" aria-hidden />
@@ -382,25 +405,59 @@ function DeckV2Page() {
       </div>
     );
   }
+  // A version is picked and still loading (or could not be loaded).
+  if (!deck) {
+    if (!versionDeck.error) {
+      return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-gray-400" aria-label={`Loading version ${viewedVersion}`} /></div>;
+    }
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-red-500" aria-hidden />
+        <p role="alert" className="mt-3 text-gray-700 dark:text-gray-300">Version {viewedVersion} could not be opened. {versionDeck.error}</p>
+        <button
+          type="button"
+          onClick={() => setViewedVersion(null)}
+          className="mt-4 rounded-sm border border-gray-400 bg-gray-100 px-3 py-1 text-sm text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+        >
+          Back to current deck
+        </button>
+      </div>
+    );
+  }
 
   // On its way to /analyze (effect above) — don't paint the deck page first.
-  if (!canEdit && !deck.isPublic) return null;
+  if (!isEditor && !liveDeck.isPublic) return null;
 
   const heroName = deck.heroName || deck.hero?.[0]?.printingDetails?.display_name;
 
   // The Options menu shows twice — the rail's bottom item and the kebab in the
   // header's top right — with the same items.
+  // While a version shows, Copy list / Export give THAT list (the hook's own
+  // handlers read the live deck).
+  const copyVersionList = () => {
+    navigator.clipboard.writeText(buildDeckExportText(deck)).then(() => {
+      toast({ title: "Copied!", description: `Version ${viewedVersion} list copied to clipboard.` });
+    });
+  };
+  const exportVersionList = () => {
+    const url = URL.createObjectURL(new Blob([buildDeckExportText(deck)], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${deck.name || "deck"} - version ${viewedVersion}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const optionsMenu = {
     isOwner,
-    onCopyList: options.handleCopyList,
-    onExport: options.handleExportList,
+    onCopyList: viewingVersion ? copyVersionList : options.handleCopyList,
+    onExport: viewingVersion ? exportVersionList : options.handleExportList,
     onExportImage: () => options.setExportImageOpen(true),
     onPresent: () => router.push(`/decks/${deckId}/present`),
     onStickers: () => router.push(`/decks/${deckId}/stickers`),
     onSettings: () => options.setSettingsOpen(true),
     onUpdateOwnedPrintings: canEdit ? options.handleUpgradePrintings : undefined,
     onConvertLanguage: canEdit ? options.handleConvertLanguage : undefined,
-    onStreamOverlay: canEdit ? () => options.setStreamOverlayOpen(true) : undefined,
+    onStreamOverlay: isEditor ? () => options.setStreamOverlayOpen(true) : undefined,
   };
 
   return (
@@ -528,21 +585,21 @@ function DeckV2Page() {
             deck={deck}
             heroName={heroName}
             line={[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
-            nameAddon={canEdit && (
-              // Which list is showing: the deck itself, or one of its saved versions
-              // (opens it in the Versions view).
+            nameAddon={isEditor && (
+              // Which list the page shows: the deck itself, or one of its saved
+              // versions — on whatever view is open.
               <VersionPicker
                 versions={versionList.versions}
-                openVersion={openVersion}
-                onCurrent={() => setMainMode("deck")}
-                onOpen={setOpenVersion}
-                onSave={() => setOpenVersion(null)}
+                openVersion={viewedVersion}
+                onCurrent={() => setViewedVersion(null)}
+                onOpen={setViewedVersion}
+                onSave={goSaveVersion}
               />
             )}
           >
             <div className="flex shrink-0 items-center gap-3 self-start text-sm">
               {/* Someone else's deck: read only, but you can take a copy (classic parity). */}
-              {!canEdit && (
+              {!isEditor && (
                 <>
                   <span className="text-gray-600 dark:text-gray-400">Read only</span>
                   <button
@@ -573,6 +630,28 @@ function DeckV2Page() {
               />
             </div>
           </DeckHeader>
+          {viewingVersion && (
+            // Every view below shows this saved list, not the live deck.
+            <div
+              role="status"
+              aria-label="Viewing a saved version"
+              className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border border-blue-600 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100"
+            >
+              <p>
+                <strong>Version {viewedVersion}</strong>
+                {viewedVersionInfo?.label ? ` — ${viewedVersionInfo.label}` : ""}
+                {viewedVersionInfo ? ` · saved ${new Date(viewedVersionInfo.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" })}` : ""}
+                . You&apos;re looking at a saved version, so the cards can&apos;t be changed here.
+              </p>
+              <button
+                type="button"
+                onClick={() => setViewedVersion(null)}
+                className="shrink-0 rounded-sm border border-blue-700 bg-white px-3 py-1 font-medium text-blue-900 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-blue-300 dark:bg-blue-900 dark:text-blue-50 dark:hover:bg-blue-800"
+              >
+                Back to current deck
+              </button>
+            </div>
+          )}
           {mainMode === "import" ? (
             <section aria-label="Import list">
               <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
@@ -602,7 +681,7 @@ function DeckV2Page() {
             </section>
           ) : mainMode === "results" ? (
             <section aria-label="Results">
-              <DeckResultsTab deckId={deckId} deck={deck} />
+              <DeckResultsTab deckId={deckId} deck={liveDeck} />
             </section>
           ) : mainMode === "prices" ? (
             <section aria-label="Prices">
@@ -610,11 +689,11 @@ function DeckV2Page() {
             </section>
           ) : mainMode === "notes" ? (
             <section aria-label="Notes">
-              <DeckNotesTab deckId={deckId} deck={deck} />
+              <DeckNotesTab deckId={deckId} deck={liveDeck} />
             </section>
           ) : mainMode === "versions" ? (
             <section aria-label="Versions">
-              <VersionsView deckId={deckId} deck={deck} list={versionList} openNumber={openVersion} onOpen={setOpenVersion} />
+              <VersionsView deckId={deckId} deck={liveDeck} list={versionList} openNumber={viewedVersion} onOpen={setViewedVersion} />
             </section>
           ) : (
           <>
@@ -668,7 +747,7 @@ function DeckV2Page() {
           )}
           {view === "brew" ? null : view === "table" ? (
             <DeckTable
-              deck={mutations.deck ?? deck}
+              deck={viewingVersion ? deck : (mutations.deck ?? deck)}
               active={active}
               hudFilters={hudFilters}
               ownershipMap={state.ownershipMap}
@@ -693,7 +772,7 @@ function DeckV2Page() {
             cardOwnershipMap={state.cardOwnershipMap}
             wantsMap={state.wantsMap}
             canEdit={canEdit}
-            defaultViewMode={resolveDefaultDeckViewMode(canEdit, false)}
+            defaultViewMode={resolveDefaultDeckViewMode(isEditor, false)}
             onSwap={setSwapTarget}
             onRemove={mutations.remove}
             onMove={mutations.move}

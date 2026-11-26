@@ -187,3 +187,61 @@ describe('deleting the deck', () => {
     expect(rows).toHaveLength(0);
   });
 });
+
+describe('getDeckVersionAsDeck', () => {
+  it('returns the version as a deck: its cards in their zones with full card details', async () => {
+    await service.saveDeckVersion(publicId, ownerId, {});
+    const r = await service.getDeckVersionAsDeck(publicId, ownerId, 1);
+    expect(r.success).toBe(true);
+    if (!r.success || !r.data) throw new Error('no deck');
+    expect(r.data.publicId).toBe(publicId);
+    expect(r.data.format).toBe('Classic Constructed');
+    expect(r.data.heroName).toBe('Test Hero');
+    expect(r.data.maindeck).toHaveLength(1);
+    expect(r.data.maindeck[0]).toMatchObject({
+      printingId: fixtures[0].printingId,
+      quantity: 3,
+      printingDetails: { display_name: fixtures[0].name, card_unique_id: fixtures[0].cardUniqueId, pitch: fixtures[0].pitch },
+    });
+    expect(r.data.maindeck[0].printingDetails?.set).toBeTruthy();
+    expect(r.data.inventory.map(c => [c.printingId, c.quantity])).toEqual([[fixtures[1].printingId, 2]]);
+    expect(r.data.equipment).toEqual([]);
+    expect(r.data.maindeckCount).toBe(3);
+  });
+
+  it('still shows a card that has since been taken out of the deck, at its saved quantity', async () => {
+    await service.saveDeckVersion(publicId, ownerId, {});
+    await db.delete(deckCards).where(and(eq(deckCards.deckId, deckId), eq(deckCards.printingId, fixtures[0].printingId)));
+    await setQuantity(fixtures[1].printingId, 1);
+    const r = await service.getDeckVersionAsDeck(publicId, ownerId, 1);
+    if (!r.success || !r.data) throw new Error('no deck');
+    expect(r.data.maindeck.map(c => [c.printingId, c.quantity])).toEqual([[fixtures[0].printingId, 3]]);
+    expect(r.data.inventory.map(c => [c.printingId, c.quantity])).toEqual([[fixtures[1].printingId, 2]]);
+  });
+
+  it('uses the format and hero the version was saved with', async () => {
+    await service.saveDeckVersion(publicId, ownerId, {});
+    await db.update(decks).set({ format: 'Blitz', heroName: 'Someone Else' }).where(eq(decks.id, deckId));
+    const r = await service.getDeckVersionAsDeck(publicId, ownerId, 1);
+    expect(r.success && r.data?.format).toBe('Classic Constructed');
+    expect(r.success && r.data?.heroName).toBe('Test Hero');
+  });
+
+  it('never changes the live deck', async () => {
+    await service.saveDeckVersion(publicId, ownerId, {});
+    await setQuantity(fixtures[0].printingId, 1);
+    const before = await liveCards();
+    await service.getDeckVersionAsDeck(publicId, ownerId, 1);
+    expect(await liveCards()).toEqual(before);
+  });
+
+  it('returns null for a version number the deck does not have', async () => {
+    const r = await service.getDeckVersionAsDeck(publicId, ownerId, 4);
+    expect(r.success && r.data).toBeNull();
+  });
+
+  it('refuses someone who cannot edit the deck', async () => {
+    await service.saveDeckVersion(publicId, ownerId, {});
+    expect((await service.getDeckVersionAsDeck(publicId, strangerId, 1)).success).toBe(false);
+  });
+});

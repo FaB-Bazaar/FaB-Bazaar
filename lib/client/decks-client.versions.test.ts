@@ -3,7 +3,7 @@
  * Versions view).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getDeckVersion, listDeckVersions, saveDeckVersion } from './decks-client';
+import { getDeckVersion, getDeckVersionDeck, listDeckVersions, saveDeckVersion } from './decks-client';
 
 const fetchMock = vi.fn();
 const ok = (body: unknown, status = 200) => ({ ok: true, status, statusText: 'OK', json: async () => body }) as unknown as Response;
@@ -36,5 +36,13 @@ describe('decksClient deck versions', () => {
     const res = await getDeckVersion('deck-1', 3);
     expect(fetchMock.mock.calls[0][0]).toBe('/api/decks/deck-1/versions/3');
     expect(res).toEqual({ success: true, data: { version: full } });
+  });
+
+  it('getDeckVersionDeck GETs /api/decks/<id>/versions/<number>/deck', async () => {
+    const deck = { publicId: 'deck-1', maindeck: [{ printingId: 'p', quantity: 3 }] };
+    fetchMock.mockResolvedValue(ok({ success: true, data: { deck } }));
+    const res = await getDeckVersionDeck('deck-1', 3);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/decks/deck-1/versions/3/deck');
+    expect(res).toEqual({ success: true, data: { deck } });
   });
 });
