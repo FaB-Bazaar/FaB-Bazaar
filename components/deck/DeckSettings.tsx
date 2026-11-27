@@ -15,6 +15,7 @@ import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2, Star, Shield } fr
 import DeckMatchupsDialog from "./DeckMatchupsDialog";
 import { DECK_FOLDER_MAX_LENGTH } from "@/lib/services/contracts/IDeckService";
 import TalisharToggle from "./TalisharToggle";
+import DeckSendToApps from "./DeckSendToApps";
 import { TALISHAR_HERO_IDS } from "@/lib/fab-constants/heroes";
 
 const FORMATS = [
@@ -428,6 +429,9 @@ export default function DeckSettings({ deck, onSave, existingFolders = [], loadi
           </p>
         )}
       </div>
+
+      {/* Connected game clients (e.g. Cintari): which ones get this deck */}
+      {deckId && <DeckSendToApps deckId={deckId} />}
 
       {/* Decks to Beat (curator-only, public decks only) */}
       {isCurator && visibility === 'public' && onToggleFeatured && deckId && (
