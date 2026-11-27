@@ -113,3 +113,11 @@ describe('parseBulkInput — bare tags after a collector number', () => {
     expect(card.name).toBe('wtr123 something');
   });
 });
+
+describe('parseBulkInput — section headers from our own list export', () => {
+  it('skips the "Inventory" header so it is not read as a card', () => {
+    const cards = parseBulkInput('Deck cards\n3x Sink Below (red)\n\nInventory\n1x Nullrune Boots', 'cardlist')
+    expect(cards.map(c => c.name)).not.toContain('inventory')
+    expect(cards.map(c => c.name)).toContain('nullrune boots')
+  })
+})

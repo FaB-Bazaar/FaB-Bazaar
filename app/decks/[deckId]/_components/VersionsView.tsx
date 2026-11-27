@@ -142,7 +142,7 @@ export default function VersionsView({ deckId, deck, list, openNumber, onOpen }:
               <th scope="col" className="w-48 px-2 py-1.5">Saved</th>
               <th scope="col" className="w-20 px-2 py-1.5 text-right">Deck</th>
               <th scope="col" className="w-20 px-2 py-1.5 text-right">Arena</th>
-              <th scope="col" className="w-24 px-2 py-1.5 text-right">Sideboard</th>
+              <th scope="col" className="w-24 px-2 py-1.5 text-right">Inventory</th>
               <th scope="col" className="w-24 px-2 py-1.5"><span className="sr-only">Open</span></th>
             </tr>
           </thead>

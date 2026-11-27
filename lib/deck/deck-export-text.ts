@@ -5,7 +5,7 @@
 //   Name: …  /  Hero: …  /  Format: …
 //   Arena cards   — the equipment zone
 //   Deck cards    — the main deck
-//   Sideboard     — the inventory zone (FaBrary has no such section)
+//   Inventory     — the inventory zone, FaB's sideboard (FaBrary has no such section)
 //
 // Each line is "Nx Name (colour)", printings of the same card merged within a
 // section. The benched (maybe) pile and tokens are never exported.
@@ -17,7 +17,7 @@ const PITCH_LABEL: Record<number, string> = { 1: '(red)', 2: '(yellow)', 3: '(bl
 const SECTIONS = [
   { category: 'equipment', label: 'Arena cards' },
   { category: 'maindeck', label: 'Deck cards' },
-  { category: 'inventory', label: 'Sideboard' },
+  { category: 'inventory', label: 'Inventory' },
 ] as const;
 
 const cardName = (card: DeckPrintingDTO): string =>

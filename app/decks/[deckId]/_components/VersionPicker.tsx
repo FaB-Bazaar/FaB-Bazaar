@@ -74,7 +74,7 @@ export default function VersionPicker({ versions, openVersion, onCurrent, onOpen
                   {v.label && <span className="truncate">{v.label}</span>}
                 </span>
                 <span className="text-xs tabular-nums text-gray-600 dark:text-gray-400">
-                  {savedOn(v.createdAt)} · {v.counts.maindeck} deck · {v.counts.inventory} sideboard
+                  {savedOn(v.createdAt)} · {v.counts.maindeck} deck · {v.counts.inventory} inventory
                 </span>
               </span>
             </DropdownMenuRadioItem>

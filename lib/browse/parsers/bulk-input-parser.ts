@@ -204,7 +204,7 @@ export function parseBulkInput(
 ): ParsedCard[] {
   const lines = input.split("\n")
       .map(line => line.trim())
-      .filter(line => line && !line.startsWith('//') && !line.startsWith('Sideboard'));
+      .filter(line => line && !line.startsWith('//') && !line.startsWith('Sideboard') && line !== 'Inventory');
 
   let parsedCards: ParsedCard[];
   switch (source) {

@@ -102,12 +102,12 @@ describe('diffVersionCards', () => {
     ])
   })
 
-  it('shows a card moved to the sideboard as out of the deck and into the sideboard', () => {
+  it('shows a card moved to the inventory as out of the deck and into the inventory', () => {
     const before = [vc('Sink Below', 3, 'maindeck', 1)]
     const after = [vc('Sink Below', 2, 'maindeck', 1), vc('Sink Below', 1, 'inventory', 1)]
     expect(diffVersionCards(before, after)).toEqual([
       { zone: 'maindeck', label: 'Deck cards', added: [], removed: [{ name: 'Sink Below', pitch: 1, quantity: 1 }] },
-      { zone: 'inventory', label: 'Sideboard', added: [{ name: 'Sink Below', pitch: 1, quantity: 1 }], removed: [] },
+      { zone: 'inventory', label: 'Inventory', added: [{ name: 'Sink Below', pitch: 1, quantity: 1 }], removed: [] },
     ])
   })
 

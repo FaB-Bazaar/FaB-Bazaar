@@ -14,7 +14,7 @@ export const VERSION_ZONE_LABEL: Record<VersionZone, string> = {
   hero: 'Hero',
   equipment: 'Arena cards',
   maindeck: 'Deck cards',
-  inventory: 'Sideboard',
+  inventory: 'Inventory',
   benched: 'Bench',
   tokens: 'Tokens',
 }

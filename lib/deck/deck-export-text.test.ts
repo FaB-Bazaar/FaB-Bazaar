@@ -5,7 +5,7 @@ import { buildDeckExportText } from './deck-export-text'
 
 // The Options menu's "Copy list" / "Export" text. Laid out like a FaBrary
 // export (Name / Hero / Format, then "Arena cards" and "Deck cards") so it
-// pastes back into our own importer, plus a "Sideboard" section for the
+// pastes back into our own importer, plus an "Inventory" section for the
 // inventory zone.
 const card = (name: string, quantity: number, pitch?: number, extra: Record<string, unknown> = {}) => ({
   printingId: `${name}-${pitch ?? 0}-${quantity}`,
@@ -63,7 +63,7 @@ describe('buildDeckExportText', () => {
       'Deck cards',
       '3x Sink Below (red)',
       '',
-      'Sideboard',
+      'Inventory',
       '1x Nullrune Boots',
       '2x Oasis Respite (red)',
     ].join('\n'))
@@ -72,7 +72,7 @@ describe('buildDeckExportText', () => {
   it('leaves out a section with no cards', () => {
     const text = buildDeckExportText(deck({ maindeck: [card('Sink Below', 3, 1)] }))
     expect(text).not.toContain('Arena cards')
-    expect(text).not.toContain('Sideboard')
+    expect(text).not.toContain('Inventory')
     expect(text.endsWith('Deck cards\n3x Sink Below (red)')).toBe(true)
   })
 
@@ -102,12 +102,12 @@ describe('buildDeckExportText', () => {
     ])
   })
 
-  it('keeps the same card separate between the main deck and the sideboard', () => {
+  it('keeps the same card separate between the main deck and the inventory', () => {
     const text = buildDeckExportText(deck({
       maindeck: [card('Sink Below', 2, 1)],
       inventory: [card('Sink Below', 1, 1)],
     }))
-    expect(text.split('\n').slice(4)).toEqual(['Deck cards', '2x Sink Below (red)', '', 'Sideboard', '1x Sink Below (red)'])
+    expect(text.split('\n').slice(4)).toEqual(['Deck cards', '2x Sink Below (red)', '', 'Inventory', '1x Sink Below (red)'])
   })
 
   it('never exports the benched pile or tokens', () => {
