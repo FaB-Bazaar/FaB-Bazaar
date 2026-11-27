@@ -12,17 +12,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { DeckVersionSummary } from "@/lib/deck/deck-versions";
 import { cn } from "@/lib/utils";
-import TalisharMark from "./TalisharMark";
 
 const savedOn = (iso: string) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 
-export default function VersionPicker({ versions, openVersion, talisharVersion, onCurrent, onOpen, onSave }: {
+export default function VersionPicker({ versions, openVersion, onCurrent, onOpen, onSave }: {
   /** null while the list loads. */
   versions: DeckVersionSummary[] | null;
   /** The version the page is showing; null = the deck itself. */
   openVersion: number | null;
-  /** The list Talishar imports — a version number, or null for the deck itself. undefined = the deck is hidden from Talishar (no coin anywhere). */
-  talisharVersion?: number | null;
   onCurrent: () => void;
   onOpen: (versionNumber: number) => void;
   onSave: () => void;
@@ -44,7 +41,6 @@ export default function VersionPicker({ versions, openVersion, talisharVersion, 
               : "border-blue-600 bg-blue-50 text-blue-800 hover:bg-blue-100 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900",
           )}
         >
-          {talisharVersion !== undefined && talisharVersion === openVersion && <TalisharMark />}
           <span className="truncate">{triggerText}</span>
           <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
         </button>
@@ -63,7 +59,6 @@ export default function VersionPicker({ versions, openVersion, talisharVersion, 
               <span className="font-medium">Current deck</span>
               <span className="text-xs text-gray-600 dark:text-gray-400">The deck as it is now</span>
             </span>
-            {talisharVersion === null && <TalisharMark className="mt-0.5 h-4 w-4" />}
           </DropdownMenuRadioItem>
           {versions && versions.length > 0 && (
             <>
@@ -82,7 +77,6 @@ export default function VersionPicker({ versions, openVersion, talisharVersion, 
                   {savedOn(v.createdAt)} · {v.counts.maindeck} deck · {v.counts.inventory} sideboard
                 </span>
               </span>
-              {talisharVersion === v.versionNumber && <TalisharMark className="mt-0.5 h-4 w-4" />}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

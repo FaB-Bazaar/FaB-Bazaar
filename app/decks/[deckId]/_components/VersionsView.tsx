@@ -15,10 +15,6 @@ import {
 import type { DeckVersionsState } from "@/hooks/deck/useDeckVersions";
 import { decksClient } from "@/lib/client";
 import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import TalisharMark from "./TalisharMark";
 
 const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
@@ -31,7 +27,7 @@ const savedAt = (iso: string) => new Date(iso).toLocaleString(undefined, { dateS
 
 const BUTTON = "rounded-sm border border-gray-400 bg-gray-100 px-3 py-1 text-sm text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700";
 
-export default function VersionsView({ deckId, deck, list, openNumber, onOpen, onTalisharVersion }: {
+export default function VersionsView({ deckId, deck, list, openNumber, onOpen }: {
   deckId: string;
   deck: DeckDTO;
   /** The saved versions (shared with the header's version picker). */
@@ -39,8 +35,6 @@ export default function VersionsView({ deckId, deck, list, openNumber, onOpen, o
   /** The version shown below the table — from `?version=`, so it can be linked. */
   openNumber: number | null;
   onOpen: (versionNumber: number | null) => void;
-  /** Pick the list Talishar imports: a version number, or null for the deck itself. */
-  onTalisharVersion: (versionNumber: number | null) => void;
 }) {
   const { versions, error: loadError, reload: loadVersions } = list;
   const [label, setLabel] = useState("");
@@ -93,8 +87,6 @@ export default function VersionsView({ deckId, deck, list, openNumber, onOpen, o
 
   // The list Talishar imports (decks.talishar_version): a version, or the deck itself.
   const talisharVersion = deck.talisharVersion ?? null;
-  const talisharInfo = talisharVersion != null ? versions?.find(v => v.versionNumber === talisharVersion) : undefined;
-  const talisharLabel = talisharVersion == null ? "Current deck" : `Version ${talisharVersion}${talisharInfo?.label ? ` — ${talisharInfo.label}` : ""}`;
 
   const liveCards = useMemo(() => deckToVersionCards(deck), [deck]);
   const opened = openNumber != null ? details[openNumber] ?? null : null;
@@ -134,44 +126,6 @@ export default function VersionsView({ deckId, deck, list, openNumber, onOpen, o
       <p className="text-xs text-gray-600 dark:text-gray-400">
         A version is a copy of this deck&apos;s cards as they are right now. Saving one never changes the deck, and a saved version never changes afterwards.
       </p>
-
-      {/* Which list Talishar imports: the deck as it is now, or one saved version. */}
-      <div role="group" aria-label="Talishar" className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-gray-300 bg-gray-100 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
-        <TalisharMark className="h-5 w-5" />
-        <span className="font-semibold text-gray-900 dark:text-gray-100">Talishar plays</span>
-        {deck.availableOnTalishar === false ? (
-          <span className="text-gray-700 dark:text-gray-300">nothing — this deck is hidden from Talishar (Options → Settings).</span>
-        ) : (
-          <>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" aria-label={`Talishar plays: ${talisharLabel}`} className={cn(BUTTON, "inline-flex max-w-72 items-center gap-1.5 bg-white dark:bg-gray-900")}>
-                  <span className="truncate">{talisharLabel}</span>
-                  <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent aria-label="Talishar plays" align="start" className="max-h-[min(26rem,var(--radix-dropdown-menu-content-available-height))] w-80 overflow-y-auto">
-                <DropdownMenuRadioGroup
-                  value={talisharVersion == null ? "current" : String(talisharVersion)}
-                  onValueChange={value => onTalisharVersion(value === "current" ? null : Number(value))}
-                >
-                  <DropdownMenuRadioItem value="current">Current deck (follows your edits)</DropdownMenuRadioItem>
-                  {(versions ?? []).map(v => (
-                    <DropdownMenuRadioItem key={v.versionNumber} value={String(v.versionNumber)}>
-                      <span className="truncate">Version {v.versionNumber}{v.label ? ` — ${v.label}` : ""}</span>
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <span className="text-xs text-gray-600 dark:text-gray-400">
-              {talisharVersion == null
-                ? "Talishar imports the deck as it is now, so every edit shows up there."
-                : `Talishar keeps importing version ${talisharVersion} while you go on editing the deck.`}
-            </span>
-          </>
-        )}
-      </div>
 
       {loadError && <p role="alert" className="text-red-700 dark:text-red-300">{loadError}</p>}
       {!loadError && versions === null && <p className="text-gray-600 dark:text-gray-400">Loading versions…</p>}

@@ -47,6 +47,7 @@ import RatioCompare from "./_components/RatioCompare";
 import PricesView from "./_components/PricesView";
 import VersionsView from "./_components/VersionsView";
 import VersionPicker from "./_components/VersionPicker";
+import TalisharVersionPicker from "./_components/TalisharVersionPicker";
 import DeckHeader from "./_components/DeckHeader";
 import { sanitizeRatios, type DeckRatio } from "@/lib/deck/ratios";
 import { mainModeHref, resolveMainMode, resolveOpenVersion, saveVersionHref, versionHref, type MainMode } from "@/lib/deck/deck-page-url";
@@ -599,16 +600,24 @@ function DeckV2Page() {
             heroName={heroName}
             line={[heroName, deck.format, deckSizeLabel(deck)].filter(Boolean).join(" · ")}
             nameAddon={isEditor && (
-              // Which list the page shows: the deck itself, or one of its saved
-              // versions — on whatever view is open.
-              <VersionPicker
-                versions={versionList.versions}
-                openVersion={viewedVersion}
-                talisharVersion={liveDeck.availableOnTalishar === false ? undefined : (liveDeck.talisharVersion ?? null)}
-                onCurrent={() => setViewedVersion(null)}
-                onOpen={setViewedVersion}
-                onSave={goSaveVersion}
-              />
+              <>
+                {/* Which list the page shows: the deck itself, or one of its saved
+                    versions — on whatever view is open. */}
+                <VersionPicker
+                  versions={versionList.versions}
+                  openVersion={viewedVersion}
+                  onCurrent={() => setViewedVersion(null)}
+                  onOpen={setViewedVersion}
+                  onSave={goSaveVersion}
+                />
+                {/* Which list Talishar imports — its own setting, apart from what is viewed. */}
+                <TalisharVersionPicker
+                  versions={versionList.versions}
+                  talisharVersion={liveDeck.talisharVersion ?? null}
+                  hidden={liveDeck.availableOnTalishar === false}
+                  onChange={chooseTalisharVersion}
+                />
+              </>
             )}
           >
             <div className="flex shrink-0 items-center gap-3 self-start text-sm">
@@ -707,7 +716,7 @@ function DeckV2Page() {
             </section>
           ) : mainMode === "versions" ? (
             <section aria-label="Versions">
-              <VersionsView deckId={deckId} deck={liveDeck} list={versionList} openNumber={viewedVersion} onOpen={setViewedVersion} onTalisharVersion={chooseTalisharVersion} />
+              <VersionsView deckId={deckId} deck={liveDeck} list={versionList} openNumber={viewedVersion} onOpen={setViewedVersion} />
             </section>
           ) : (
           <>
