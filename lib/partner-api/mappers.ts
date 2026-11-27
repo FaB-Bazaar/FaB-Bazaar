@@ -2,7 +2,8 @@
 // are the contract described in the OpenAPI spec, so a field is only ever
 // added here — never renamed or removed within a version.
 import type { BinderWithStatsDTO, InventoryCardDTO } from '@/lib/services/contracts/IBinderService';
-import type { DeckDTO, DeckPrintingDTO, DeckSummaryDTO } from '@/lib/services/contracts/IDeckService';
+import type { DeckDTO, DeckPrintingDTO, DeckSummaryDTO, PartnerDeckListItem } from '@/lib/services/contracts/IDeckService';
+import type { DeckMatchup } from '@/types/deck';
 
 export interface PartnerCard {
   printing_id: string;
@@ -113,4 +114,39 @@ export function toPartnerDeck(d: DeckDTO) {
       tokens: toZone(d.tokens),
     },
   };
+}
+
+// ── Play API (/api/partner/v1/play): decks a player sent to this app ────────
+
+/** One deck in the play list, with where to fetch its playable list. */
+export function toPartnerPlayDeck(d: PartnerDeckListItem) {
+  return {
+    id: d.publicId,
+    name: d.name,
+    format: d.format,
+    hero: d.heroName,
+    hero_card_id: d.heroCardId,
+    total_cards: d.totalCards,
+    updated_at: iso(d.updatedAt),
+    play_url: `/api/partner/v1/play/decks/${d.publicId}`,
+  };
+}
+
+/** A matchup (sideboard) plan against one hero. Card ids are Talishar ids. */
+export function toPartnerMatchup(m: DeckMatchup) {
+  return {
+    hero_id: m.heroId,
+    preferred_turn_order: m.preferredTurnOrder ?? null,
+    notes: m.notes ?? null,
+    sideboard: { in: [...m.sideboard.in], out: [...m.sideboard.out] },
+  };
+}
+
+/** A stored plan with the shape a client can use (old rows may be partial). */
+export function isWellFormedMatchup(m: unknown): m is DeckMatchup {
+  const plan = m as Partial<DeckMatchup> | null;
+  return Boolean(
+    plan && typeof plan.heroId === 'string' && plan.sideboard
+    && Array.isArray(plan.sideboard.in) && Array.isArray(plan.sideboard.out),
+  );
 }

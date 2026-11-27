@@ -10,7 +10,7 @@ const SCOPE_DESCRIPTIONS: Record<PartnerScope, string> = {
   'collection:read': "Read the user's binders and the cards in them.",
   'collection:write': "Add, change and remove cards in the user's binders. Includes collection:read.",
   'decks:read': "Read the user's decks.",
-  'decks:write': "Create decks for the user, and add or remove cards in the user's decks. Includes decks:read.",
+  'decks:write': "Create decks for the user, add or remove cards in the user's decks, and save their matchup plans. Includes decks:read.",
 };
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
@@ -87,7 +87,12 @@ export function buildOpenApiSpec(baseUrl: string) {
         'Within v1, fields are only ever added — never renamed or removed.',
     },
     servers: [{ url: `${baseUrl}/api/partner/v1` }],
-    tags: [{ name: 'Cards' }, { name: 'Collection' }, { name: 'Decks' }],
+    tags: [
+      { name: 'Cards' },
+      { name: 'Collection' },
+      { name: 'Decks' },
+      { name: 'Play', description: 'For game clients: the decks a user sends to your app, as a game imports them, and their matchup (sideboard) plans.' },
+    ],
     paths: {
       '/cards/search': {
         get: operation('cards:read', {
@@ -257,6 +262,79 @@ export function buildOpenApiSpec(baseUrl: string) {
           requestBody: { required: true, content: json(ref('DeckImportRequest')) },
           success: { status: '201', description: 'The new deck.', schema: envelope(ref('DeckImportResult')) },
           errors: { '400': 'The body is not valid, or the decklist could not be read.' },
+        }),
+      },
+      '/play/decks': {
+        get: operation('decks:read', {
+          operationId: 'listPlayDecks',
+          summary: 'List the decks the user sends to your app',
+          description:
+            'For game clients. A user chooses, per deck, which connected apps get it (deck Settings → "Send to"), so this lists only the decks sent to the app that owns the token — never their whole collection of decks. Most recently changed first.',
+          tags: ['Play'],
+          parameters: [
+            { name: 'format', in: 'query', description: 'Only decks of this format, as named on FaB Bazaar (e.g. `Classic Constructed`, `Blitz`, `Silver Age`).', schema: { type: 'string' } },
+            ...pageParams(50, 100),
+          ],
+          success: {
+            status: '200',
+            description: 'One page of decks.',
+            schema: envelope({ type: 'array', items: ref('PlayDeck') }, { pagination: ref('Pagination') }),
+          },
+        }),
+      },
+      '/play/decks/{deckId}': {
+        get: operation('decks:read', {
+          operationId: 'getPlayDeck',
+          summary: 'Get a deck as a game imports it',
+          description:
+            'The same export Talishar receives: card counts by Talishar card id (`total` in the deck, `sideboardTotal` in the inventory) and the matchup plans. ' +
+            'Served from the list the user picked for playing (a saved version of the deck, or the deck as it is now).',
+          tags: ['Play'],
+          parameters: [
+            pathParam('deckId', 'Deck id from `listPlayDecks`.'),
+            { name: 'matchup', in: 'query', description: "A matchup plan's `hero_id`: apply that plan's sideboard swaps to the counts.", schema: { type: 'string' } },
+            { name: 'include_art', in: 'query', description: 'Set to `1` to add `art`, a collector number → image URL map of the printings in the deck.', schema: { type: 'string', enum: ['1'] } },
+          ],
+          success: { status: '200', description: 'The playable deck.', schema: envelope(ref('PlayableDeck')) },
+          errors: { '404': 'No such deck, or the user does not send it to your app.' },
+        }),
+      },
+      '/play/decks/{deckId}/matchups': {
+        get: operation('decks:read', {
+          operationId: 'listMatchupPlans',
+          summary: "List a deck's matchup plans",
+          tags: ['Play'],
+          parameters: [pathParam('deckId', 'Deck id from `listPlayDecks`.')],
+          success: { status: '200', description: 'One plan per opposing hero.', schema: envelope({ type: 'array', items: ref('MatchupPlan') }) },
+          errors: { '404': 'No such deck, or the user does not send it to your app.' },
+        }),
+      },
+      '/play/decks/{deckId}/matchups/{heroId}': {
+        put: operation('decks:write', {
+          operationId: 'saveMatchupPlan',
+          summary: 'Save the matchup plan against one hero',
+          description:
+            'Replaces any plan the deck has for that hero. `sideboard.in` lists cards brought in from the inventory and `sideboard.out` cards taken out of the deck, one entry per copy, as Talishar card ids. ' +
+            'The plan is checked against the list the user plays; a card the deck does not hold in that zone (or not enough copies) rejects the whole plan with `invalid_matchup` and every problem in `error.details.errors` — nothing is trimmed silently.',
+          tags: ['Play'],
+          parameters: [
+            pathParam('deckId', 'Deck id from `listPlayDecks`.'),
+            pathParam('heroId', 'Talishar hero id (`briar_warden_of_thorns`; young heroes by first name, `briar`) or a strategy: `core`, `aggro`, `fatigue`, `combo`, `midrange`.'),
+          ],
+          requestBody: { required: true, content: json(ref('MatchupPlanRequest')) },
+          success: { status: '201', description: 'The saved plan (`200` when it replaced one).', schema: envelope(ref('MatchupPlan')) },
+          errors: {
+            '400': '`invalid_request`: the body is not valid. `invalid_matchup`: unknown hero, or the swaps name cards the deck does not hold.',
+            '404': 'No such deck, or the user does not send it to your app.',
+          },
+        }),
+        delete: operation('decks:write', {
+          operationId: 'deleteMatchupPlan',
+          summary: 'Delete the matchup plan against one hero',
+          tags: ['Play'],
+          parameters: [pathParam('deckId', 'Deck id from `listPlayDecks`.'), pathParam('heroId', 'The plan\'s `hero_id`.')],
+          success: { status: '200', description: 'Deleted.', schema: envelope({ type: 'object', required: ['deleted'], properties: { deleted: { const: true } } }) },
+          errors: { '404': 'No such deck, the user does not send it to your app, or it has no plan for that hero.' },
         }),
       },
     },
@@ -466,6 +544,84 @@ export function buildOpenApiSpec(baseUrl: string) {
             imported: { type: 'integer', description: 'Items added.' },
             failed: { type: 'integer', description: 'Matched items that could not be added.' },
             unresolved: { type: 'array', items: ref('UnresolvedItem') },
+          },
+        },
+        PlayDeck: {
+          type: 'object',
+          required: ['id', 'name', 'format', 'hero', 'hero_card_id', 'total_cards', 'updated_at', 'play_url'],
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            format: { type: 'string', examples: ['Classic Constructed'] },
+            hero: { type: ['string', 'null'] },
+            hero_card_id: { type: ['string', 'null'], description: "The hero card's collector number.", examples: ['HVY047'] },
+            total_cards: { type: 'integer', description: 'Deck + equipment + inventory; the hero is not counted.' },
+            updated_at: { type: ['string', 'null'], format: 'date-time' },
+            play_url: { type: 'string', description: 'Path of `getPlayDeck` for this deck.' },
+          },
+        },
+        PlayableDeck: {
+          type: 'object',
+          required: ['name', 'cards'],
+          properties: {
+            name: { type: 'string' },
+            format: { type: 'string', description: 'Talishar format code.', examples: ['cc', 'blitz', 'sage', 'commoner'] },
+            cards: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['identifier', 'total'],
+                properties: {
+                  identifier: { type: 'string', description: 'Talishar card id.', examples: ['sink_below_red', 'comet_storm__shock_red'] },
+                  total: { type: 'integer', description: 'Copies in the deck (hero, equipment and main deck).' },
+                  sideboardTotal: { type: 'integer', description: 'Copies in the inventory.' },
+                },
+              },
+            },
+            matchups: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['id', 'heroId', 'name', 'sideboard'],
+                properties: {
+                  id: { type: 'string' },
+                  matchupId: { type: 'string' },
+                  heroId: { type: 'string' },
+                  name: { type: 'string' },
+                  preferredTurnOrder: { type: ['string', 'null'], enum: ['First', 'Second', 'NoPreference', null] },
+                  notes: { type: ['string', 'null'] },
+                  sideboard: ref('MatchupSwaps'),
+                },
+              },
+            },
+            art: { type: 'object', additionalProperties: { type: 'string' }, description: 'Collector number → image URL (with `include_art=1`).' },
+          },
+        },
+        MatchupSwaps: {
+          type: 'object',
+          required: ['in', 'out'],
+          properties: {
+            in: { type: 'array', items: { type: 'string' }, description: 'Talishar card ids brought in from the inventory, one per copy.' },
+            out: { type: 'array', items: { type: 'string' }, description: 'Talishar card ids taken out of the deck, one per copy.' },
+          },
+        },
+        MatchupPlan: {
+          type: 'object',
+          required: ['hero_id', 'preferred_turn_order', 'notes', 'sideboard'],
+          properties: {
+            hero_id: { type: 'string', examples: ['briar_warden_of_thorns'] },
+            preferred_turn_order: { type: ['string', 'null'], enum: ['First', 'Second', 'NoPreference', null] },
+            notes: { type: ['string', 'null'], maxLength: 500 },
+            sideboard: ref('MatchupSwaps'),
+          },
+        },
+        MatchupPlanRequest: {
+          type: 'object',
+          required: ['sideboard'],
+          properties: {
+            preferred_turn_order: { type: ['string', 'null'], enum: ['First', 'Second', 'NoPreference', null] },
+            notes: { type: ['string', 'null'], maxLength: 500 },
+            sideboard: ref('MatchupSwaps'),
           },
         },
         DeckSummary: {

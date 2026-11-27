@@ -72,7 +72,7 @@ describe('consentLines', () => {
 
   it('says plainly that deck write access includes adding and removing cards', () => {
     expect(consentLines(classifyScopeRequest('decks:write'))).toEqual([
-      'See your decks, create new ones, and add or remove cards in them',
+      'See your decks, create new ones, add or remove cards in them, and save their matchup plans',
     ]);
   });
 

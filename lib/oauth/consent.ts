@@ -54,7 +54,7 @@ const AREAS: Array<{ read: PartnerScope; write?: PartnerScope; readLine: string;
     read: 'decks:read',
     write: 'decks:write',
     readLine: 'See your decks',
-    writeLine: 'See your decks, create new ones, and add or remove cards in them',
+    writeLine: 'See your decks, create new ones, add or remove cards in them, and save their matchup plans',
   },
 ];
 
