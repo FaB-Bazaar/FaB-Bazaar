@@ -13,139 +13,7 @@ const CORS_HEADERS = {
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
-import { toTalisharIdentifier } from '@/lib/utils';
-import { HERO_INFO, YOUNG_HERO_INFO, getTalisharHeroSlug } from '@/lib/fab-constants';
-
-/**
- * Maps FaB Bazaar deck formats to Talishar format codes
- */
-const FORMAT_MAP: Record<string, string> = {
-  'Classic Constructed': 'cc',
-  'Silver Age': 'sage',
-  'Blitz': 'blitz',
-  'Commoner': 'commoner',
-  'Living Legend': 'cc', // Living Legend uses CC rules
-  'Limited': 'draft',
-  'Ultimate Pit Fight': 'upf',
-  'Casual': 'open',
-};
-
-/**
- * Maps pitch values to Talishar color names
- * Pitch is a number, or the legacy { $numberInt: "1" } wrapper on old rows
- */
-const PITCH_COLOR_MAP: Record<number, string> = {
-  1: 'red',
-  2: 'yellow',
-  3: 'blue',
-};
-
-/**
- * Builds a Talishar-compatible card identifier from printing details
- * Format: {card_name}_{pitch_color} or just {card_name} if no pitch
- *
- * Examples:
- * - "throttle" with pitch 1 -> "throttle_red"
- * - "enlightened strike" with pitch 1 -> "enlightened_strike_red"
- * - "banksy" with no pitch -> "banksy"
- */
-function buildTalisharIdentifier(printing: any, fallbackId: string): string {
-  const cardName = printing.printingDetails?.name || '';
-  // Split on ' // ' (FaB double-faced card separator) and convert each face separately,
-  // then rejoin with '__' — Talishar requires double underscore between faces.
-  // e.g. "comet storm // shock" → "comet_storm__shock_red"
-  const parts = cardName.split(' // ');
-  const baseIdentifier =
-    parts.map((p: string) => toTalisharIdentifier(p)).filter(Boolean).join('__') || fallbackId;
-
-  // Handle pitch value - can be a direct number or the legacy $numberInt wrapper
-  const pitchValue = printing.printingDetails?.pitch;
-  let pitch: number | null = null;
-
-  if (typeof pitchValue === 'number') {
-    pitch = pitchValue;
-  } else if (pitchValue && typeof pitchValue === 'object' && '$numberInt' in pitchValue) {
-    pitch = parseInt(pitchValue.$numberInt, 10);
-  }
-
-  // Append pitch color if present
-  if (pitch && PITCH_COLOR_MAP[pitch]) {
-    return `${baseIdentifier}_${PITCH_COLOR_MAP[pitch]}`;
-  }
-
-  return baseIdentifier;
-}
-
-/**
- * Converts a heroId (short name) to a display name
- * Examples:
- * - "azalea" -> "Azalea"
- * - "briar" -> "Briar"
- * - "dorinthea_ironsong" -> "Dorinthea"
- */
-function getHeroDisplayName(heroId: string): string {
-  // Handle young heroes (format: hero_name without full title)
-  // e.g., "azalea" instead of "azalea_ace_in_the_hole"
-  const cleanHeroId = heroId.replace(/_/g, ' ').toLowerCase();
-
-  // Find matching hero in HERO_INFO by shortName
-  for (const [fullName, info] of Object.entries(HERO_INFO)) {
-    if (info.shortName === heroId || info.shortName === cleanHeroId) {
-      // Return just the first part (hero name without title)
-      // e.g., "Azalea, Ace in the Hole" -> "Azalea"
-      const parts = fullName.split(',');
-      return parts[0].split(' ').map(word =>
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ');
-    }
-  }
-
-  // Fallback: capitalize the heroId
-  return heroId
-    .replace(/_/g, ' ')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-/**
- * Applies sideboard swaps to a cards array
- * Used when matchupId query parameter is provided
- *
- * @param cards - Array of card objects with total and sideboardTotal
- * @param sideboard - Sideboard swap configuration { in: [], out: [] }
- * @returns Modified cards array with sideboard applied
- */
-function applySideboardSwap(
-  cards: Array<{ identifier: string; total: number; sideboardTotal?: number }>,
-  sideboard: { in: string[]; out: string[] }
-): Array<{ identifier: string; total: number; sideboardTotal?: number }> {
-  // Create a deep copy to avoid modifying the original
-  const result = cards.map(card => ({ ...card }));
-
-  // Create a map for faster lookups
-  const cardMap = new Map(result.map(card => [card.identifier, card]));
-
-  // Remove cards from main deck (move to sideboard)
-  sideboard.out.forEach(cardId => {
-    const card = cardMap.get(cardId);
-    if (card && card.total > 0) {
-      card.total--;
-      card.sideboardTotal = (card.sideboardTotal || 0) + 1;
-    }
-  });
-
-  // Add cards from sideboard to main deck
-  sideboard.in.forEach(cardId => {
-    const card = cardMap.get(cardId);
-    if (card && (card.sideboardTotal || 0) > 0) {
-      card.sideboardTotal = card.sideboardTotal! - 1;
-      card.total++;
-    }
-  });
-
-  return result;
-}
+import { buildTalisharDeckExport } from '@/lib/talishar/deck-export';
 
 /**
  * GET /api/decks/[deckId]/talishar
@@ -303,160 +171,25 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Build card counts map
-    // Main deck = hero + equipment + maindeck
-    // Sideboard = inventory
-    const cardCounts = new Map<string, { total: number; sideboardTotal: number }>();
-
-    // Process hero cards (main deck) — use exact Talishar slug when available
-    deck.hero.forEach(printing => {
-      const heroName = (printing.printingDetails?.name || '').toLowerCase();
-      const cardId = getTalisharHeroSlug(heroName) || buildTalisharIdentifier(printing, printing.printingId);
-      const existing = cardCounts.get(cardId) || { total: 0, sideboardTotal: 0 };
-      existing.total += printing.quantity || 1;
-      cardCounts.set(cardId, existing);
-    });
-
-    // Fallback: if no hero printing in deck.hero but heroName is set, look up the
-    // earliest printing so Talishar can display the hero image.
-    if (deck.hero.length === 0 && deck.heroName) {
-      const heroKey = deck.heroName.toLowerCase();
-      const heroInfo = HERO_INFO[heroKey as keyof typeof HERO_INFO]
-        ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
-      if (heroInfo?.cardUniqueId) {
-        const printingResult = await printingsService.searchPrintings(
-          { cardUniqueId: heroInfo.cardUniqueId },
-          { limit: 1, sortBy: 'set', sortOrder: 'asc', show: 'all' }
-        );
-        if (printingResult.success && printingResult.data.printings?.[0]) {
-          const identifier = getTalisharHeroSlug(heroKey) || toTalisharIdentifier(heroKey) || heroKey.replace(/\s+/g, '_');
-          const existing = cardCounts.get(identifier) || { total: 0, sideboardTotal: 0 };
-          existing.total += 1;
-          cardCounts.set(identifier, existing);
-        }
-      }
-    }
-
-    // Process equipment cards (main deck)
-    deck.equipment.forEach(printing => {
-      const cardId = buildTalisharIdentifier(printing, printing.printingId);
-      const existing = cardCounts.get(cardId) || { total: 0, sideboardTotal: 0 };
-      existing.total += printing.quantity || 1;
-      cardCounts.set(cardId, existing);
-    });
-
-    // Process main deck cards
-    deck.maindeck.forEach(printing => {
-      const cardId = buildTalisharIdentifier(printing, printing.printingId);
-      const existing = cardCounts.get(cardId) || { total: 0, sideboardTotal: 0 };
-      existing.total += printing.quantity || 1;
-      cardCounts.set(cardId, existing);
-    });
-
-    // Process inventory cards (sideboard)
-    deck.inventory.forEach(printing => {
-      const cardId = buildTalisharIdentifier(printing, printing.printingId);
-      const existing = cardCounts.get(cardId) || { total: 0, sideboardTotal: 0 };
-      existing.sideboardTotal += printing.quantity || 1;
-      cardCounts.set(cardId, existing);
-    });
-
-    // Build Talishar cards array
-    let cards = Array.from(cardCounts.entries()).map(([identifier, counts]) => ({
-      identifier,
-      total: counts.total,
-      ...(counts.sideboardTotal > 0 && { sideboardTotal: counts.sideboardTotal })
-    }));
-
-    // Process matchups from metadata (optional field)
-    const matchups = deck.metadata?.matchups || [];
-
-    // Validate and transform matchups (lenient validation)
-    const validMatchups = matchups
-      .filter((matchup: any) => {
-        // Basic structure validation
-        if (!matchup.heroId || !matchup.sideboard) {
-          console.warn(
-            `[Talishar Export] Skipping invalid matchup for deck ${deck.publicId}`
+    // The deck as Talishar imports it — shared with the partner play API.
+    const talisharDeck = await buildTalisharDeckExport(
+      deck,
+      {
+        // Talishar integration: apply this matchup's sideboard swaps.
+        matchupId: url.searchParams.get('matchupId'),
+        // Additive, gated so the response Talishar's PHP reads stays identical.
+        includeArt: url.searchParams.get('includeArt') === '1',
+      },
+      {
+        hasHeroPrinting: async (cardUniqueId) => {
+          const printingResult = await printingsService.searchPrintings(
+            { cardUniqueId },
+            { limit: 1, sortBy: 'set', sortOrder: 'asc', show: 'all' }
           );
-          return false;
-        }
-        if (!Array.isArray(matchup.sideboard.in) || !Array.isArray(matchup.sideboard.out)) {
-          console.warn(
-            `[Talishar Export] Skipping matchup with invalid sideboard arrays`
-          );
-          return false;
-        }
-        return true;
-      })
-      .map((matchup: any) => ({
-        id: matchup.heroId,          // Talishar expects "id" field
-        matchupId: matchup.heroId,   // FaB Bazaar frontend expects matchupId
-        heroId: matchup.heroId,      // Keep for backwards compatibility
-        name: getHeroDisplayName(matchup.heroId),
-        preferredTurnOrder: matchup.preferredTurnOrder || null,
-        notes: matchup.notes || null,
-        sideboard: {
-          in: matchup.sideboard.in || [],
-          out: matchup.sideboard.out || []
-        }
-      }));
-
-    // Check for matchupId query parameter (Talishar integration)
-    // When present, apply the corresponding sideboard swap to the deck
-    const matchupId = url.searchParams.get('matchupId');
-
-    if (matchupId && validMatchups.length > 0) {
-      // Find the requested matchup
-      const selectedMatchup = validMatchups.find(
-        m => m.matchupId === matchupId || m.heroId === matchupId
-      );
-
-      if (selectedMatchup) {
-        console.log(
-          `[Talishar Export] Applying sideboard for matchup: ${selectedMatchup.name} (${matchupId})`
-        );
-        // Apply sideboard swap
-        cards = applySideboardSwap(cards, selectedMatchup.sideboard);
-      } else {
-        console.warn(
-          `[Talishar Export] Matchup not found: ${matchupId} for deck ${deck.publicId}`
-        );
+          return Boolean(printingResult.success && printingResult.data.printings?.[0]);
+        },
       }
-    }
-
-    // Optional art map for graphical clients (?includeArt=1).
-    //
-    // Talishar's game state identifies cards by collector number only, with no
-    // printing info — so a client that wants to render the player's *actual*
-    // printings (foils, alt arts) needs collector_number -> image_url for this
-    // deck. Everything required is already selected by the deck service; this
-    // adds no queries.
-    //
-    // Additive and gated behind the query param so the response Talishar's PHP
-    // consumes in production stays byte-identical. Known limit: Talishar picks
-    // its own canonical printing per identifier, so if it reports a reprint's
-    // collector number the map misses that card — clients should fall back to
-    // Talishar's own card images on a miss.
-    const includeArt = url.searchParams.get('includeArt') === '1';
-    let art: Record<string, string> | undefined;
-    if (includeArt) {
-      art = {};
-      for (const printing of [...deck.hero, ...deck.equipment, ...deck.maindeck, ...deck.inventory]) {
-        const collector = printing.printingDetails?.collector_number;
-        const imageUrl = printing.printingDetails?.image_url;
-        if (collector && imageUrl) art[collector] = imageUrl;
-      }
-    }
-
-    // Build Talishar response
-    const talisharDeck = {
-      name: deck.name,
-      ...(deck.format && { format: FORMAT_MAP[deck.format] || deck.format.toLowerCase() }),
-      cards,
-      ...(validMatchups.length > 0 && { matchups: validMatchups }),
-      ...(art && { art })
-    };
+    );
 
     return NextResponse.json(talisharDeck);
 
