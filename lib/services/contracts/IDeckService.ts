@@ -7,6 +7,7 @@
 
 import type { DeckVersion, DeckVersionSummary } from '@/lib/deck/deck-versions';
 import type { AsyncResult, PaginationOptions } from './common';
+import type { DeckMatchup } from '@/types/deck';
 
 /** Max length of the user-defined deck `folder` label (trimmed; empty → NULL). */
 export const DECK_FOLDER_MAX_LENGTH = 60;
@@ -141,6 +142,19 @@ export interface DeckDTO {
 /**
  * Lightweight deck summary for lists
  */
+/** One deck in a connected app's list (partner play API). */
+export interface PartnerDeckListItem {
+  publicId: string;
+  name: string;
+  format: string;
+  heroName: string | null;
+  /** The hero card's collector number (e.g. "HVY047"), null without a hero card. */
+  heroCardId: string | null;
+  /** Main deck + equipment + inventory; hero and bench not counted. */
+  totalCards: number;
+  updatedAt: Date;
+}
+
 export interface DeckSummaryDTO {
   _id: string;
   publicId: string;
@@ -849,6 +863,43 @@ export interface IDeckService {
    * deck. Same access rule as findByPublicId.
    */
   findTalisharDeck(publicId: string, userId?: string): AsyncResult<DeckDTO | null>;
+
+  // ── Decks sent to connected apps (migration 0135) ──────────────────────────
+  // A player picks, per deck, which connected OAuth apps (partner game clients
+  // such as Cintari) get it. The partner play API lists and serves only those.
+
+  /** The connected apps (OAuth client ids) this deck is sent to. Owner or co-owner. */
+  listDeckPartnerShares(publicId: string, userId: string): AsyncResult<string[]>;
+
+  /** Send this deck to one connected app, or stop. Owner or co-owner; the app must exist. */
+  setDeckPartnerShare(publicId: string, userId: string, clientId: string, shared: boolean): AsyncResult<{ shared: boolean }>;
+
+  /**
+   * The caller's decks (owned or co-owned, never system decks) sent to this
+   * app, most recently changed first, with an optional format filter.
+   */
+  listPartnerDecks(
+    userId: string,
+    clientId: string,
+    options: { format?: string; limit: number; offset: number },
+  ): AsyncResult<{ decks: PartnerDeckListItem[]; total: number }>;
+
+  /**
+   * findTalisharDeck for a connected app: the list to play (the version picked
+   * for Talishar, else the live deck), or null unless the deck is the caller's
+   * AND sent to this app.
+   */
+  findPartnerTalisharDeck(publicId: string, userId: string, clientId: string): AsyncResult<DeckDTO | null>;
+
+  /**
+   * Add a matchup plan, or replace the deck's plan for the same hero. Writes
+   * only `metadata.matchups`, under a row lock, so concurrent saves (and
+   * ratios) all survive. Owner or co-owner. The caller validates the plan.
+   */
+  saveDeckMatchup(publicId: string, userId: string, matchup: DeckMatchup): AsyncResult<{ matchup: DeckMatchup; created: boolean }>;
+
+  /** Remove the deck's plan for one hero. Owner or co-owner. */
+  deleteDeckMatchup(publicId: string, userId: string, heroId: string): AsyncResult<{ deleted: boolean }>;
 
   /**
    * Delete a deck

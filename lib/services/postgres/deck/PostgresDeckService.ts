@@ -8,7 +8,9 @@
  */
 
 import { db } from '@/lib/postgres/db';
-import { decks, deckCards, deckVersions, printings, cards, inventoryItems, binders, users, articles, bannedCards, gameResults } from '@/lib/postgres/schema';
+import { decks, deckCards, deckVersions, deckPartnerShares, oauthClients, printings, cards, inventoryItems, binders, users, articles, bannedCards, gameResults } from '@/lib/postgres/schema';
+import { DECK_PARTNER_APP_NOT_FOUND } from '@/lib/deck/partner-shares';
+import type { DeckMatchup } from '@/types/deck';
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createHash } from 'node:crypto';
@@ -22,6 +24,7 @@ import type {
   IDeckService,
   DeckDTO,
   DeckSummaryDTO,
+  PartnerDeckListItem,
   PublicDeckSummaryDTO,
   DeckPrintingDTO,
   DeckCategory,
@@ -1093,6 +1096,182 @@ export class PostgresDeckService implements IDeckService {
       console.error('[PostgresDeckService.findTalisharDeck] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to find deck for Talishar' };
     }
+  }
+
+  // ── Decks sent to connected apps (migration 0135) ─────────────────────────
+
+  async listDeckPartnerShares(publicId: string, userId: string): AsyncResult<string[]> {
+    try {
+      const deck = await this.editableDeckForVersions(publicId, userId);
+      if (!deck) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
+      const rows = await db
+        .select({ clientId: deckPartnerShares.clientId })
+        .from(deckPartnerShares)
+        .where(eq(deckPartnerShares.deckId, deck.id))
+        .orderBy(asc(deckPartnerShares.createdAt));
+      return { success: true, data: rows.map(r => r.clientId) };
+    } catch (error) {
+      console.error('[PostgresDeckService.listDeckPartnerShares] Error:', error);
+      return { success: false, error: 'Failed to load the apps this deck is sent to' };
+    }
+  }
+
+  async setDeckPartnerShare(publicId: string, userId: string, clientId: string, shared: boolean): AsyncResult<{ shared: boolean }> {
+    try {
+      const deck = await this.editableDeckForVersions(publicId, userId);
+      if (!deck) return { success: false, error: DECK_VERSION_NOT_EDITABLE };
+      if (shared) {
+        const [client] = await db.select({ clientId: oauthClients.clientId }).from(oauthClients).where(eq(oauthClients.clientId, clientId)).limit(1);
+        if (!client) return { success: false, error: DECK_PARTNER_APP_NOT_FOUND };
+        await db.insert(deckPartnerShares).values({ deckId: deck.id, clientId }).onConflictDoNothing();
+      } else {
+        await db.delete(deckPartnerShares).where(and(eq(deckPartnerShares.deckId, deck.id), eq(deckPartnerShares.clientId, clientId)));
+      }
+      return { success: true, data: { shared } };
+    } catch (error) {
+      console.error('[PostgresDeckService.setDeckPartnerShare] Error:', error);
+      return { success: false, error: 'Failed to change where this deck is sent' };
+    }
+  }
+
+  async listPartnerDecks(
+    userId: string,
+    clientId: string,
+    options: { format?: string; limit: number; offset: number },
+  ): AsyncResult<{ decks: PartnerDeckListItem[]; total: number }> {
+    try {
+      const where = and(
+        or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`),
+        eq(decks.isSystemDeck, false),
+        eq(deckPartnerShares.clientId, clientId),
+        ...(options.format ? [eq(decks.format, options.format)] : []),
+      );
+      const [{ total }] = await db
+        .select({ total: sql<number>`COUNT(*)::int` })
+        .from(decks)
+        .innerJoin(deckPartnerShares, eq(deckPartnerShares.deckId, decks.id))
+        .where(where);
+      const rows = await db
+        .select({
+          id: decks.id, publicId: decks.publicId, name: decks.name, format: decks.format,
+          heroName: decks.heroName, updatedAt: decks.updatedAt,
+        })
+        .from(decks)
+        .innerJoin(deckPartnerShares, eq(deckPartnerShares.deckId, decks.id))
+        .where(where)
+        .orderBy(desc(decks.updatedAt), asc(decks.id))
+        .limit(options.limit)
+        .offset(options.offset);
+      if (rows.length === 0) return { success: true, data: { decks: [], total } };
+
+      const ids = rows.map(r => r.id);
+      const sizes = await db
+        .select({
+          deckId: deckCards.deckId,
+          totalCards: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} NOT IN ('hero','benched') THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          heroCardId: sql<string | null>`MIN(CASE WHEN ${deckCards.category} = 'hero' THEN ${printings.collectorNumber} END)`,
+        })
+        .from(deckCards)
+        .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .where(inArray(deckCards.deckId, ids))
+        .groupBy(deckCards.deckId);
+      const sizeById = new Map(sizes.map(s => [s.deckId, s]));
+
+      return {
+        success: true,
+        data: {
+          total,
+          decks: rows.map(r => ({
+            publicId: r.publicId,
+            name: r.name,
+            format: r.format ?? '',
+            heroName: r.heroName ?? null,
+            heroCardId: sizeById.get(r.id)?.heroCardId ?? null,
+            totalCards: sizeById.get(r.id)?.totalCards ?? 0,
+            updatedAt: r.updatedAt,
+          })),
+        },
+      };
+    } catch (error) {
+      console.error('[PostgresDeckService.listPartnerDecks] Error:', error);
+      return { success: false, error: 'Failed to list decks for the app' };
+    }
+  }
+
+  async findPartnerTalisharDeck(publicId: string, userId: string, clientId: string): AsyncResult<DeckDTO | null> {
+    try {
+      const [shared] = await db
+        .select({ deckId: decks.id })
+        .from(decks)
+        .innerJoin(deckPartnerShares, and(eq(deckPartnerShares.deckId, decks.id), eq(deckPartnerShares.clientId, clientId)))
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
+        .limit(1);
+      if (!shared) return { success: true, data: null };
+      return this.findTalisharDeck(publicId, userId);
+    } catch (error) {
+      console.error('[PostgresDeckService.findPartnerTalisharDeck] Error:', error);
+      return { success: false, error: 'Failed to find deck for the app' };
+    }
+  }
+
+  // ── Matchup plans, one hero at a time ─────────────────────────────────────
+  // Only `metadata.matchups` is written, inside a transaction holding the
+  // deck row's lock: two saves can't drop each other's plan, and ratios or
+  // anything else in metadata stay as they are.
+
+  async saveDeckMatchup(publicId: string, userId: string, matchup: DeckMatchup): AsyncResult<{ matchup: DeckMatchup; created: boolean }> {
+    try {
+      return await db.transaction(async tx => {
+        const row = await this.lockEditableDeckMatchups(tx, publicId, userId);
+        if (!row) return { success: false as const, error: DECK_VERSION_NOT_EDITABLE };
+        const index = row.matchups.findIndex(m => m?.heroId === matchup.heroId);
+        const next = [...row.matchups];
+        if (index >= 0) next[index] = matchup; else next.push(matchup);
+        await this.writeDeckMatchups(tx, row.id, next);
+        return { success: true as const, data: { matchup, created: index < 0 } };
+      });
+    } catch (error) {
+      console.error('[PostgresDeckService.saveDeckMatchup] Error:', error);
+      return { success: false, error: 'Failed to save the matchup' };
+    }
+  }
+
+  async deleteDeckMatchup(publicId: string, userId: string, heroId: string): AsyncResult<{ deleted: boolean }> {
+    try {
+      return await db.transaction(async tx => {
+        const row = await this.lockEditableDeckMatchups(tx, publicId, userId);
+        if (!row) return { success: false as const, error: DECK_VERSION_NOT_EDITABLE };
+        const next = row.matchups.filter(m => m?.heroId !== heroId);
+        if (next.length === row.matchups.length) return { success: true as const, data: { deleted: false } };
+        await this.writeDeckMatchups(tx, row.id, next);
+        return { success: true as const, data: { deleted: true } };
+      });
+    } catch (error) {
+      console.error('[PostgresDeckService.deleteDeckMatchup] Error:', error);
+      return { success: false, error: 'Failed to delete the matchup' };
+    }
+  }
+
+  private async lockEditableDeckMatchups(tx: any, publicId: string, userId: string): Promise<{ id: string; matchups: DeckMatchup[] } | null> {
+    const [row] = await tx
+      .select({ id: decks.id, metadata: decks.metadata })
+      .from(decks)
+      .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
+      .for('update')
+      .limit(1);
+    if (!row) return null;
+    const matchups = (row.metadata as { matchups?: unknown } | null)?.matchups;
+    return { id: row.id, matchups: Array.isArray(matchups) ? matchups as DeckMatchup[] : [] };
+  }
+
+  private async writeDeckMatchups(tx: any, deckId: string, matchups: DeckMatchup[]) {
+    await tx
+      .update(decks)
+      .set({
+        metadata: sql`jsonb_set(COALESCE(${decks.metadata}, '{}'::jsonb), '{matchups}', ${JSON.stringify(matchups)}::jsonb, true)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(decks.id, deckId));
   }
 
   async updateDeck(

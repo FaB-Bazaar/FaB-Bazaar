@@ -919,6 +919,17 @@ export const oauthClients = pgTable('oauth_clients', {
   userIdIdx: index('idx_oauth_clients_user_id').on(table.userId),
 }));
 
+// Which connected apps (OAuth clients) a deck is sent to — migration 0135.
+// One row = shared; the partner play API lists and serves only shared decks.
+export const deckPartnerShares = pgTable('deck_partner_shares', {
+  deckId: text('deck_id').notNull().references(() => decks.id, { onDelete: 'cascade' }),
+  clientId: text('client_id').notNull().references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.deckId, table.clientId] }),
+  clientIdx: index('idx_deck_partner_shares_client').on(table.clientId),
+}));
+
 // ============================================================================
 // MCP USAGE (daily aggregates per user × client × tool — see migration 0072)
 // ============================================================================
