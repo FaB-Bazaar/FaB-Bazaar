@@ -32,6 +32,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 | `deck_partner_shares` | Which connected apps (OAuth clients — partner game clients such as Cintari) a deck is sent to; one row = sent. Toggled in deck Settings → "Send to"; the partner play API (`/api/partner/v1/play`) lists and serves only these. Migration 0135 | `decks.id` CASCADE, `oauth_clients.client_id` CASCADE |
 | `articles` | CMS content. `contentType`: hero/article/guide/news/strategy/tournament. `sections` is JSONB | `users.id` CASCADE |
 | `oauth_clients` | Registered OAuth 2.1 clients | `users.id` CASCADE (nullable) |
+| `oauth_allowlist` | Which OAuth apps may connect at all: `redirect_host` (exact host, any port — AI assistants) or `client_id` (one app, e.g. Cintari), each for `full` / `partner` / `all` access. Managed at `/admin/oauth-apps`; rules in `lib/oauth/allowlist.ts`. Migration 0136 (seeded with claude.ai, chatgpt.com, agent.meta.ai, callback.mistral.ai, localhost, 127.0.0.1) | `users.id` SET NULL (`created_by`) |
 | `oauth_authorization_codes` | Short-lived auth codes with PKCE support | — |
 | `oauth_access_tokens` | Bearer + refresh tokens | — |
 | `site_settings` | Key-value store (key text PK, value JSONB) | — |

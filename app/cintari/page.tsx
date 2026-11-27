@@ -86,6 +86,12 @@ Content-Type: application/json
           <p>
             Redirect URIs must be HTTPS (<C>http://localhost</C> works for testing) and are matched exactly later.
           </p>
+          <p>
+            <strong>Then get approved.</strong> Only approved apps may connect. Send the client_id to your FaB Bazaar
+            contact (it isn&apos;t a secret; keep the secret to yourself). Until it is approved, the link in Step 2
+            ends on an error page with <C>error=unauthorized_client</C> and “This app is not approved to connect to
+            FaB Bazaar”, and API calls answer <C>403 app_not_approved</C>.
+          </p>
         </Step>
 
         <Step id="connect" title="Step 2 · Connect a player">
@@ -169,8 +175,9 @@ grant_type=refresh_token
             one each time (and refresh one player at a time, or two refreshes race and one loses).
           </p>
           <p>
-            Refresh tokens currently stop working 30 days after the player connected. When a refresh fails, send the
-            player through Step 2 again; if they already approved Cintari, that is a quick redirect with no screen.
+            Refresh tokens currently stop working 30 days after the player connected. A failed refresh answers{" "}
+            <C>400</C> with <C>{`{ "error": "invalid_grant", "error_description": "…" }`}</C>: send the player through
+            Step 2 again; if they already approved Cintari, that is a quick redirect with no screen.
           </p>
         </Step>
 
@@ -277,13 +284,13 @@ PUT …/matchups/briar_warden_of_thorns
             <li>
               <strong>Errors</strong> always look like{" "}
               <C>{`{ "success": false, "error": { "code", "message", "details"? } }`}</C>. Branch on <C>code</C>{" "}
-              (<C>unauthorized</C>, <C>insufficient_scope</C>, <C>invalid_request</C>, <C>invalid_matchup</C>,{" "}
-              <C>not_found</C>), not on the message.
+              (<C>unauthorized</C>, <C>insufficient_scope</C>, <C>app_not_approved</C>, <C>invalid_request</C>,{" "}
+              <C>invalid_matchup</C>, <C>not_found</C>), not on the message.
             </li>
             <li>
               <strong>Disconnects.</strong> A player can remove Cintari under their connected accounts on FaB Bazaar.
-              Calls and refreshes then fail with <C>401</C>: mark that Cintari user as not connected and offer Step 2
-              again.
+              API calls then answer <C>401</C> and refreshes <C>400 invalid_grant</C>: mark that Cintari user as not
+              connected and offer Step 2 again.
             </li>
             <li>
               <strong>A deck stopped showing up</strong> (<C>404</C>) means the player switched off “Send to” for it

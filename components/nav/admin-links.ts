@@ -35,6 +35,7 @@ export const ADMIN_LINKS: readonly AdminLink[] = [
   { href: '/admin/collectibles', label: 'Collectibles', roles: ['superAdmin'] },
   { href: '/admin/image-uploads', label: 'Image Uploads', roles: ['superAdmin'] },
   { href: '/admin/user-access', label: 'User Access', roles: ['superAdmin'] },
+  { href: '/admin/oauth-apps', label: 'OAuth Apps', roles: ['superAdmin'] },
 ]
 
 function hasRole(user: AdminRoleFlags | null, role: AdminRoleKey): boolean {

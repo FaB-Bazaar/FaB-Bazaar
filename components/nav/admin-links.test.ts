@@ -37,6 +37,12 @@ describe('accessibleAdminLinks', () => {
     expect(hrefs({ isCurator: true })).not.toContain('/admin/banned-cards')
   })
 
+  it('lists OAuth apps (the connection allow-list) for superadmins only', () => {
+    expect(hrefs({ isSuperAdmin: true })).toContain('/admin/oauth-apps')
+    expect(hrefs({ isCurator: true })).not.toContain('/admin/oauth-apps')
+    expect(hrefs({ isContentCreator: true })).not.toContain('/admin/oauth-apps')
+  })
+
   it('lists Collectibles for superadmins only', () => {
     expect(hrefs({ isSuperAdmin: true })).toContain('/admin/collectibles')
     expect(hrefs({ isCurator: true })).not.toContain('/admin/collectibles')

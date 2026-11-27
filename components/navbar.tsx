@@ -43,6 +43,7 @@ import {
   Ban,
   Swords,
   UserCog,
+  KeyRound,
   Camera,
   Rss,
   History,
@@ -766,6 +767,7 @@ export default function Navbar() {
     "/admin/locations": MapPin,
     "/admin/image-uploads": Upload,
     "/admin/user-access": UserCog,
+    "/admin/oauth-apps": KeyRound,
   }
 
   const renderAdminDropdown = () => {

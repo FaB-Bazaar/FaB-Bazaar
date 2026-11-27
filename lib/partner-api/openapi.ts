@@ -343,7 +343,7 @@ export function buildOpenApiSpec(baseUrl: string) {
         oauth2: {
           type: 'oauth2',
           description:
-            `Register a client at ${baseUrl}/oauth/register (RFC 7591). Server metadata: ${baseUrl}/.well-known/oauth-authorization-server.`,
+            `Register a client at ${baseUrl}/oauth/register (RFC 7591), then ask FaB Bazaar to approve its client_id: only approved apps may connect (until then authorization ends with unauthorized_client and API calls answer 403 app_not_approved). Server metadata: ${baseUrl}/.well-known/oauth-authorization-server.`,
           flows: {
             authorizationCode: {
               authorizationUrl: `${baseUrl}/oauth/authorize`,
@@ -367,7 +367,7 @@ export function buildOpenApiSpec(baseUrl: string) {
                 code: {
                   type: 'string',
                   description: 'Stable, machine-readable. Branch on this, not on `message`.',
-                  examples: ['unauthorized', 'insufficient_scope', 'invalid_request', 'not_found'],
+                  examples: ['unauthorized', 'insufficient_scope', 'app_not_approved', 'invalid_request', 'not_found'],
                 },
                 message: { type: 'string' },
                 details: { type: 'object' },
