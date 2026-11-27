@@ -1,7 +1,8 @@
 "use client";
 
-// /admin/oauth-apps: the allow-list (with Remove), the most recently
-// registered apps (with Approve for the partner API), and a form to allow an
+// /admin/oauth-apps: the allow-list (with Remove), registered apps — by
+// default only those waiting for a decision, 20 a page, with Approve for the
+// partner API and Delete for unused ones — and a form to allow an
 // assistant's return address by hand. API: /api/admin/oauth-apps.
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
@@ -17,14 +18,23 @@ interface Entry {
   createdAt: string;
 }
 
-interface RecentApp {
+interface RegisteredApp {
   clientId: string;
   name: string;
   site: string | null;
   returnHosts: string[];
   registeredAt: string;
   lastUsed: string | null;
+  liveConnections: number;
   approved: { full: boolean; partner: boolean };
+  canDelete: boolean;
+}
+
+interface Pagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 const ACCESS_LABEL: Record<Access, string> = {
@@ -42,7 +52,7 @@ const INPUT = `w-full rounded-sm border border-gray-400 bg-white px-2 py-1.5 tex
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—");
 
-function status(approved: RecentApp["approved"]) {
+function status(approved: RegisteredApp["approved"]) {
   if (approved.full && approved.partner) return ACCESS_LABEL.all;
   if (approved.full) return ACCESS_LABEL.full;
   if (approved.partner) return ACCESS_LABEL.partner;
@@ -51,7 +61,11 @@ function status(approved: RecentApp["approved"]) {
 
 export function OAuthAppsClient() {
   const [entries, setEntries] = useState<Entry[] | null>(null);
-  const [recent, setRecent] = useState<RecentApp[]>([]);
+  const [registrations, setRegistrations] = useState<RegisteredApp[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [waitingCount, setWaitingCount] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+  const [page, setPage] = useState(1);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -63,7 +77,7 @@ export function OAuthAppsClient() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/oauth-apps");
+    const res = await fetch(`/api/admin/oauth-apps?view=${showAll ? "all" : "waiting"}&page=${page}`);
     const body = await res.json().catch(() => null);
     if (!res.ok || !body?.data) {
       setLoadError(body?.error ?? "Could not load the apps");
@@ -71,8 +85,10 @@ export function OAuthAppsClient() {
     }
     setLoadError(null);
     setEntries(body.data.entries);
-    setRecent(body.data.recentApps);
-  }, []);
+    setRegistrations(body.data.registrations);
+    setPagination(body.data.pagination);
+    setWaitingCount(body.data.waitingCount);
+  }, [showAll, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -88,7 +104,20 @@ export function OAuthAppsClient() {
     return null;
   };
 
-  const approvePartner = async (app: RecentApp) => {
+  const deleteRegistration = async (app: RegisteredApp) => {
+    setBusy(app.clientId);
+    setActionError(null);
+    const res = await fetch(`/api/admin/oauth-apps/clients/${encodeURIComponent(app.clientId)}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setActionError(`${app.name}: ${body?.error ?? "could not delete it"}`);
+    }
+    setConfirming(null);
+    await load();
+    setBusy(null);
+  };
+
+  const approvePartner = async (app: RegisteredApp) => {
     setBusy(app.clientId);
     setActionError(null);
     const error = await add({ kind: "client_id", value: app.clientId, label: app.name, access: "partner" });
@@ -173,53 +202,112 @@ export function OAuthAppsClient() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Recently registered apps</h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 className="text-xl font-semibold">
+            {showAll ? "All registrations" : `Waiting for approval (${waitingCount})`}
+          </h2>
+          <label className="inline-flex items-center gap-2 text-base">
+            <input
+              type="checkbox"
+              className={`h-4 w-4 ${FOCUS}`}
+              checked={showAll}
+              onChange={e => { setShowAll(e.target.checked); setPage(1); setConfirming(null); }}
+            />
+            Show all registrations
+          </label>
+        </div>
         <p className="text-sm text-gray-700 dark:text-gray-300">
-          Anyone can register an app. Before approving one, check its return address is really theirs: an app named
-          “Cintari” returning to some other site is not Cintari.
+          {showAll
+            ? "Every app that ever registered. AI assistants register a new one for each connection; those approved by their return address need nothing from you."
+            : "Registered apps nothing on the list approves — a new partner like Cintari shows up here."}{" "}
+          Anyone can register an app: before approving one, check its return address is really theirs (an app named
+          “Cintari” returning to some other site is not Cintari).
         </p>
+        {registrations.length === 0 ? (
+          <p className="rounded-md border border-dashed border-gray-400 px-3 py-4 text-gray-700 dark:border-gray-600 dark:text-gray-300">
+            {showAll ? "No apps have registered." : "Nothing is waiting for approval."}
+          </p>
+        ) : (
         <div className="overflow-x-auto rounded-md border border-gray-300 dark:border-gray-700">
-          <table aria-label="Recently registered apps" className="w-full">
+          <table aria-label="Registered apps" className="w-full">
             <thead className="bg-gray-100 dark:bg-gray-800">
               <tr>
                 <th scope="col" className={TH}>Name</th>
                 <th scope="col" className={TH}>Returns to</th>
                 <th scope="col" className={TH}>Registered</th>
                 <th scope="col" className={TH}>Last used</th>
+                <th scope="col" className={TH}>Connected</th>
                 <th scope="col" className={TH}>Approved for</th>
                 <th scope="col" className={TH}><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
-              {recent.map(app => (
-                <tr key={app.clientId} className="border-t border-gray-200 dark:border-gray-800">
-                  <td className={TD}>
-                    {app.name}
-                    {app.site && <span className="block text-gray-700 dark:text-gray-300">{app.site}</span>}
-                    <code className="block break-all text-xs text-gray-700 dark:text-gray-300">{app.clientId}</code>
-                  </td>
-                  <td className={TD}><code className="break-all">{app.returnHosts.join(", ") || "—"}</code></td>
-                  <td className={TD}>{day(app.registeredAt)}</td>
-                  <td className={TD}>{day(app.lastUsed)}</td>
-                  <td className={TD}>{status(app.approved)}</td>
-                  <td className={`${TD} whitespace-nowrap text-right`}>
-                    {!app.approved.partner && (
-                      <button
-                        type="button"
-                        className={BUTTON}
-                        disabled={busy === app.clientId}
-                        aria-label={`Approve ${app.name} for the partner API`}
-                        onClick={() => approvePartner(app)}
-                      >
-                        Approve for partner API
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {registrations.map(app => {
+                const key = `client:${app.clientId}`;
+                const waiting = !app.approved.full && !app.approved.partner;
+                return (
+                  <tr key={app.clientId} className="border-t border-gray-200 dark:border-gray-800">
+                    <td className={TD}>
+                      {app.name}
+                      {app.site && <span className="block text-gray-700 dark:text-gray-300">{app.site}</span>}
+                      <code className="block break-all text-xs text-gray-700 dark:text-gray-300">{app.clientId}</code>
+                    </td>
+                    <td className={TD}><code className="break-all">{app.returnHosts.join(", ") || "—"}</code></td>
+                    <td className={TD}>{day(app.registeredAt)}</td>
+                    <td className={TD}>{day(app.lastUsed)}</td>
+                    <td className={TD}>{app.liveConnections > 0 ? `${app.liveConnections} live` : "None"}</td>
+                    <td className={TD}>{status(app.approved)}</td>
+                    <td className={`${TD} whitespace-nowrap text-right`}>
+                      <span className="inline-flex flex-wrap justify-end gap-2">
+                        {waiting && (
+                          <button
+                            type="button"
+                            className={BUTTON}
+                            disabled={busy === app.clientId}
+                            aria-label={`Approve ${app.name} for the partner API`}
+                            onClick={() => approvePartner(app)}
+                          >
+                            Approve for partner API
+                          </button>
+                        )}
+                        {app.canDelete && (confirming === key ? (
+                          <>
+                            <button type="button" className={DANGER} disabled={busy === app.clientId} aria-label={`Confirm deleting registration ${app.name}`} onClick={() => deleteRegistration(app)}>
+                              Delete
+                            </button>
+                            <button type="button" className={BUTTON} onClick={() => setConfirming(null)}>Keep</button>
+                          </>
+                        ) : (
+                          <button type="button" className={BUTTON} aria-label={`Delete registration ${app.name}`} onClick={() => setConfirming(key)}>
+                            Delete
+                          </button>
+                        ))}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+        )}
+        {pagination && pagination.totalPages > 1 && (
+          <nav aria-label="Registered apps pages" className="flex items-center justify-between gap-3 text-base">
+            <button type="button" className={BUTTON} disabled={pagination.page <= 1} aria-label="Previous page" onClick={() => { setPage(p => p - 1); setConfirming(null); }}>
+              Previous
+            </button>
+            <span className="text-gray-700 dark:text-gray-300">
+              Page {pagination.page} of {pagination.totalPages} · {pagination.total} apps
+            </span>
+            <button type="button" className={BUTTON} disabled={pagination.page >= pagination.totalPages} aria-label="Next page" onClick={() => { setPage(p => p + 1); setConfirming(null); }}>
+              Next
+            </button>
+          </nav>
+        )}
+        <p className="text-sm text-gray-700 dark:text-gray-300">
+          Delete is offered only for registrations nobody is connected through and that aren&apos;t approved by name;
+          it never cuts off a working connection.
+        </p>
       </section>
 
       <section className="space-y-3">

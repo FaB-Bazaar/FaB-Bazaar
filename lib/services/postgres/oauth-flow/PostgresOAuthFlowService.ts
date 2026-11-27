@@ -21,7 +21,7 @@ import {
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
-import { eq, and, gt, or, asc, desc } from 'drizzle-orm';
+import { eq, and, gt, or, asc, desc, sql } from 'drizzle-orm';
 import { classifyScopeRequest } from '@/lib/oauth/consent';
 import { APP_NOT_APPROVED, accessKindOfScope, isApproved, normalizeAllowedHost, type AccessKind } from '@/lib/oauth/allowlist';
 import { signPartnerToken, verifyPartnerToken } from '@/lib/oauth/partner-token';
@@ -37,7 +37,7 @@ import type {
   RegisterClientResultDTO,
   AllowlistEntryDTO,
   AddAllowlistEntryInput,
-  RecentClientDTO,
+  RegisteredClientDTO,
 } from '../../contracts/IOAuthFlowService';
 import type { AsyncResult } from '../../contracts/common';
 
@@ -753,8 +753,9 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
     }
   }
 
-  async listRecentClients(limit: number): AsyncResult<RecentClientDTO[]> {
+  async listRegisteredClients(): AsyncResult<RegisteredClientDTO[]> {
     try {
+      const now = new Date();
       const rows = await db
         .select({
           clientId: oauthClients.clientId,
@@ -763,14 +764,54 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
           redirectUris: oauthClients.redirectUris,
           createdAt: oauthClients.createdAt,
           lastUsed: oauthClients.lastUsed,
+          liveConnections: sql<number>`COUNT(${oauthAccessTokens.id})::int`,
         })
         .from(oauthClients)
-        .orderBy(desc(oauthClients.createdAt))
-        .limit(Math.max(1, Math.min(limit, 500)));
+        .leftJoin(
+          oauthAccessTokens,
+          and(
+            eq(oauthAccessTokens.clientId, oauthClients.clientId),
+            or(gt(oauthAccessTokens.expiresAt, now), gt(oauthAccessTokens.refreshTokenExpiresAt, now)),
+          ),
+        )
+        .groupBy(oauthClients.id)
+        .orderBy(desc(oauthClients.createdAt), asc(oauthClients.clientId));
       return { success: true, data: rows.map(r => ({ ...r, clientUri: r.clientUri ?? null, lastUsed: r.lastUsed ?? null })) };
     } catch (error) {
-      console.error('[PostgresOAuthFlowService] listRecentClients error:', error);
+      console.error('[PostgresOAuthFlowService] listRegisteredClients error:', error);
       return { success: false, error: 'Failed to list registered apps' };
+    }
+  }
+
+  async deleteUnusedClient(clientId: string): AsyncResult<{ deleted: boolean }> {
+    try {
+      const now = new Date();
+      const [live] = await db
+        .select({ id: oauthAccessTokens.id })
+        .from(oauthAccessTokens)
+        .where(and(
+          eq(oauthAccessTokens.clientId, clientId),
+          or(gt(oauthAccessTokens.expiresAt, now), gt(oauthAccessTokens.refreshTokenExpiresAt, now)),
+        ))
+        .limit(1);
+      if (live) return { success: false, error: 'This app still has players connected' };
+
+      const [listed] = await db
+        .select({ id: oauthAllowlist.id })
+        .from(oauthAllowlist)
+        .where(and(eq(oauthAllowlist.kind, 'client_id'), eq(oauthAllowlist.value, clientId)))
+        .limit(1);
+      if (listed) return { success: false, error: 'This app is on the Allowed list; remove it there first' };
+
+      const deleted = await db.transaction(async tx => {
+        await tx.delete(oauthAccessTokens).where(eq(oauthAccessTokens.clientId, clientId));
+        await tx.delete(oauthAuthorizationCodes).where(eq(oauthAuthorizationCodes.clientId, clientId));
+        return tx.delete(oauthClients).where(eq(oauthClients.clientId, clientId)).returning({ id: oauthClients.id });
+      });
+      return { success: true, data: { deleted: deleted.length > 0 } };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] deleteUnusedClient error:', error);
+      return { success: false, error: 'Failed to delete the registration' };
     }
   }
 

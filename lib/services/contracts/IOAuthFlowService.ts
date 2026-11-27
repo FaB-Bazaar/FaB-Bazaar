@@ -163,14 +163,16 @@ export interface AddAllowlistEntryInput {
   createdBy: string;
 }
 
-/** A registered app, for approving it at /admin/oauth-apps. */
-export interface RecentClientDTO {
+/** A registered app, for /admin/oauth-apps. */
+export interface RegisteredClientDTO {
   clientId: string;
   clientName: string;
   clientUri: string | null;
   redirectUris: string[];
   createdAt: Date;
   lastUsed: Date | null;
+  /** Token grants still usable (access or refresh not expired). 0 = nobody is connected through it. */
+  liveConnections: number;
 }
 
 export interface IOAuthFlowService {
@@ -416,8 +418,14 @@ export interface IOAuthFlowService {
   /** Remove an entry by id. */
   removeAllowlistEntry(id: string): AsyncResult<{ removed: boolean }>;
 
-  /** The most recently registered apps, newest first. */
-  listRecentClients(limit: number): AsyncResult<RecentClientDTO[]>;
+  /** Every registered app, newest first, with its live connection count. */
+  listRegisteredClients(): AsyncResult<RegisteredClientDTO[]>;
+
+  /**
+   * Delete a registration nobody is connected through (no live tokens) and
+   * that isn't approved by client id. deleted:false = there was none.
+   */
+  deleteUnusedClient(clientId: string): AsyncResult<{ deleted: boolean }>;
 
   /**
    * Is this app on the allow-list for this kind of access? Judged on the given

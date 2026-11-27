@@ -74,12 +74,49 @@ describe('managing the allow-list', () => {
     expect(await service.removeAllowlistEntry(id)).toEqual({ success: true, data: { removed: false } });
   });
 
-  it('lists recently registered apps with their return addresses', async () => {
+  it('lists every registered app, newest first, with how many live connections it has', async () => {
     const app = await register(`${tag}.alw-test.example`);
-    const r = await service.listRecentClients(500);
-    const mine = (r as any).data.find((c: any) => c.clientId === app.client_id);
-    expect(mine).toMatchObject({ clientName: `alw ${tag}`, redirectUris: [`https://${tag}.alw-test.example/cb`] });
+    const r = await service.listRegisteredClients();
+    expect(r.success).toBe(true);
+    const all = (r as any).data;
+    const mine = all.find((c: any) => c.clientId === app.client_id);
+    expect(mine).toMatchObject({ clientName: `alw ${tag}`, redirectUris: [`https://${tag}.alw-test.example/cb`], liveConnections: 0 });
     expect(mine.createdAt).toBeInstanceOf(Date);
+    const times = all.map((c: any) => c.createdAt.getTime());
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+  });
+});
+
+describe('deleteUnusedClient', () => {
+  async function connect(app: { client_id: string; client_secret?: string }, host: string) {
+    const redirectUri = `https://${host}/cb`;
+    const code = await service.createAuthorizationCode({ clientId: app.client_id, userId, redirectUri, scope: 'read write' });
+    if (!code.success) throw new Error(code.error);
+    const tokens = await service.exchangeAuthorizationCode({ code: code.data.code, clientId: app.client_id, clientSecret: app.client_secret, redirectUri });
+    if (!tokens.success) throw new Error(tokens.error);
+  }
+
+  it('deletes a registration nobody is connected through', async () => {
+    const app = await register(`${tag}.alw-test.example`);
+    expect(await service.deleteUnusedClient(app.client_id)).toEqual({ success: true, data: { deleted: true } });
+    expect(await db.select().from(oauthClients).where(eq(oauthClients.clientId, app.client_id))).toEqual([]);
+    expect(await service.deleteUnusedClient(app.client_id)).toEqual({ success: true, data: { deleted: false } });
+  });
+
+  it('refuses one with a live connection, so a working player connection is never cut', async () => {
+    const host = `${tag}.alw-test.example`;
+    const app = await register(host);
+    await connect(app, host);
+    const r = await service.deleteUnusedClient(app.client_id);
+    expect(r).toEqual({ success: false, error: 'This app still has players connected' });
+    const listed = ((await service.listRegisteredClients()) as any).data.find((c: any) => c.clientId === app.client_id);
+    expect(listed.liveConnections).toBe(1);
+  });
+
+  it('refuses one approved by client id — take it off Allowed first', async () => {
+    const app = await register(`${tag}.alw-test.example`);
+    await service.addAllowlistEntry({ kind: 'client_id', value: app.client_id, label: 'x', access: 'partner', createdBy: userId });
+    expect(await service.deleteUnusedClient(app.client_id)).toEqual({ success: false, error: 'This app is on the Allowed list; remove it there first' });
   });
 });
 

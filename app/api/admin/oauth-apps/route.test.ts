@@ -3,18 +3,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/services', () => ({
   userService: { hasRole: vi.fn() },
-  oauthFlowService: { listAllowlist: vi.fn(), listRecentClients: vi.fn(), addAllowlistEntry: vi.fn(), removeAllowlistEntry: vi.fn() },
+  oauthFlowService: { listAllowlist: vi.fn(), listRegisteredClients: vi.fn(), addAllowlistEntry: vi.fn(), removeAllowlistEntry: vi.fn(), deleteUnusedClient: vi.fn() },
 }));
 
 import { GET, POST } from './route';
 import { DELETE } from './[id]/route';
+import { DELETE as DELETE_CLIENT } from './clients/[clientId]/route';
 import { auth } from '@/auth';
 import { oauthFlowService, userService } from '@/lib/services';
 
 const mockSession = vi.mocked(auth) as unknown as ReturnType<typeof vi.fn>;
 const mockRole = vi.mocked(userService.hasRole);
 const mockList = vi.mocked(oauthFlowService.listAllowlist);
-const mockRecent = vi.mocked(oauthFlowService.listRecentClients);
+const mockRecent = vi.mocked(oauthFlowService.listRegisteredClients);
+const mockDeleteClient = vi.mocked(oauthFlowService.deleteUnusedClient);
 const mockAdd = vi.mocked(oauthFlowService.addAllowlistEntry);
 const mockRemove = vi.mocked(oauthFlowService.removeAllowlistEntry);
 
@@ -31,29 +33,77 @@ const ctx = { params: Promise.resolve({ id: 'e1' }) };
 
 describe('/api/admin/oauth-apps', () => {
   beforeEach(() => {
-    for (const m of [mockSession, mockRole, mockList, mockRecent, mockAdd, mockRemove]) m.mockReset();
+    for (const m of [mockSession, mockRole, mockList, mockRecent, mockAdd, mockRemove, mockDeleteClient]) m.mockReset();
     mockSession.mockResolvedValue({ user: { id: 'admin-1' } });
     mockRole.mockResolvedValue({ success: true, data: true });
     mockList.mockResolvedValue({ success: true, data: ENTRIES });
     mockRecent.mockResolvedValue({
       success: true,
       data: [
-        { clientId: 'mcp_cintari', clientName: 'Cintari', clientUri: 'https://cintari.gg', redirectUris: ['https://cintari.gg/cb'], createdAt: NOW, lastUsed: null },
-        { clientId: 'mcp_claude1', clientName: 'Claude', clientUri: null, redirectUris: ['https://claude.ai/api/mcp/auth_callback'], createdAt: NOW, lastUsed: NOW },
-        { clientId: 'mcp_fake', clientName: 'Cintari', clientUri: null, redirectUris: ['https://evil.example/cb'], createdAt: NOW, lastUsed: null },
+        { clientId: 'mcp_cintari', clientName: 'Cintari', clientUri: 'https://cintari.gg', redirectUris: ['https://cintari.gg/cb'], createdAt: NOW, lastUsed: null, liveConnections: 0 },
+        { clientId: 'mcp_claude1', clientName: 'Claude', clientUri: null, redirectUris: ['https://claude.ai/api/mcp/auth_callback'], createdAt: NOW, lastUsed: NOW, liveConnections: 2 },
+        { clientId: 'mcp_fake', clientName: 'Cintari', clientUri: null, redirectUris: ['https://evil.example/cb'], createdAt: NOW, lastUsed: null, liveConnections: 0 },
       ],
     });
   });
 
-  it('lists the allow-list and recent apps with what each is approved for', async () => {
-    const body = await (await GET(new Request('http://localhost/api/admin/oauth-apps') as any)).json();
+  const get = (query = '') => GET(new Request(`http://localhost/api/admin/oauth-apps${query}`) as any);
+
+  it('lists the allow-list and, by default, only registrations waiting for a decision', async () => {
+    const body = await (await get()).json();
     expect(mockRole).toHaveBeenCalledWith('admin-1', 'isSuperAdmin');
     expect(body.data.entries).toEqual(ENTRIES.map(e => ({ ...e, createdAt: NOW.toISOString() })));
-    expect(body.data.recentApps).toEqual([
-      { clientId: 'mcp_cintari', name: 'Cintari', site: 'cintari.gg', returnHosts: ['cintari.gg'], registeredAt: NOW.toISOString(), lastUsed: null, approved: { full: false, partner: true } },
-      { clientId: 'mcp_claude1', name: 'Claude', site: null, returnHosts: ['claude.ai'], registeredAt: NOW.toISOString(), lastUsed: NOW.toISOString(), approved: { full: true, partner: false } },
-      { clientId: 'mcp_fake', name: 'Cintari', site: null, returnHosts: ['evil.example'], registeredAt: NOW.toISOString(), lastUsed: null, approved: { full: false, partner: false } },
+    expect(body.data.view).toBe('waiting');
+    expect(body.data.waitingCount).toBe(1);
+    expect(body.data.registrations).toEqual([
+      { clientId: 'mcp_fake', name: 'Cintari', site: null, returnHosts: ['evil.example'], registeredAt: NOW.toISOString(), lastUsed: null, liveConnections: 0, approved: { full: false, partner: false }, canDelete: true },
     ]);
+    expect(body.data.pagination).toEqual({ page: 1, pageSize: 20, total: 1, totalPages: 1 });
+  });
+
+  it('shows every registration with view=all, with what each is approved for and whether it can be deleted', async () => {
+    const body = await (await get('?view=all')).json();
+    expect(body.data.view).toBe('all');
+    expect(body.data.registrations.map((r: any) => [r.clientId, r.approved, r.canDelete])).toEqual([
+      ['mcp_cintari', { full: false, partner: true }, false], // approved by client id: remove it from Allowed first
+      ['mcp_claude1', { full: true, partner: false }, false], // players connected
+      ['mcp_fake', { full: false, partner: false }, true],
+    ]);
+  });
+
+  it('pages 20 at a time', async () => {
+    const many = Array.from({ length: 45 }, (_, i) => ({
+      clientId: `mcp_${i}`, clientName: `App ${i}`, clientUri: null, redirectUris: [`https://a${i}.example/cb`],
+      createdAt: NOW, lastUsed: null, liveConnections: 0,
+    }));
+    mockRecent.mockResolvedValue({ success: true, data: many });
+    const page3 = (await (await get('?page=3')).json()).data;
+    expect(page3.registrations.map((r: any) => r.clientId)).toEqual(['mcp_40', 'mcp_41', 'mcp_42', 'mcp_43', 'mcp_44']);
+    expect(page3.pagination).toEqual({ page: 3, pageSize: 20, total: 45, totalPages: 3 });
+    // Past the end → the last page; nonsense → the first.
+    expect((await (await get('?page=99')).json()).data.pagination.page).toBe(3);
+    expect((await (await get('?page=abc')).json()).data.pagination.page).toBe(1);
+  });
+
+  it('deletes an unused registration, and says why it refused one', async () => {
+    const ctxClient = { params: Promise.resolve({ clientId: 'mcp_fake' }) };
+    const delClient = () => new Request('http://localhost/api/admin/oauth-apps/clients/mcp_fake', { method: 'DELETE' });
+    mockDeleteClient.mockResolvedValue({ success: true, data: { deleted: true } });
+    expect((await DELETE_CLIENT(delClient() as any, ctxClient)).status).toBe(200);
+    expect(mockDeleteClient).toHaveBeenCalledWith('mcp_fake');
+
+    mockDeleteClient.mockResolvedValue({ success: false, error: 'This app still has players connected' });
+    const refused = await DELETE_CLIENT(delClient() as any, ctxClient);
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).error).toBe('This app still has players connected');
+
+    mockDeleteClient.mockResolvedValue({ success: true, data: { deleted: false } });
+    expect((await DELETE_CLIENT(delClient() as any, ctxClient)).status).toBe(404);
+
+    mockRole.mockResolvedValue({ success: true, data: false });
+    mockDeleteClient.mockClear();
+    expect((await DELETE_CLIENT(delClient() as any, ctxClient)).status).toBe(403);
+    expect(mockDeleteClient).not.toHaveBeenCalled();
   });
 
   it('adds an entry, recording who added it', async () => {
