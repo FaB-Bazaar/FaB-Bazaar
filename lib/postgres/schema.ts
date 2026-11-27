@@ -919,6 +919,20 @@ export const oauthClients = pgTable('oauth_clients', {
   userIdIdx: index('idx_oauth_clients_user_id').on(table.userId),
 }));
 
+// Which OAuth apps may connect at all — migration 0136, managed at
+// /admin/oauth-apps. Rules: lib/oauth/allowlist.ts.
+export const oauthAllowlist = pgTable('oauth_allowlist', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  kind: text('kind').notNull(), // 'redirect_host' | 'client_id'
+  value: text('value').notNull(),
+  label: text('label').notNull(),
+  access: text('access').notNull(), // 'full' | 'partner' | 'all'
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueKindValue: uniqueIndex('oauth_allowlist_kind_value_key').on(table.kind, table.value),
+}));
+
 // Which connected apps (OAuth clients) a deck is sent to — migration 0135.
 // One row = shared; the partner play API lists and serves only shared decks.
 export const deckPartnerShares = pgTable('deck_partner_shares', {

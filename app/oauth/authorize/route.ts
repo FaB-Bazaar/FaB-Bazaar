@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { oauthFlowService } from '@/lib/services';
 import { consentRedirect } from '@/lib/oauth/consent-gate';
+import { APP_NOT_APPROVED, accessKindOfScope } from '@/lib/oauth/allowlist';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -56,6 +57,22 @@ export async function GET(req: Request) {
   }
 
   const client = clientResult.data;
+
+  // Only apps on the allow-list (/admin/oauth-apps) may ask at all — judged on
+  // the return address this request names, for the kind of access it asks.
+  // Checked before sign-in, so an unapproved app never reaches the player.
+  const approved = await oauthFlowService.isClientApproved(
+    params.client_id,
+    accessKindOfScope(params.scope),
+    [params.redirect_uri || client.redirect_uris[0] || ''],
+  );
+  if (!approved.success || !approved.data) {
+    console.log(`❌ App not on the allow-list: ${params.client_id}`);
+    const error = new URL('/oauth/error', baseUrl);
+    error.searchParams.set('error', 'unauthorized_client');
+    error.searchParams.set('error_description', APP_NOT_APPROVED);
+    return NextResponse.redirect(error);
+  }
 
   // OAuth 2.1 requires PKCE for public clients (token_endpoint_auth_method = 'none')
   if (client.token_endpoint_auth_method === 'none' && !params.code_challenge) {

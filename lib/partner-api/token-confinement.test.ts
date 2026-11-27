@@ -21,7 +21,7 @@ import { eq, inArray } from 'drizzle-orm';
 vi.mock('@/auth', () => ({ auth: vi.fn(async () => null) }));
 
 import { db } from '@/lib/postgres/db';
-import { users, oauthClients, oauthAccessTokens, oauthAuthorizationCodes } from '@/lib/postgres/schema';
+import { users, oauthClients, oauthAccessTokens, oauthAuthorizationCodes, oauthAllowlist } from '@/lib/postgres/schema';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { oauthFlowService, oauthService } from '@/lib/services';
 import { authenticatePartner } from './auth';
@@ -59,11 +59,15 @@ beforeEach(async () => {
   });
   if (!registered.success) throw new Error(registered.error);
   clientId = registered.data.client_id;
+  // Only allow-listed apps may connect (/admin/oauth-apps, migration 0136).
+  const allowed = await oauthFlowService.addAllowlistEntry({ kind: 'client_id', value: clientId, label: 'token confinement test client', access: 'all', createdBy: userId });
+  if (!allowed.success) throw new Error(allowed.error);
 });
 
 afterEach(async () => {
   await db.delete(oauthAccessTokens).where(inArray(oauthAccessTokens.clientId, [clientId]));
   await db.delete(oauthAuthorizationCodes).where(inArray(oauthAuthorizationCodes.clientId, [clientId]));
+  await db.delete(oauthAllowlist).where(eq(oauthAllowlist.value, clientId));
   await db.delete(oauthClients).where(eq(oauthClients.clientId, clientId));
   await db.delete(users).where(eq(users.id, userId));
 });

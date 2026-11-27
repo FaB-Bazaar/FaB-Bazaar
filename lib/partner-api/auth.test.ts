@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/services', () => ({
-  oauthFlowService: { isAccessTokenActive: vi.fn() },
+  oauthFlowService: { isAccessTokenActive: vi.fn(), isClientApproved: vi.fn() },
   userService: { findById: vi.fn() },
 }));
 
@@ -12,6 +12,7 @@ import { oauthFlowService, userService } from '@/lib/services';
 import { signPartnerToken } from '@/lib/oauth/partner-token';
 
 const mockActive = vi.mocked(oauthFlowService.isAccessTokenActive);
+const mockApproved = vi.mocked(oauthFlowService.isClientApproved);
 const mockUser = vi.mocked(userService.findById);
 
 const BASE_KEY = 'unit-test-base-key';
@@ -34,6 +35,8 @@ describe('authenticatePartner', () => {
     mockActive.mockReset();
     mockUser.mockReset();
     mockActive.mockResolvedValue({ success: true, data: true });
+    mockApproved.mockReset();
+    mockApproved.mockResolvedValue({ success: true, data: true });
     mockUser.mockResolvedValue({ success: true, data: { _id: 'user-1' } } as never);
   });
 
@@ -50,6 +53,20 @@ describe('authenticatePartner', () => {
     });
     expect(mockActive).toHaveBeenCalledWith(bearer);
     expect(mockUser).toHaveBeenCalledWith('user-1');
+  });
+
+  it('refuses an app that is not on the allow-list for partner access', async () => {
+    mockApproved.mockResolvedValue({ success: true, data: false });
+
+    const result = await authenticatePartner(request(`Bearer ${accessToken('decks:read')}`), 'decks:read');
+
+    expect(mockApproved).toHaveBeenCalledWith('mcp_abc', 'partner');
+    expect(result).toEqual({ ok: false, status: 403, code: 'app_not_approved', message: 'This app is not approved to connect to FaB Bazaar' });
+  });
+
+  it('refuses when the allow-list check itself fails', async () => {
+    mockApproved.mockResolvedValue({ success: false, error: 'db down' });
+    expect((await authenticatePartner(request(`Bearer ${accessToken('decks:read')}`), 'decks:read')).ok).toBe(false);
   });
 
   it('answers 401 when there is no bearer token', async () => {

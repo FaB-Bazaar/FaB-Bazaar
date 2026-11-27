@@ -10,10 +10,11 @@ import type { NextRequest } from 'next/server';
 import { oauthFlowService, userService } from '@/lib/services';
 import { verifyPartnerToken } from '@/lib/oauth/partner-token';
 import { hasScope, parseScopes, type PartnerScope } from './scopes';
+import { APP_NOT_APPROVED } from '@/lib/oauth/allowlist';
 
 export type PartnerAuth =
   | { ok: true; userId: string; clientId: string | null; scopes: Set<PartnerScope> }
-  | { ok: false; status: 401 | 403; code: 'unauthorized' | 'insufficient_scope'; message: string };
+  | { ok: false; status: 401 | 403; code: 'unauthorized' | 'insufficient_scope' | 'app_not_approved'; message: string };
 
 const UNAUTHORIZED: PartnerAuth = {
   ok: false,
@@ -37,6 +38,12 @@ export async function authenticatePartner(
   // not when the token expires. A failed check refuses too.
   const active = await oauthFlowService.isAccessTokenActive(bearer);
   if (!active.success || !active.data) return UNAUTHORIZED;
+
+  // Only apps on the allow-list (/admin/oauth-apps) may use the partner API;
+  // taking an app off cuts it off within a minute (the list's cache).
+  const approved = await oauthFlowService.isClientApproved(claims.client_id, 'partner');
+  if (!approved.success) return UNAUTHORIZED;
+  if (!approved.data) return { ok: false, status: 403, code: 'app_not_approved', message: APP_NOT_APPROVED };
 
   const user = await userService.findById(claims.sub);
   if (!user.success || !user.data) return UNAUTHORIZED;

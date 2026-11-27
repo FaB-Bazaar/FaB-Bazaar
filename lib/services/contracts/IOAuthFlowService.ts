@@ -144,6 +144,35 @@ export interface RegisterClientResultDTO {
  * 3. Refresh Token Grant
  * 4. Dynamic Client Registration (RFC 7591)
  */
+/** One entry of the OAuth app allow-list (migration 0136; rules in lib/oauth/allowlist). */
+export interface AllowlistEntryDTO {
+  id: string;
+  kind: 'redirect_host' | 'client_id';
+  value: string;
+  label: string;
+  access: 'full' | 'partner' | 'all';
+  createdAt: Date;
+}
+
+export interface AddAllowlistEntryInput {
+  kind: 'redirect_host' | 'client_id';
+  /** A host as typed (normalized before storing), or a registered client id. */
+  value: string;
+  label: string;
+  access: 'full' | 'partner' | 'all';
+  createdBy: string;
+}
+
+/** A registered app, for approving it at /admin/oauth-apps. */
+export interface RecentClientDTO {
+  clientId: string;
+  clientName: string;
+  clientUri: string | null;
+  redirectUris: string[];
+  createdAt: Date;
+  lastUsed: Date | null;
+}
+
 export interface IOAuthFlowService {
   // ========================================
   // Client Validation
@@ -375,4 +404,25 @@ export interface IOAuthFlowService {
    * ```
    */
   validatePKCE(codeVerifier: string, codeChallenge: string): boolean;
+
+  // ── App allow-list (migration 0136, /admin/oauth-apps) ─────────────────────
+
+  /** Every allow-list entry, oldest first. */
+  listAllowlist(): AsyncResult<AllowlistEntryDTO[]>;
+
+  /** Add an entry. A host is normalized; a client id must be registered; duplicates are refused. */
+  addAllowlistEntry(input: AddAllowlistEntryInput): AsyncResult<AllowlistEntryDTO>;
+
+  /** Remove an entry by id. */
+  removeAllowlistEntry(id: string): AsyncResult<{ removed: boolean }>;
+
+  /** The most recently registered apps, newest first. */
+  listRecentClients(limit: number): AsyncResult<RecentClientDTO[]>;
+
+  /**
+   * Is this app on the allow-list for this kind of access? Judged on the given
+   * return addresses (the one an approval request names) or, when omitted, on
+   * all the app's registered ones. An unknown app is not approved.
+   */
+  isClientApproved(clientId: string, kind: 'full' | 'partner', redirectUris?: string[]): AsyncResult<boolean>;
 }

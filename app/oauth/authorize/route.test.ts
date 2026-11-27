@@ -6,6 +6,7 @@ vi.mock('@/lib/services', () => ({
     validateClient: vi.fn(),
     createAuthorizationCode: vi.fn(),
     listGrantedScopes: vi.fn(),
+    isClientApproved: vi.fn(),
   },
 }));
 
@@ -18,6 +19,7 @@ const mockSession = vi.mocked(auth) as unknown as ReturnType<typeof vi.fn>;
 const mockClient = vi.mocked(oauthFlowService.validateClient);
 const mockCode = vi.mocked(oauthFlowService.createAuthorizationCode);
 const mockGranted = vi.mocked(oauthFlowService.listGrantedScopes);
+const mockApproved = vi.mocked(oauthFlowService.isClientApproved);
 
 const ORIGIN = 'http://localhost:3000';
 const REDIRECT = 'https://partner.example/callback';
@@ -47,7 +49,8 @@ describe('GET /oauth/authorize', () => {
   });
 
   beforeEach(() => {
-    for (const m of [mockSession, mockClient, mockCode, mockGranted]) m.mockReset();
+    for (const m of [mockSession, mockClient, mockCode, mockGranted, mockApproved]) m.mockReset();
+    mockApproved.mockResolvedValue({ success: true, data: true });
     vi.stubEnv('AUTH_URL', ORIGIN);
     vi.spyOn(console, 'log').mockImplementation(() => {});
     mockSession.mockResolvedValue({ user: { id: 'user-1' } });
@@ -62,6 +65,39 @@ describe('GET /oauth/authorize', () => {
         token_endpoint_auth_method: 'none',
       },
     } as never);
+  });
+
+  describe('the app allow-list (/admin/oauth-apps)', () => {
+    it('turns away an app that is not on the list, before sign-in or consent', async () => {
+      mockApproved.mockResolvedValue({ success: true, data: false });
+      mockSession.mockResolvedValue(null);
+
+      const where = location(await GET(get()));
+
+      expect(where.pathname).toBe('/oauth/error');
+      expect(where.searchParams.get('error')).toBe('unauthorized_client');
+      expect(where.searchParams.get('error_description')).toBe('This app is not approved to connect to FaB Bazaar');
+      expect(mockCode).not.toHaveBeenCalled();
+    });
+
+    it('checks the return address this request names, for the kind of access it asks', async () => {
+      await GET(get());
+      expect(mockApproved).toHaveBeenLastCalledWith('mcp_client', 'full', [REDIRECT]);
+
+      await GET(get({ scope: 'decks:read' }));
+      expect(mockApproved).toHaveBeenLastCalledWith('mcp_client', 'partner', [REDIRECT]);
+    });
+
+    it("checks the app's registered return address when the request names none", async () => {
+      await GET(get({ redirect_uri: undefined }));
+      expect(mockApproved).toHaveBeenLastCalledWith('mcp_client', 'full', [REDIRECT]);
+    });
+
+    it('turns the app away when the list cannot be read', async () => {
+      mockApproved.mockResolvedValue({ success: false, error: 'db down' });
+      expect(location(await GET(get())).searchParams.get('error')).toBe('unauthorized_client');
+      expect(mockCode).not.toHaveBeenCalled();
+    });
   });
 
   describe('full-access requests', () => {

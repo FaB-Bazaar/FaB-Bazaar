@@ -16,12 +16,14 @@ import {
   oauthClients,
   oauthAuthorizationCodes,
   oauthAccessTokens,
+  oauthAllowlist,
 } from '@/lib/postgres/schema';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
-import { eq, and, gt, or } from 'drizzle-orm';
+import { eq, and, gt, or, asc, desc } from 'drizzle-orm';
 import { classifyScopeRequest } from '@/lib/oauth/consent';
+import { APP_NOT_APPROVED, accessKindOfScope, isApproved, normalizeAllowedHost, type AccessKind } from '@/lib/oauth/allowlist';
 import { signPartnerToken, verifyPartnerToken } from '@/lib/oauth/partner-token';
 import bcrypt from 'bcryptjs';
 import type {
@@ -33,6 +35,9 @@ import type {
   ExchangeAuthCodeInput,
   RegisterClientInput,
   RegisterClientResultDTO,
+  AllowlistEntryDTO,
+  AddAllowlistEntryInput,
+  RecentClientDTO,
 } from '../../contracts/IOAuthFlowService';
 import type { AsyncResult } from '../../contracts/common';
 
@@ -405,7 +410,7 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
       // FK to oauth_clients, so orphans from before revokeClient cleaned up
       // after itself still exist.
       const [client] = await db
-        .select({ id: oauthClients.id })
+        .select({ id: oauthClients.id, redirectUris: oauthClients.redirectUris })
         .from(oauthClients)
         .where(eq(oauthClients.clientId, clientId));
 
@@ -414,6 +419,17 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
           success: false,
           error: 'Client has been revoked',
         };
+      }
+
+      // An app taken off the allow-list (/admin/oauth-apps) stops here, at its
+      // next refresh — within the hour its last access token lives.
+      const approved = isApproved(
+        { clientId, redirectUris: client.redirectUris },
+        accessKindOfScope(tokenRecord.scope),
+        await this.allowlistEntries(),
+      );
+      if (!approved) {
+        return { success: false, error: APP_NOT_APPROVED };
       }
 
       // Check refresh token expiration
@@ -664,4 +680,123 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
     const hash = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
     return hash === codeChallenge;
   }
+
+  // ========================================
+  // App allow-list (migration 0136, /admin/oauth-apps)
+  // ========================================
+  // Read on every approval, refresh and partner API call, so the entries are
+  // cached for a minute per process; an add or remove here clears it at once.
+
+  private allowlistCache: { entries: AllowlistEntryDTO[]; at: number } | null = null;
+  private static readonly ALLOWLIST_TTL_MS = 60_000;
+
+  private async allowlistEntries(): Promise<AllowlistEntryDTO[]> {
+    const cached = this.allowlistCache;
+    if (cached && Date.now() - cached.at < PostgresOAuthFlowService.ALLOWLIST_TTL_MS) return cached.entries;
+    const rows = await db.select().from(oauthAllowlist).orderBy(asc(oauthAllowlist.createdAt), asc(oauthAllowlist.value));
+    const entries = rows.map(toAllowlistEntry);
+    this.allowlistCache = { entries, at: Date.now() };
+    return entries;
+  }
+
+  async listAllowlist(): AsyncResult<AllowlistEntryDTO[]> {
+    try {
+      this.allowlistCache = null;
+      return { success: true, data: await this.allowlistEntries() };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] listAllowlist error:', error);
+      return { success: false, error: 'Failed to load the allow-list' };
+    }
+  }
+
+  async addAllowlistEntry(input: AddAllowlistEntryInput): AsyncResult<AllowlistEntryDTO> {
+    try {
+      const label = typeof input.label === 'string' ? input.label.trim().slice(0, 80) : '';
+      if (!label) return { success: false, error: 'Give the entry a name' };
+      if (!['full', 'partner', 'all'].includes(input.access)) return { success: false, error: 'Unknown access' };
+
+      let value: string;
+      if (input.kind === 'redirect_host') {
+        const host = normalizeAllowedHost(String(input.value ?? ''));
+        if (!host) return { success: false, error: 'That is not a host name (e.g. chatgpt.com)' };
+        value = host;
+      } else if (input.kind === 'client_id') {
+        value = String(input.value ?? '').trim();
+        const [client] = await db.select({ id: oauthClients.id }).from(oauthClients).where(eq(oauthClients.clientId, value)).limit(1);
+        if (!client) return { success: false, error: 'No registered app has that client id' };
+      } else {
+        return { success: false, error: 'Unknown entry kind' };
+      }
+
+      const [row] = await db
+        .insert(oauthAllowlist)
+        .values({ kind: input.kind, value, label, access: input.access, createdBy: input.createdBy })
+        .onConflictDoNothing()
+        .returning();
+      if (!row) return { success: false, error: 'That is already on the list' };
+      this.allowlistCache = null;
+      return { success: true, data: toAllowlistEntry(row) };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] addAllowlistEntry error:', error);
+      return { success: false, error: 'Failed to add to the allow-list' };
+    }
+  }
+
+  async removeAllowlistEntry(id: string): AsyncResult<{ removed: boolean }> {
+    try {
+      const removed = await db.delete(oauthAllowlist).where(eq(oauthAllowlist.id, id)).returning({ id: oauthAllowlist.id });
+      this.allowlistCache = null;
+      return { success: true, data: { removed: removed.length > 0 } };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] removeAllowlistEntry error:', error);
+      return { success: false, error: 'Failed to remove from the allow-list' };
+    }
+  }
+
+  async listRecentClients(limit: number): AsyncResult<RecentClientDTO[]> {
+    try {
+      const rows = await db
+        .select({
+          clientId: oauthClients.clientId,
+          clientName: oauthClients.clientName,
+          clientUri: oauthClients.clientUri,
+          redirectUris: oauthClients.redirectUris,
+          createdAt: oauthClients.createdAt,
+          lastUsed: oauthClients.lastUsed,
+        })
+        .from(oauthClients)
+        .orderBy(desc(oauthClients.createdAt))
+        .limit(Math.max(1, Math.min(limit, 500)));
+      return { success: true, data: rows.map(r => ({ ...r, clientUri: r.clientUri ?? null, lastUsed: r.lastUsed ?? null })) };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] listRecentClients error:', error);
+      return { success: false, error: 'Failed to list registered apps' };
+    }
+  }
+
+  async isClientApproved(clientId: string, kind: AccessKind, redirectUris?: string[]): AsyncResult<boolean> {
+    try {
+      let uris = redirectUris;
+      if (!uris) {
+        const [client] = await db.select({ redirectUris: oauthClients.redirectUris }).from(oauthClients).where(eq(oauthClients.clientId, clientId)).limit(1);
+        if (!client) return { success: true, data: false };
+        uris = client.redirectUris;
+      }
+      return { success: true, data: isApproved({ clientId, redirectUris: uris }, kind, await this.allowlistEntries()) };
+    } catch (error) {
+      console.error('[PostgresOAuthFlowService] isClientApproved error:', error);
+      return { success: false, error: 'Failed to check the allow-list' };
+    }
+  }
+}
+
+function toAllowlistEntry(row: typeof oauthAllowlist.$inferSelect): AllowlistEntryDTO {
+  return {
+    id: row.id,
+    kind: row.kind as AllowlistEntryDTO['kind'],
+    value: row.value,
+    label: row.label,
+    access: row.access as AllowlistEntryDTO['access'],
+    createdAt: row.createdAt,
+  };
 }
