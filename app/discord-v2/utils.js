@@ -356,7 +356,8 @@ export async function showCardPrintings(cardUniqueId, cardName) {
     
     const requestBody = {
       filters: {
-        cardUniqueId: cardUniqueId
+        cardUniqueId: cardUniqueId,
+        languages: ['en'], // English printings only (the ones with TCGplayer prices)
       },
       options: {
         limit: 50,
@@ -418,7 +419,7 @@ export async function showCardPrintings(cardUniqueId, cardName) {
     };
     
     // Format printings for display
-    const results = printings.map((p, index) => {
+    const lines = printings.map((p, index) => {
       // 🔍 DEBUG: Log each printing being processed
       console.log(`[showCardPrintings] 🎯 Processing printing ${index+1}:`, {
         name: p.display_name || p.name,
@@ -463,7 +464,23 @@ export async function showCardPrintings(cardUniqueId, cardName) {
       console.log(`[showCardPrintings] 🎯 Formatted result ${index+1}:`, formatted);
 
       return formatted;
-    }).join('\n');
+    });
+
+    // Discord rejects a message over 2000 characters, and then reports "didn't
+    // respond in time". Keep the lines that fit; link the rest on the site.
+    const DISCORD_MESSAGE_LIMIT = 2000;
+    const header = `**All printings of ${cardName}:**\n`;
+    const moreUrl = `${process.env.NEXT_PUBLIC_APP_URL}/printing/${printings[0].printing_id}`;
+    const moreLine = (n) => `\n…and ${n} more — [see all printings](${moreUrl})`;
+    const shown = [];
+    for (const line of lines) {
+      const remaining = lines.length - shown.length - 1;
+      const length = header.length + [...shown, line].join('\n').length + (remaining > 0 ? moreLine(remaining).length : 0);
+      if (length > DISCORD_MESSAGE_LIMIT) break;
+      shown.push(line);
+    }
+    const hidden = lines.length - shown.length;
+    const results = shown.join('\n') + (hidden > 0 ? moreLine(hidden) : '');
 
     console.log('[showCardPrintings] 🎯 FINAL RESULTS:');
     console.log('[showCardPrintings] 🎯 Results length:', results.length);
@@ -516,7 +533,7 @@ export async function showCardPrintings(cardUniqueId, cardName) {
     };
 
     return {
-      content: `**All printings of ${cardName}:**\n${results}`,
+      content: `${header}${results}`,
       printings,
       components: [actionButtons]
     };
