@@ -10,8 +10,8 @@
  *   legal date = COALESCE(sets.legal_from, sets.release_date) <= today
  *   cc / ll      = not a young hero
  *   blitz        = not an adult hero
- *   silver age   = non-hero printed at common / rare / basic / token
- *   commoner     = common / basic / token, and not an adult hero
+ *   silver age   = printed at common / rare / basic / token, and not an adult hero
+ *   commoner     = common / basic / token (a young hero may also be rare), and not an adult hero
  * It is idempotent and runs nightly from 005 so future sets flip on their own.
  *
  * Migration 0130 widens "provisional": a card previewed early in spoiler season
@@ -43,6 +43,8 @@ const ids = {
   common: `test-pl-common-${rand}`,
   majestic: `test-pl-majestic-${rand}`,
   youngHero: `test-pl-young-${rand}`,
+  youngRareHero: `test-pl-young-rare-${rand}`,
+  youngMajesticHero: `test-pl-young-majestic-${rand}`,
   adultHero: `test-pl-adult-${rand}`,
   released: `test-pl-released-${rand}`,
   future: `test-pl-future-${rand}`,
@@ -91,6 +93,8 @@ beforeAll(async () => {
     card(ids.common, ['merchant', 'action']),
     card(ids.majestic, ['merchant', 'action']),
     card(ids.youngHero, ['merchant', 'hero', 'young'], { isHero: true }),
+    card(ids.youngRareHero, ['merchant', 'hero', 'young'], { isHero: true }),
+    card(ids.youngMajesticHero, ['merchant', 'hero', 'young'], { isHero: true }),
     card(ids.adultHero, ['merchant', 'hero'], { isHero: true }),
     card(ids.released, ['merchant', 'action']),
     card(ids.future, ['merchant', 'action']),
@@ -109,6 +113,8 @@ beforeAll(async () => {
   await mk(ids.common, legalSet, 1, 'c');
   await mk(ids.majestic, legalSet, 2, 'm');
   await mk(ids.youngHero, legalSet, 3, 'b');
+  await mk(ids.youngRareHero, legalSet, 9, 'r');
+  await mk(ids.youngMajesticHero, legalSet, 10, 'm');
   await mk(ids.adultHero, legalSet, 4, 'm');
   await mk(ids.adopted, legalSet, 5, 'c');
   await mk(ids.curated, legalSet, 6, 'c');
@@ -139,9 +145,20 @@ describe('migration 0112: sets.legal_from + apply_provisional_legality()', () =>
     expect(await flagsOf(ids.majestic)).toEqual({ cc_legal: true, blitz_legal: true, silver_age_legal: false, ll_legal: true, commoner_legal: false });
   });
 
-  it('young heroes are Blitz + Commoner only; adult heroes CC + LL only', async () => {
-    expect(await flagsOf(ids.youngHero)).toEqual({ cc_legal: false, blitz_legal: true, silver_age_legal: false, ll_legal: false, commoner_legal: true });
+  // 0137: TRP 7.4 — the Silver Age hero must be common or rare, like every
+  // card in the pool (basic counts as common). 0112 excluded every hero, so
+  // young heroes (MPA's Dr. Mortimer, IAR's Malice) never reached Silver Age.
+  it('young heroes at common / rare / basic are Blitz + Silver Age + Commoner; adult heroes CC + LL only', async () => {
+    expect(await flagsOf(ids.youngHero)).toEqual({ cc_legal: false, blitz_legal: true, silver_age_legal: true, ll_legal: false, commoner_legal: true });
     expect(await flagsOf(ids.adultHero)).toEqual({ cc_legal: true, blitz_legal: false, silver_age_legal: false, ll_legal: true, commoner_legal: false });
+  });
+
+  it('0137: a rare young hero is Silver Age and Commoner legal (a Commoner hero may be rare)', async () => {
+    expect(await flagsOf(ids.youngRareHero)).toEqual({ cc_legal: false, blitz_legal: true, silver_age_legal: true, ll_legal: false, commoner_legal: true });
+  });
+
+  it('0137: a majestic young hero is Blitz only', async () => {
+    expect(await flagsOf(ids.youngMajesticHero)).toEqual({ cc_legal: false, blitz_legal: true, silver_age_legal: false, ll_legal: false, commoner_legal: false });
   });
 
   it('a released set with no legal_from falls back to release_date', async () => {

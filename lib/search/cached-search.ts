@@ -42,7 +42,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //        keeps its not-yet-flagged cards until the nightly flips cc_legal)
 //   v13 — migration 0130 made the early-adopted MPA / AMO previews legal
 //        outside a nightly run
-const SEARCH_CACHE_VERSION = 'v13';
+//   v14 — migration 0137 made six young heroes Silver Age legal (three also
+//        Commoner) outside a nightly run
+const SEARCH_CACHE_VERSION = 'v14';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')
