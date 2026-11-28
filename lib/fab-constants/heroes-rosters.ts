@@ -670,6 +670,37 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
     cardUniqueId: '7KEzp9kenB86cmEQxy-G5', classes: ['assassin'], talents: ['chaos'], shortName: 'mortimer-lv' },
   'α-01, first cogwarden': {
     cardUniqueId: '7F3pF9h2wliPbhUVa2q6S', classes: ['mechanologist', 'ranger'], talents: [], shortName: 'alpha-01' },
+
+  // In the DB (and Talishar) but missing from this roster until 2026-11 —
+  // ids verified against prod. Emperor and Killjoy are multi-class AND talented.
+  'blaze, firemind': {
+    cardUniqueId: 'hJdWJJWrBzNBBFz9BCJDw', classes: ['wizard'], talents: [], shortName: 'blaze' },
+  'brevant, civic protector': {
+    cardUniqueId: 'jBtHRMcRntDhhGzKtzKFB', classes: ['guardian'], talents: [], shortName: 'brevant' },
+  'dorinthea, quicksilver prodigy': {
+    cardUniqueId: 'NJJCGNjdCFzrjLqGfL6mR', classes: ['warrior'], talents: [], shortName: 'dori-qp' },
+  'emperor, dracai of aesir': {
+    cardUniqueId: 'QgqNQGbtcF6NNBMDbDMhh', classes: ['warrior', 'wizard'], talents: ['royal', 'draconic'], shortName: 'emperor' },
+  'enigma, new moon': {
+    cardUniqueId: '9HfDfRR8m8cLKDdg88gjm', classes: ['illusionist'], talents: ['mystic'], shortName: 'enigma-nm' },
+  'genis wotchuneed': {
+    cardUniqueId: 'Mqj9K8NgJ7LFBwMKWk6L7', classes: ['merchant'], talents: [], shortName: 'genis' },
+  'hala': {
+    cardUniqueId: 'PCcMjhHfKKrmH8hR9LQBc', classes: ['warrior'], talents: [], shortName: 'hala-y' },
+  'killjoy, the crooked blade': {
+    cardUniqueId: '9ngQ9QRpcTPQtpcnjwrRw', classes: ['warrior', 'thief'], talents: ['reviled'], shortName: 'killjoy' },
+  'melody, sing-along': {
+    cardUniqueId: 'npDPz98H6BnJGDzHBmdGk', classes: ['bard'], talents: [], shortName: 'melody' },
+  'prism, advent of thrones': {
+    cardUniqueId: 'dhbhdcr8CB6ngRrf9GTgm', classes: ['illusionist'], talents: ['light'], shortName: 'prism-aot' },
+  'professor teklovossen': {
+    cardUniqueId: 'BLCMLHnwnbRKbdhPJ9DQp', classes: ['mechanologist'], talents: [], shortName: 'prof-teklo' },
+  'shiyana, diamond gemini': {
+    cardUniqueId: 'n9r77QwMzdWJmnfhPLN9J', classes: ['shapeshifter'], talents: [], shortName: 'shiyana' },
+  'yoji, royal protector': {
+    cardUniqueId: 'ncc6tmdrfHgnz9DhPqnwC', classes: ['guardian'], talents: [], shortName: 'yoji' },
+  'zane, broadly beloved': {
+    cardUniqueId: 'tjQzWM7HtWqpk8R8T8TNW', classes: ['warrior'], talents: ['revered'], shortName: 'zane' },
 };
 
 export function getHeroesGroupedByClass(): Record<string, string[]> {

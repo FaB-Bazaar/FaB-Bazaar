@@ -733,3 +733,49 @@ describe('OBK + MPA heroes', () => {
     expect(toHeroDisplayName('dr. mortimer, blight of the pits', HERO_INFO['dr. mortimer, blight of the pits']?.shortName)).toBe('Dr. Mortimer, Blight of the Pits');
   });
 });
+
+// Young heroes that were in the DB (and most in TALISHAR_HERO_IDS) but missing
+// from YOUNG_HERO_INFO, so heroLegal fell back to loose OR matching for them.
+// card_unique_ids verified against PROD (search_printings name + isHero);
+// slugs and ids from Talishar's LegalHeroesHelper.php / GeneratedSetID.php.
+// Emperor and Killjoy are multi-class AND talented.
+describe('young heroes added 2026-11', () => {
+  const YOUNG = [
+    { key: 'blaze, firemind', id: 'hJdWJJWrBzNBBFz9BCJDw', classes: ['wizard'], talents: [], slug: 'blaze_firemind', cn: 'HER117', short: 'blaze', display: 'Blaze, Firemind' },
+    { key: 'brevant, civic protector', id: 'jBtHRMcRntDhhGzKtzKFB', classes: ['guardian'], talents: [], slug: 'brevant_civic_protector', cn: 'TCC027', short: 'brevant', display: 'Brevant, Civic Protector' },
+    { key: 'dorinthea, quicksilver prodigy', id: 'NJJCGNjdCFzrjLqGfL6mR', classes: ['warrior'], talents: [], slug: 'dorinthea_quicksilver_prodigy', cn: 'DVR001', short: 'dori-qp', display: 'Dorinthea, Quicksilver Prodigy' },
+    { key: 'emperor, dracai of aesir', id: 'QgqNQGbtcF6NNBMDbDMhh', classes: ['warrior', 'wizard'], talents: ['royal', 'draconic'], slug: 'emperor_dracai_of_aesir', cn: 'DYN001', short: 'emperor', display: 'Emperor, Dracai of Aesir' },
+    { key: 'enigma, new moon', id: '9HfDfRR8m8cLKDdg88gjm', classes: ['illusionist'], talents: ['mystic'], slug: 'enigma_new_moon', cn: 'MST238', short: 'enigma-nm', display: 'Enigma, New Moon' },
+    { key: 'genis wotchuneed', id: 'Mqj9K8NgJ7LFBwMKWk6L7', classes: ['merchant'], talents: [], slug: 'genis_wotchuneed', cn: 'EVR085', short: 'genis', display: 'Genis Wotchuneed' },
+    { key: 'hala', id: 'PCcMjhHfKKrmH8hR9LQBc', classes: ['warrior'], talents: [], slug: 'hala', cn: 'MPW004', short: 'hala-y', display: 'Hala' },
+    { key: 'killjoy, the crooked blade', id: '9ngQ9QRpcTPQtpcnjwrRw', classes: ['warrior', 'thief'], talents: ['reviled'], slug: 'killjoy_the_crooked_blade', cn: 'SPW001', short: 'killjoy', display: 'Killjoy, the Crooked Blade' },
+    { key: 'melody, sing-along', id: 'npDPz98H6BnJGDzHBmdGk', classes: ['bard'], talents: [], slug: 'melody_sing_along', cn: 'TCC049', short: 'melody', display: 'Melody, Sing-along' },
+    { key: 'prism, advent of thrones', id: 'dhbhdcr8CB6ngRrf9GTgm', classes: ['illusionist'], talents: ['light'], slug: 'prism_advent_of_thrones', cn: 'DTD002', short: 'prism-aot', display: 'Prism, Advent of Thrones' },
+    { key: 'professor teklovossen', id: 'BLCMLHnwnbRKbdhPJ9DQp', classes: ['mechanologist'], talents: [], slug: 'professor_teklovossen', cn: 'TCC001', short: 'prof-teklo', display: 'Professor Teklovossen' },
+    { key: 'shiyana, diamond gemini', id: 'n9r77QwMzdWJmnfhPLN9J', classes: ['shapeshifter'], talents: [], slug: 'shiyana_diamond_gemini', cn: 'CRU097', short: 'shiyana', display: 'Shiyana, Diamond Gemini' },
+    { key: 'yoji, royal protector', id: 'ncc6tmdrfHgnz9DhPqnwC', classes: ['guardian'], talents: [], slug: 'yoji_royal_protector', cn: 'DYN025', short: 'yoji', display: 'Yoji, Royal Protector' },
+    { key: 'zane, broadly beloved', id: 'tjQzWM7HtWqpk8R8T8TNW', classes: ['warrior'], talents: ['revered'], slug: 'zane_broadly_beloved', cn: 'SPW003', short: 'zane', display: 'Zane, Broadly Beloved' },
+  ];
+
+  it.each(YOUNG)('young $key: roster, Talishar ids, young formats only', (h) => {
+    expect(YOUNG_HERO_INFO[h.key]).toMatchObject({ cardUniqueId: h.id, classes: h.classes, talents: h.talents, shortName: h.short });
+    expect(HERO_INFO[h.key]).toBeUndefined();
+    expect(TALISHAR_HERO_SLUGS[h.key]).toBe(h.slug);
+    expect(TALISHAR_HERO_IDS[h.key]).toBe(h.cn);
+    expect(validateHeroFormatLegality(h.key, 'blitz')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality(h.key, 'cc').ok).toBe(false);
+  });
+
+  it.each(YOUNG)('young $key: resolves by shortName and renders its own name', (h) => {
+    expect(getHeroInfo(h.short)?.cardUniqueId).toBe(h.id);
+    expect(toHeroDisplayName(h.key, YOUNG_HERO_INFO[h.key]?.shortName)).toBe(h.display);
+  });
+
+  it('adult nicknames keep meaning the adult heroes', () => {
+    const nick = (n: string) => HERO_NICKNAMES[n as keyof typeof HERO_NICKNAMES];
+    expect(nick('dori')).toBe('Dorinthea Ironsong');
+    expect(nick('hala')).toBe('Hala, Bladesaint of the Vow');
+    expect(nick('enigma')).toBe('Enigma, Ledger of Ancestry');
+    expect(nick('teklo')).toBe('Teklovossen, Esteemed Magnate');
+  });
+});

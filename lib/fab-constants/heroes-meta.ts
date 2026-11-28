@@ -148,6 +148,21 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'rhinar':                              'rhinar',
   'tuffnut':                             'tuffnut',
   'zyggy':                               'zyggy',
+  // Young heroes added to YOUNG_HERO_INFO 2026-11 (slugs from LegalHeroesHelper.php)
+  'blaze, firemind':                     'blaze_firemind',
+  'brevant, civic protector':            'brevant_civic_protector',
+  'dorinthea, quicksilver prodigy':      'dorinthea_quicksilver_prodigy',
+  'emperor, dracai of aesir':            'emperor_dracai_of_aesir',
+  'enigma, new moon':                    'enigma_new_moon',
+  'genis wotchuneed':                    'genis_wotchuneed',
+  'hala':                                'hala',
+  'killjoy, the crooked blade':          'killjoy_the_crooked_blade',
+  'melody, sing-along':                  'melody_sing_along',
+  'prism, advent of thrones':            'prism_advent_of_thrones',
+  'professor teklovossen':               'professor_teklovossen',
+  'shiyana, diamond gemini':             'shiyana_diamond_gemini',
+  'yoji, royal protector':               'yoji_royal_protector',
+  'zane, broadly beloved':               'zane_broadly_beloved',
 };
 
 export function getTalisharHeroSlug(heroName: string): string | null {
@@ -315,6 +330,8 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'professor teklovossen':               'TCC001',
   'shiyana, diamond gemini':             'CRU097',
   'yoji, royal protector':               'DYN025',
+  'killjoy, the crooked blade':          'SPW001',
+  'zane, broadly beloved':               'SPW003',
 };
 
 // Living Legend leaderboard snapshot — updated manually from fabtcg.com leaderboard.

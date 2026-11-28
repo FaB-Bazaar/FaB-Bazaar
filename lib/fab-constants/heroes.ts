@@ -76,7 +76,23 @@ export const HERO_NICKNAMES = {
   'viserai': 'Viserai, Rune Blood',
   'vyle': 'Vyle, Catalyst of Collapse',
   'vynnset': 'Vynnset, Iron Maiden',
-  'zen': 'Zen, Tamer of Purpose'
+  'zen': 'Zen, Tamer of Purpose',
+  // Young-only heroes (2026-11). Suffixed keys avoid the adult nicknames
+  // ('dori', 'hala', 'enigma', 'teklo', 'prism*').
+  'blaze': 'Blaze, Firemind',
+  'brevant': 'Brevant, Civic Protector',
+  'dori-qp': 'Dorinthea, Quicksilver Prodigy',
+  'emperor': 'Emperor, Dracai of Aesir',
+  'enigma-nm': 'Enigma, New Moon',
+  'genis': 'Genis Wotchuneed',
+  'hala-y': 'Hala',
+  'killjoy': 'Killjoy, the Crooked Blade',
+  'melody': 'Melody, Sing-along',
+  'prism-aot': 'Prism, Advent of Thrones',
+  'prof-teklo': 'Professor Teklovossen',
+  'shiyana': 'Shiyana, Diamond Gemini',
+  'yoji': 'Yoji, Royal Protector',
+  'zane': 'Zane, Broadly Beloved'
 } as const;
 
 export interface ResourceLink {
