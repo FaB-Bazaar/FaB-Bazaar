@@ -17,7 +17,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/postgres/db';
-import { normalizeTalisharId } from '@/lib/talishar/cardId';
+import { normalizeTalisharId, talisharLookupCandidates } from '@/lib/talishar/cardId';
 
 const MAX_BATCH = 500;
 
@@ -136,9 +136,26 @@ export async function POST(request: NextRequest) {
   // Re-key the response by the original (un-normalized) input id so callers
   // don't have to reverse the normalization on their side.
   const data: Record<string, CardLookup> = {};
+  const missed: string[] = [];
   for (const [input, normalized] of inputToNormalized) {
     const card = byNormalized.get(normalized);
     if (card) data[input] = card;
+    else missed.push(input);
+  }
+
+  // Second pass, only for misses: log shapes that carry more than the card
+  // (transform letter "nitro_mechanoidc", ",N" parameter, "_purple"). First
+  // candidate that resolves wins, same rule as the game-results service.
+  if (missed.length > 0) {
+    const fallbacks = new Map(missed.map((input) => [input, talisharLookupCandidates(input).slice(1)]));
+    const extra = Array.from(new Set([...fallbacks.values()].flat())).filter((id) => !byNormalized.has(id));
+    if (extra.length > 0) {
+      const byFallback = await lookupByTalisharIds(extra, details);
+      for (const [input, candidates] of fallbacks) {
+        const hit = candidates.map((c) => byFallback.get(c)).find(Boolean);
+        if (hit) data[input] = hit;
+      }
+    }
   }
   return NextResponse.json({ success: true, data });
 }

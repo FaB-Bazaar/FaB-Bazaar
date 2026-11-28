@@ -78,6 +78,13 @@ declare namespace JSX {
       children?: React.ReactNode;
     };
 
+    'fab-combo-turn': {
+      snapshot?: string; // JSON ComboTurnSnapshot (lib/articles/combo-turn.ts)
+      captions?: string; // JSON string[]
+      heading?: string;
+      children?: React.ReactNode;
+    };
+
     'fab-buylist-block': {
       tiers?: string; // JSON string
       prerolled?: string; // server-rendered {rollup, cards} JSON
@@ -162,6 +169,13 @@ declare global {
         'export-url'?: string;
         notes?: string;
         title?: string;
+        children?: React.ReactNode;
+      };
+
+      'fab-combo-turn': {
+        snapshot?: string;
+        captions?: string;
+        heading?: string;
         children?: React.ReactNode;
       };
 

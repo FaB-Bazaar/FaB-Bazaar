@@ -14,6 +14,7 @@ const ALLOWED_WEB_COMPONENTS = [
   'fab-match-report',
   'fab-decklist-block',
   'fab-buylist-block',
+  'fab-combo-turn',
   'fab-callout',
   'fab-video',
   'fab-opportunity-card',

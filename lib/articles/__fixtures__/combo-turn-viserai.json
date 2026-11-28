@@ -1,0 +1,652 @@
+{
+ "self": {
+  "turns": 9,
+  "result": 1,
+  "turnLog": [
+   [
+    1,
+    "throttle_red",
+    "M"
+   ],
+   [
+    1,
+    "throttle_blue",
+    "P"
+   ],
+   [
+    1,
+    "throttle_red",
+    "HIT"
+   ],
+   [
+    1,
+    "t_bone_yellow",
+    "M"
+   ],
+   [
+    1,
+    "teklo_foundry_heart",
+    "M"
+   ],
+   [
+    1,
+    "maxx_the_hype_nitro",
+    "M"
+   ],
+   [
+    2,
+    "zero_to_sixty_red",
+    "M"
+   ],
+   [
+    2,
+    "zero_to_sixty_red",
+    "HIT"
+   ],
+   [
+    2,
+    "teklo_foundry_heart",
+    "M"
+   ],
+   [
+    2,
+    "maxx_the_hype_nitro",
+    "M"
+   ],
+   [
+    2,
+    "supercell_blue",
+    "M"
+   ],
+   [
+    2,
+    "throttle_red",
+    "P"
+   ],
+   [
+    2,
+    "crankshaft_blue",
+    "P"
+   ],
+   [
+    2,
+    "banksy",
+    "M"
+   ],
+   [
+    3,
+    "crankshaft_yellow",
+    "M"
+   ],
+   [
+    3,
+    "big_bertha_blue",
+    "P"
+   ],
+   [
+    3,
+    "teklo_foundry_heart",
+    "M"
+   ],
+   [
+    3,
+    "jump_start_red",
+    "M"
+   ],
+   [
+    3,
+    "jump_start_red",
+    "HIT"
+   ],
+   [
+    3,
+    "maxx_the_hype_nitro",
+    "M"
+   ],
+   [
+    3,
+    "banksy",
+    "M"
+   ],
+   [
+    4,
+    "fast_and_furious_red",
+    "M"
+   ],
+   [
+    4,
+    "teklo_foundry_heart",
+    "M"
+   ],
+   [
+    4,
+    "maxx_the_hype_nitro",
+    "M"
+   ],
+   [
+    4,
+    "construct_nitro_mechanoid_yellow",
+    "M"
+   ],
+   [
+    4,
+    "supercell_blue",
+    "P"
+   ],
+   [
+    4,
+    "cogwerx_base_legs",
+    "INSTANT"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "M"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "HIT"
+   ],
+   [
+    4,
+    "hit_the_gas_blue",
+    "M"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "M"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "M"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "HIT"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "M"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "HIT"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "M"
+   ],
+   [
+    4,
+    "nitro_mechanoidc",
+    "HIT"
+   ],
+   [
+    4,
+    "cogwerx_prong_bot_yellow",
+    "M"
+   ],
+   [
+    4,
+    "supercell_blue",
+    "P"
+   ],
+   [
+    4,
+    "cogwerx_prong_bot_yellow",
+    "HIT"
+   ],
+   [
+    5,
+    "t_bone_yellow",
+    "M"
+   ],
+   [
+    5,
+    "t_bone_yellow",
+    "HIT"
+   ],
+   [
+    5,
+    "t_bone_blue",
+    "M"
+   ],
+   [
+    5,
+    "t_bone_blue",
+    "HIT"
+   ],
+   [
+    5,
+    "maxx_the_hype_nitro",
+    "M"
+   ],
+   [
+    5,
+    "hyper_scrapper_blue",
+    "P"
+   ],
+   [
+    5,
+    "jump_start_red",
+    "M"
+   ],
+   [
+    5,
+    "nitro_mechanoidc",
+    "M"
+   ],
+   [
+    5,
+    "nitro_mechanoidc",
+    "HIT"
+   ],
+   [
+    6,
+    "zipper_hit_yellow",
+    "M"
+   ],
+   [
+    6,
+    "hit_the_gas_blue",
+    "P"
+   ],
+   [
+    6,
+    "zipper_hit_yellow",
+    "HIT"
+   ],
+   [
+    6,
+    "throttle_red",
+    "M"
+   ],
+   [
+    6,
+    "throttle_red",
+    "HIT"
+   ],
+   [
+    6,
+    "maxx_the_hype_nitro",
+    "M"
+   ],
+   [
+    6,
+    "big_bertha_yellow",
+    "P"
+   ],
+   [
+    7,
+    "t_bone_blue",
+    "M"
+   ],
+   [
+    7,
+    "t_bone_blue",
+    "HIT"
+   ],
+   [
+    7,
+    "big_bertha_blue",
+    "M"
+   ],
+   [
+    7,
+    "construct_nitro_mechanoid_yellow",
+    "P"
+   ],
+   [
+    7,
+    "hyper_scrapper_blue",
+    "M"
+   ],
+   [
+    8,
+    "crankshaft_red",
+    "M"
+   ],
+   [
+    8,
+    "teklo_trebuchet_2000_blue",
+    "P"
+   ],
+   [
+    8,
+    "pulsewave_harpoon_red",
+    "M"
+   ],
+   [
+    8,
+    "pulsewave_harpoon_red",
+    "M"
+   ],
+   [
+    8,
+    "pulsewave_harpoon_red",
+    "HIT"
+   ],
+   [
+    8,
+    "nitro_mechanoidc",
+    "M"
+   ],
+   [
+    8,
+    "nitro_mechanoidc",
+    "HIT"
+   ],
+   [
+    9,
+    "jump_start_red",
+    "M"
+   ],
+   [
+    9,
+    "hyper_driver_yellow",
+    "P"
+   ],
+   [
+    9,
+    "t_bone_red",
+    "M"
+   ],
+   [
+    9,
+    "t_bone_red",
+    "HIT"
+   ],
+   [
+    9,
+    "fast_and_furious_red",
+    "M"
+   ],
+   [
+    9,
+    "fast_and_furious_red",
+    "HIT"
+   ],
+   [
+    9,
+    "nitro_mechanoidc",
+    "M"
+   ]
+  ],
+  "playerHero": "maxx_the_hype_nitro",
+  "firstPlayer": 0,
+  "turnResults": {
+   "turn_0": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 0,
+    "lifeGained": 0,
+    "damageDealt": 0,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 0,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 0,
+    "resourcesUsed": 0,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 0,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 43
+   },
+   "turn_1": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 2,
+    "lifeGained": 0,
+    "damageDealt": 1,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 1,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 0,
+    "resourcesUsed": 5,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 8,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 42
+   },
+   "turn_2": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 2,
+    "lifeGained": 0,
+    "damageDealt": 1,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 2,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 1,
+    "resourcesUsed": 6,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 7,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 41
+   },
+   "turn_3": {
+    "lifeLost": 0,
+    "cardsLeft": 1,
+    "cardsUsed": 2,
+    "lifeGained": 0,
+    "damageDealt": 2,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 1,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 1,
+    "resourcesUsed": 7,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 12,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 39
+   },
+   "turn_4": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 4,
+    "lifeGained": 0,
+    "damageDealt": 23,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 2,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 0,
+    "resourcesUsed": 11,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 39,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 19
+   },
+   "turn_5": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 3,
+    "lifeGained": 0,
+    "damageDealt": 5,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 1,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 1,
+    "resourcesUsed": 3,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 14,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 14
+   },
+   "turn_6": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 2,
+    "lifeGained": 0,
+    "damageDealt": 3,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 2,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 0,
+    "resourcesUsed": 5,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 10,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 14
+   },
+   "turn_7": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 3,
+    "lifeGained": 0,
+    "damageDealt": 1,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 1,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 0,
+    "resourcesUsed": 3,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 7,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 13
+   },
+   "turn_8": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 3,
+    "lifeGained": 0,
+    "damageDealt": 7,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 1,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": 40,
+    "resourcesLeft": 0,
+    "resourcesUsed": 4,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 19,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": 6
+   },
+   "turn_9": {
+    "lifeLost": 0,
+    "cardsLeft": 0,
+    "cardsUsed": 3,
+    "lifeGained": 0,
+    "damageDealt": 7,
+    "damageTaken": 0,
+    "cardsBlocked": 0,
+    "cardsPitched": 1,
+    "damageBlocked": 0,
+    "lifeAtTurnEnd": null,
+    "resourcesLeft": 0,
+    "resourcesUsed": 1,
+    "cardsDiscarded": 0,
+    "cardsDisrupted": 0,
+    "damagePrevented": 0,
+    "damageThreatened": 16,
+    "arcaneDamageDealt": 0,
+    "arcaneDamageTaken": 0,
+    "allyDamagePrevented": 0,
+    "opponentLifeAtTurnEnd": null
+   }
+  },
+  "character": [
+   {
+    "cardId": "maxx_the_hype_nitro"
+   },
+   {
+    "cardId": "banksy"
+   },
+   {
+    "cardId": "mbrio_base_vizier"
+   },
+   {
+    "cardId": "teklo_foundry_heart"
+   },
+   {
+    "cardId": "galvanic_bender"
+   },
+   {
+    "cardId": "cogwerx_base_legs"
+   }
+  ]
+ },
+ "format": "1",
+ "conceded": false,
+ "opponent": {
+  "playerHero": "viserai_usurper",
+  "character": [
+   {
+    "cardId": "viserai_the_forsaken"
+   },
+   {
+    "cardId": "dread_scythe"
+   },
+   {
+    "cardId": "crown_of_providence"
+   },
+   {
+    "cardId": "dyadic_carapace"
+   },
+   {
+    "cardId": "beckoning_haunt"
+   },
+   {
+    "cardId": "quickdodge_flexors"
+   }
+  ]
+ }
+}

@@ -26,7 +26,7 @@ let n$3 = class n {
     return this.cssText;
   }
 };
-const r$4 = (t2) => new n$3("string" == typeof t2 ? t2 : t2 + "", void 0, s$2), i$4 = (t2, ...e2) => {
+const r$4 = (t2) => new n$3("string" == typeof t2 ? t2 : t2 + "", void 0, s$2), i$5 = (t2, ...e2) => {
   const o2 = 1 === t2.length ? t2[0] : e2.reduce((e3, s2, o3) => e3 + ((t3) => {
     if (true === t3._$cssResult$) return t3.cssText;
     if ("number" == typeof t3) return t3;
@@ -49,7 +49,7 @@ const r$4 = (t2) => new n$3("string" == typeof t2 ? t2 : t2 + "", void 0, s$2), 
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const { is: i$3, defineProperty: e$3, getOwnPropertyDescriptor: h$1, getOwnPropertyNames: r$3, getOwnPropertySymbols: o$4, getPrototypeOf: n$2 } = Object, a$1 = globalThis, c$1 = a$1.trustedTypes, l$1 = c$1 ? c$1.emptyScript : "", p$1 = a$1.reactiveElementPolyfillSupport, d$1 = (t2, s2) => t2, u$1 = { toAttribute(t2, s2) {
+const { is: i$4, defineProperty: e$3, getOwnPropertyDescriptor: h$1, getOwnPropertyNames: r$3, getOwnPropertySymbols: o$4, getPrototypeOf: n$2 } = Object, a$1 = globalThis, c$1 = a$1.trustedTypes, l$1 = c$1 ? c$1.emptyScript : "", p$2 = a$1.reactiveElementPolyfillSupport, d$1 = (t2, s2) => t2, u$1 = { toAttribute(t2, s2) {
   switch (s2) {
     case Boolean:
       t2 = t2 ? l$1 : null;
@@ -60,24 +60,24 @@ const { is: i$3, defineProperty: e$3, getOwnPropertyDescriptor: h$1, getOwnPrope
   }
   return t2;
 }, fromAttribute(t2, s2) {
-  let i3 = t2;
+  let i4 = t2;
   switch (s2) {
     case Boolean:
-      i3 = null !== t2;
+      i4 = null !== t2;
       break;
     case Number:
-      i3 = null === t2 ? null : Number(t2);
+      i4 = null === t2 ? null : Number(t2);
       break;
     case Object:
     case Array:
       try {
-        i3 = JSON.parse(t2);
+        i4 = JSON.parse(t2);
       } catch (t3) {
-        i3 = null;
+        i4 = null;
       }
   }
-  return i3;
-} }, f$1 = (t2, s2) => !i$3(t2, s2), b$1 = { attribute: true, type: String, converter: u$1, reflect: false, useDefault: false, hasChanged: f$1 };
+  return i4;
+} }, f$1 = (t2, s2) => !i$4(t2, s2), b$1 = { attribute: true, type: String, converter: u$1, reflect: false, useDefault: false, hasChanged: f$1 };
 Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")), a$1.litPropertyMetadata ?? (a$1.litPropertyMetadata = /* @__PURE__ */ new WeakMap());
 let y$1 = class y extends HTMLElement {
   static addInitializer(t2) {
@@ -88,11 +88,11 @@ let y$1 = class y extends HTMLElement {
   }
   static createProperty(t2, s2 = b$1) {
     if (s2.state && (s2.attribute = false), this._$Ei(), this.prototype.hasOwnProperty(t2) && ((s2 = Object.create(s2)).wrapped = true), this.elementProperties.set(t2, s2), !s2.noAccessor) {
-      const i3 = Symbol(), h2 = this.getPropertyDescriptor(t2, i3, s2);
+      const i4 = Symbol(), h2 = this.getPropertyDescriptor(t2, i4, s2);
       void 0 !== h2 && e$3(this.prototype, t2, h2);
     }
   }
-  static getPropertyDescriptor(t2, s2, i3) {
+  static getPropertyDescriptor(t2, s2, i4) {
     const { get: e2, set: r2 } = h$1(this.prototype, t2) ?? { get() {
       return this[s2];
     }, set(t3) {
@@ -100,7 +100,7 @@ let y$1 = class y extends HTMLElement {
     } };
     return { get: e2, set(s3) {
       const h2 = e2?.call(this);
-      r2?.call(this, s3), this.requestUpdate(t2, h2, i3);
+      r2?.call(this, s3), this.requestUpdate(t2, h2, i4);
     }, configurable: true, enumerable: true };
   }
   static getPropertyOptions(t2) {
@@ -115,31 +115,31 @@ let y$1 = class y extends HTMLElement {
     if (this.hasOwnProperty(d$1("finalized"))) return;
     if (this.finalized = true, this._$Ei(), this.hasOwnProperty(d$1("properties"))) {
       const t3 = this.properties, s2 = [...r$3(t3), ...o$4(t3)];
-      for (const i3 of s2) this.createProperty(i3, t3[i3]);
+      for (const i4 of s2) this.createProperty(i4, t3[i4]);
     }
     const t2 = this[Symbol.metadata];
     if (null !== t2) {
       const s2 = litPropertyMetadata.get(t2);
-      if (void 0 !== s2) for (const [t3, i3] of s2) this.elementProperties.set(t3, i3);
+      if (void 0 !== s2) for (const [t3, i4] of s2) this.elementProperties.set(t3, i4);
     }
     this._$Eh = /* @__PURE__ */ new Map();
     for (const [t3, s2] of this.elementProperties) {
-      const i3 = this._$Eu(t3, s2);
-      void 0 !== i3 && this._$Eh.set(i3, t3);
+      const i4 = this._$Eu(t3, s2);
+      void 0 !== i4 && this._$Eh.set(i4, t3);
     }
     this.elementStyles = this.finalizeStyles(this.styles);
   }
   static finalizeStyles(s2) {
-    const i3 = [];
+    const i4 = [];
     if (Array.isArray(s2)) {
       const e2 = new Set(s2.flat(1 / 0).reverse());
-      for (const s3 of e2) i3.unshift(c$2(s3));
-    } else void 0 !== s2 && i3.push(c$2(s2));
-    return i3;
+      for (const s3 of e2) i4.unshift(c$2(s3));
+    } else void 0 !== s2 && i4.push(c$2(s2));
+    return i4;
   }
   static _$Eu(t2, s2) {
-    const i3 = s2.attribute;
-    return false === i3 ? void 0 : "string" == typeof i3 ? i3 : "string" == typeof t2 ? t2.toLowerCase() : void 0;
+    const i4 = s2.attribute;
+    return false === i4 ? void 0 : "string" == typeof i4 ? i4 : "string" == typeof t2 ? t2.toLowerCase() : void 0;
   }
   constructor() {
     super(), this._$Ep = void 0, this.isUpdatePending = false, this.hasUpdated = false, this._$Em = null, this._$Ev();
@@ -155,7 +155,7 @@ let y$1 = class y extends HTMLElement {
   }
   _$E_() {
     const t2 = /* @__PURE__ */ new Map(), s2 = this.constructor.elementProperties;
-    for (const i3 of s2.keys()) this.hasOwnProperty(i3) && (t2.set(i3, this[i3]), delete this[i3]);
+    for (const i4 of s2.keys()) this.hasOwnProperty(i4) && (t2.set(i4, this[i4]), delete this[i4]);
     t2.size > 0 && (this._$Ep = t2);
   }
   createRenderRoot() {
@@ -170,35 +170,35 @@ let y$1 = class y extends HTMLElement {
   disconnectedCallback() {
     this._$EO?.forEach((t2) => t2.hostDisconnected?.());
   }
-  attributeChangedCallback(t2, s2, i3) {
-    this._$AK(t2, i3);
+  attributeChangedCallback(t2, s2, i4) {
+    this._$AK(t2, i4);
   }
   _$ET(t2, s2) {
-    const i3 = this.constructor.elementProperties.get(t2), e2 = this.constructor._$Eu(t2, i3);
-    if (void 0 !== e2 && true === i3.reflect) {
-      const h2 = (void 0 !== i3.converter?.toAttribute ? i3.converter : u$1).toAttribute(s2, i3.type);
+    const i4 = this.constructor.elementProperties.get(t2), e2 = this.constructor._$Eu(t2, i4);
+    if (void 0 !== e2 && true === i4.reflect) {
+      const h2 = (void 0 !== i4.converter?.toAttribute ? i4.converter : u$1).toAttribute(s2, i4.type);
       this._$Em = t2, null == h2 ? this.removeAttribute(e2) : this.setAttribute(e2, h2), this._$Em = null;
     }
   }
   _$AK(t2, s2) {
-    const i3 = this.constructor, e2 = i3._$Eh.get(t2);
+    const i4 = this.constructor, e2 = i4._$Eh.get(t2);
     if (void 0 !== e2 && this._$Em !== e2) {
-      const t3 = i3.getPropertyOptions(e2), h2 = "function" == typeof t3.converter ? { fromAttribute: t3.converter } : void 0 !== t3.converter?.fromAttribute ? t3.converter : u$1;
+      const t3 = i4.getPropertyOptions(e2), h2 = "function" == typeof t3.converter ? { fromAttribute: t3.converter } : void 0 !== t3.converter?.fromAttribute ? t3.converter : u$1;
       this._$Em = e2;
       const r2 = h2.fromAttribute(s2, t3.type);
       this[e2] = r2 ?? this._$Ej?.get(e2) ?? r2, this._$Em = null;
     }
   }
-  requestUpdate(t2, s2, i3, e2 = false, h2) {
+  requestUpdate(t2, s2, i4, e2 = false, h2) {
     if (void 0 !== t2) {
       const r2 = this.constructor;
-      if (false === e2 && (h2 = this[t2]), i3 ?? (i3 = r2.getPropertyOptions(t2)), !((i3.hasChanged ?? f$1)(h2, s2) || i3.useDefault && i3.reflect && h2 === this._$Ej?.get(t2) && !this.hasAttribute(r2._$Eu(t2, i3)))) return;
-      this.C(t2, s2, i3);
+      if (false === e2 && (h2 = this[t2]), i4 ?? (i4 = r2.getPropertyOptions(t2)), !((i4.hasChanged ?? f$1)(h2, s2) || i4.useDefault && i4.reflect && h2 === this._$Ej?.get(t2) && !this.hasAttribute(r2._$Eu(t2, i4)))) return;
+      this.C(t2, s2, i4);
     }
     false === this.isUpdatePending && (this._$ES = this._$EP());
   }
-  C(t2, s2, { useDefault: i3, reflect: e2, wrapped: h2 }, r2) {
-    i3 && !(this._$Ej ?? (this._$Ej = /* @__PURE__ */ new Map())).has(t2) && (this._$Ej.set(t2, r2 ?? s2 ?? this[t2]), true !== h2 || void 0 !== r2) || (this._$AL.has(t2) || (this.hasUpdated || i3 || (s2 = void 0), this._$AL.set(t2, s2)), true === e2 && this._$Em !== t2 && (this._$Eq ?? (this._$Eq = /* @__PURE__ */ new Set())).add(t2));
+  C(t2, s2, { useDefault: i4, reflect: e2, wrapped: h2 }, r2) {
+    i4 && !(this._$Ej ?? (this._$Ej = /* @__PURE__ */ new Map())).has(t2) && (this._$Ej.set(t2, r2 ?? s2 ?? this[t2]), true !== h2 || void 0 !== r2) || (this._$AL.has(t2) || (this.hasUpdated || i4 || (s2 = void 0), this._$AL.set(t2, s2)), true === e2 && this._$Em !== t2 && (this._$Eq ?? (this._$Eq = /* @__PURE__ */ new Set())).add(t2));
   }
   async _$EP() {
     this.isUpdatePending = true;
@@ -221,9 +221,9 @@ let y$1 = class y extends HTMLElement {
         this._$Ep = void 0;
       }
       const t3 = this.constructor.elementProperties;
-      if (t3.size > 0) for (const [s3, i3] of t3) {
-        const { wrapped: t4 } = i3, e2 = this[s3];
-        true !== t4 || this._$AL.has(s3) || void 0 === e2 || this.C(s3, void 0, i3, e2);
+      if (t3.size > 0) for (const [s3, i4] of t3) {
+        const { wrapped: t4 } = i4, e2 = this[s3];
+        true !== t4 || this._$AL.has(s3) || void 0 === e2 || this.C(s3, void 0, i4, e2);
       }
     }
     let t2 = false;
@@ -260,52 +260,52 @@ let y$1 = class y extends HTMLElement {
   firstUpdated(t2) {
   }
 };
-y$1.elementStyles = [], y$1.shadowRootOptions = { mode: "open" }, y$1[d$1("elementProperties")] = /* @__PURE__ */ new Map(), y$1[d$1("finalized")] = /* @__PURE__ */ new Map(), p$1?.({ ReactiveElement: y$1 }), (a$1.reactiveElementVersions ?? (a$1.reactiveElementVersions = [])).push("2.1.2");
+y$1.elementStyles = [], y$1.shadowRootOptions = { mode: "open" }, y$1[d$1("elementProperties")] = /* @__PURE__ */ new Map(), y$1[d$1("finalized")] = /* @__PURE__ */ new Map(), p$2?.({ ReactiveElement: y$1 }), (a$1.reactiveElementVersions ?? (a$1.reactiveElementVersions = [])).push("2.1.2");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const t$2 = globalThis, i$2 = (t2) => t2, s$1 = t$2.trustedTypes, e$2 = s$1 ? s$1.createPolicy("lit-html", { createHTML: (t2) => t2 }) : void 0, h = "$lit$", o$3 = `lit$${Math.random().toFixed(9).slice(2)}$`, n$1 = "?" + o$3, r$2 = `<${n$1}>`, l = document, c = () => l.createComment(""), a = (t2) => null === t2 || "object" != typeof t2 && "function" != typeof t2, u = Array.isArray, d = (t2) => u(t2) || "function" == typeof t2?.[Symbol.iterator], f = "[ 	\n\f\r]", v = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, _ = /-->/g, m = />/g, p = RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), g = /'/g, $ = /"/g, y2 = /^(?:script|style|textarea|title)$/i, x = (t2) => (i3, ...s2) => ({ _$litType$: t2, strings: i3, values: s2 }), b = x(1), E = Symbol.for("lit-noChange"), A = Symbol.for("lit-nothing"), C = /* @__PURE__ */ new WeakMap(), P = l.createTreeWalker(l, 129);
-function V(t2, i3) {
+const t$2 = globalThis, i$3 = (t2) => t2, s$1 = t$2.trustedTypes, e$2 = s$1 ? s$1.createPolicy("lit-html", { createHTML: (t2) => t2 }) : void 0, h = "$lit$", o$3 = `lit$${Math.random().toFixed(9).slice(2)}$`, n$1 = "?" + o$3, r$2 = `<${n$1}>`, l = document, c = () => l.createComment(""), a = (t2) => null === t2 || "object" != typeof t2 && "function" != typeof t2, u = Array.isArray, d = (t2) => u(t2) || "function" == typeof t2?.[Symbol.iterator], f = "[ 	\n\f\r]", v = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, _ = /-->/g, m$1 = />/g, p$1 = RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), g = /'/g, $ = /"/g, y2 = /^(?:script|style|textarea|title)$/i, x = (t2) => (i4, ...s2) => ({ _$litType$: t2, strings: i4, values: s2 }), b = x(1), E = Symbol.for("lit-noChange"), A = Symbol.for("lit-nothing"), C = /* @__PURE__ */ new WeakMap(), P = l.createTreeWalker(l, 129);
+function V(t2, i4) {
   if (!u(t2) || !t2.hasOwnProperty("raw")) throw Error("invalid template strings array");
-  return void 0 !== e$2 ? e$2.createHTML(i3) : i3;
+  return void 0 !== e$2 ? e$2.createHTML(i4) : i4;
 }
-const N = (t2, i3) => {
+const N = (t2, i4) => {
   const s2 = t2.length - 1, e2 = [];
-  let n3, l2 = 2 === i3 ? "<svg>" : 3 === i3 ? "<math>" : "", c2 = v;
-  for (let i4 = 0; i4 < s2; i4++) {
-    const s3 = t2[i4];
+  let n3, l2 = 2 === i4 ? "<svg>" : 3 === i4 ? "<math>" : "", c2 = v;
+  for (let i5 = 0; i5 < s2; i5++) {
+    const s3 = t2[i5];
     let a2, u2, d2 = -1, f2 = 0;
-    for (; f2 < s3.length && (c2.lastIndex = f2, u2 = c2.exec(s3), null !== u2); ) f2 = c2.lastIndex, c2 === v ? "!--" === u2[1] ? c2 = _ : void 0 !== u2[1] ? c2 = m : void 0 !== u2[2] ? (y2.test(u2[2]) && (n3 = RegExp("</" + u2[2], "g")), c2 = p) : void 0 !== u2[3] && (c2 = p) : c2 === p ? ">" === u2[0] ? (c2 = n3 ?? v, d2 = -1) : void 0 === u2[1] ? d2 = -2 : (d2 = c2.lastIndex - u2[2].length, a2 = u2[1], c2 = void 0 === u2[3] ? p : '"' === u2[3] ? $ : g) : c2 === $ || c2 === g ? c2 = p : c2 === _ || c2 === m ? c2 = v : (c2 = p, n3 = void 0);
-    const x2 = c2 === p && t2[i4 + 1].startsWith("/>") ? " " : "";
-    l2 += c2 === v ? s3 + r$2 : d2 >= 0 ? (e2.push(a2), s3.slice(0, d2) + h + s3.slice(d2) + o$3 + x2) : s3 + o$3 + (-2 === d2 ? i4 : x2);
+    for (; f2 < s3.length && (c2.lastIndex = f2, u2 = c2.exec(s3), null !== u2); ) f2 = c2.lastIndex, c2 === v ? "!--" === u2[1] ? c2 = _ : void 0 !== u2[1] ? c2 = m$1 : void 0 !== u2[2] ? (y2.test(u2[2]) && (n3 = RegExp("</" + u2[2], "g")), c2 = p$1) : void 0 !== u2[3] && (c2 = p$1) : c2 === p$1 ? ">" === u2[0] ? (c2 = n3 ?? v, d2 = -1) : void 0 === u2[1] ? d2 = -2 : (d2 = c2.lastIndex - u2[2].length, a2 = u2[1], c2 = void 0 === u2[3] ? p$1 : '"' === u2[3] ? $ : g) : c2 === $ || c2 === g ? c2 = p$1 : c2 === _ || c2 === m$1 ? c2 = v : (c2 = p$1, n3 = void 0);
+    const x2 = c2 === p$1 && t2[i5 + 1].startsWith("/>") ? " " : "";
+    l2 += c2 === v ? s3 + r$2 : d2 >= 0 ? (e2.push(a2), s3.slice(0, d2) + h + s3.slice(d2) + o$3 + x2) : s3 + o$3 + (-2 === d2 ? i5 : x2);
   }
-  return [V(t2, l2 + (t2[s2] || "<?>") + (2 === i3 ? "</svg>" : 3 === i3 ? "</math>" : "")), e2];
+  return [V(t2, l2 + (t2[s2] || "<?>") + (2 === i4 ? "</svg>" : 3 === i4 ? "</math>" : "")), e2];
 };
 class S {
-  constructor({ strings: t2, _$litType$: i3 }, e2) {
+  constructor({ strings: t2, _$litType$: i4 }, e2) {
     let r2;
     this.parts = [];
     let l2 = 0, a2 = 0;
-    const u2 = t2.length - 1, d2 = this.parts, [f2, v2] = N(t2, i3);
-    if (this.el = S.createElement(f2, e2), P.currentNode = this.el.content, 2 === i3 || 3 === i3) {
+    const u2 = t2.length - 1, d2 = this.parts, [f2, v2] = N(t2, i4);
+    if (this.el = S.createElement(f2, e2), P.currentNode = this.el.content, 2 === i4 || 3 === i4) {
       const t3 = this.el.content.firstChild;
       t3.replaceWith(...t3.childNodes);
     }
     for (; null !== (r2 = P.nextNode()) && d2.length < u2; ) {
       if (1 === r2.nodeType) {
         if (r2.hasAttributes()) for (const t3 of r2.getAttributeNames()) if (t3.endsWith(h)) {
-          const i4 = v2[a2++], s2 = r2.getAttribute(t3).split(o$3), e3 = /([.?@])?(.*)/.exec(i4);
+          const i5 = v2[a2++], s2 = r2.getAttribute(t3).split(o$3), e3 = /([.?@])?(.*)/.exec(i5);
           d2.push({ type: 1, index: l2, name: e3[2], strings: s2, ctor: "." === e3[1] ? I : "?" === e3[1] ? L : "@" === e3[1] ? z : H }), r2.removeAttribute(t3);
         } else t3.startsWith(o$3) && (d2.push({ type: 6, index: l2 }), r2.removeAttribute(t3));
         if (y2.test(r2.tagName)) {
-          const t3 = r2.textContent.split(o$3), i4 = t3.length - 1;
-          if (i4 > 0) {
+          const t3 = r2.textContent.split(o$3), i5 = t3.length - 1;
+          if (i5 > 0) {
             r2.textContent = s$1 ? s$1.emptyScript : "";
-            for (let s2 = 0; s2 < i4; s2++) r2.append(t3[s2], c()), P.nextNode(), d2.push({ type: 2, index: ++l2 });
-            r2.append(t3[i4], c());
+            for (let s2 = 0; s2 < i5; s2++) r2.append(t3[s2], c()), P.nextNode(), d2.push({ type: 2, index: ++l2 });
+            r2.append(t3[i5], c());
           }
         }
       } else if (8 === r2.nodeType) if (r2.data === n$1) d2.push({ type: 2, index: l2 });
@@ -316,20 +316,20 @@ class S {
       l2++;
     }
   }
-  static createElement(t2, i3) {
+  static createElement(t2, i4) {
     const s2 = l.createElement("template");
     return s2.innerHTML = t2, s2;
   }
 }
-function M(t2, i3, s2 = t2, e2) {
-  if (i3 === E) return i3;
+function M(t2, i4, s2 = t2, e2) {
+  if (i4 === E) return i4;
   let h2 = void 0 !== e2 ? s2._$Co?.[e2] : s2._$Cl;
-  const o2 = a(i3) ? void 0 : i3._$litDirective$;
-  return h2?.constructor !== o2 && (h2?._$AO?.(false), void 0 === o2 ? h2 = void 0 : (h2 = new o2(t2), h2._$AT(t2, s2, e2)), void 0 !== e2 ? (s2._$Co ?? (s2._$Co = []))[e2] = h2 : s2._$Cl = h2), void 0 !== h2 && (i3 = M(t2, h2._$AS(t2, i3.values), h2, e2)), i3;
+  const o2 = a(i4) ? void 0 : i4._$litDirective$;
+  return h2?.constructor !== o2 && (h2?._$AO?.(false), void 0 === o2 ? h2 = void 0 : (h2 = new o2(t2), h2._$AT(t2, s2, e2)), void 0 !== e2 ? (s2._$Co ?? (s2._$Co = []))[e2] = h2 : s2._$Cl = h2), void 0 !== h2 && (i4 = M(t2, h2._$AS(t2, i4.values), h2, e2)), i4;
 }
 class R {
-  constructor(t2, i3) {
-    this._$AV = [], this._$AN = void 0, this._$AD = t2, this._$AM = i3;
+  constructor(t2, i4) {
+    this._$AV = [], this._$AN = void 0, this._$AD = t2, this._$AM = i4;
   }
   get parentNode() {
     return this._$AM.parentNode;
@@ -338,34 +338,34 @@ class R {
     return this._$AM._$AU;
   }
   u(t2) {
-    const { el: { content: i3 }, parts: s2 } = this._$AD, e2 = (t2?.creationScope ?? l).importNode(i3, true);
+    const { el: { content: i4 }, parts: s2 } = this._$AD, e2 = (t2?.creationScope ?? l).importNode(i4, true);
     P.currentNode = e2;
     let h2 = P.nextNode(), o2 = 0, n3 = 0, r2 = s2[0];
     for (; void 0 !== r2; ) {
       if (o2 === r2.index) {
-        let i4;
-        2 === r2.type ? i4 = new k(h2, h2.nextSibling, this, t2) : 1 === r2.type ? i4 = new r2.ctor(h2, r2.name, r2.strings, this, t2) : 6 === r2.type && (i4 = new Z(h2, this, t2)), this._$AV.push(i4), r2 = s2[++n3];
+        let i5;
+        2 === r2.type ? i5 = new k(h2, h2.nextSibling, this, t2) : 1 === r2.type ? i5 = new r2.ctor(h2, r2.name, r2.strings, this, t2) : 6 === r2.type && (i5 = new Z(h2, this, t2)), this._$AV.push(i5), r2 = s2[++n3];
       }
       o2 !== r2?.index && (h2 = P.nextNode(), o2++);
     }
     return P.currentNode = l, e2;
   }
   p(t2) {
-    let i3 = 0;
-    for (const s2 of this._$AV) void 0 !== s2 && (void 0 !== s2.strings ? (s2._$AI(t2, s2, i3), i3 += s2.strings.length - 2) : s2._$AI(t2[i3])), i3++;
+    let i4 = 0;
+    for (const s2 of this._$AV) void 0 !== s2 && (void 0 !== s2.strings ? (s2._$AI(t2, s2, i4), i4 += s2.strings.length - 2) : s2._$AI(t2[i4])), i4++;
   }
 }
 class k {
   get _$AU() {
     return this._$AM?._$AU ?? this._$Cv;
   }
-  constructor(t2, i3, s2, e2) {
-    this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t2, this._$AB = i3, this._$AM = s2, this.options = e2, this._$Cv = e2?.isConnected ?? true;
+  constructor(t2, i4, s2, e2) {
+    this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t2, this._$AB = i4, this._$AM = s2, this.options = e2, this._$Cv = e2?.isConnected ?? true;
   }
   get parentNode() {
     let t2 = this._$AA.parentNode;
-    const i3 = this._$AM;
-    return void 0 !== i3 && 11 === t2?.nodeType && (t2 = i3.parentNode), t2;
+    const i4 = this._$AM;
+    return void 0 !== i4 && 11 === t2?.nodeType && (t2 = i4.parentNode), t2;
   }
   get startNode() {
     return this._$AA;
@@ -373,8 +373,8 @@ class k {
   get endNode() {
     return this._$AB;
   }
-  _$AI(t2, i3 = this) {
-    t2 = M(this, t2, i3), a(t2) ? t2 === A || null == t2 || "" === t2 ? (this._$AH !== A && this._$AR(), this._$AH = A) : t2 !== this._$AH && t2 !== E && this._(t2) : void 0 !== t2._$litType$ ? this.$(t2) : void 0 !== t2.nodeType ? this.T(t2) : d(t2) ? this.k(t2) : this._(t2);
+  _$AI(t2, i4 = this) {
+    t2 = M(this, t2, i4), a(t2) ? t2 === A || null == t2 || "" === t2 ? (this._$AH !== A && this._$AR(), this._$AH = A) : t2 !== this._$AH && t2 !== E && this._(t2) : void 0 !== t2._$litType$ ? this.$(t2) : void 0 !== t2.nodeType ? this.T(t2) : d(t2) ? this.k(t2) : this._(t2);
   }
   O(t2) {
     return this._$AA.parentNode.insertBefore(t2, this._$AB);
@@ -386,28 +386,28 @@ class k {
     this._$AH !== A && a(this._$AH) ? this._$AA.nextSibling.data = t2 : this.T(l.createTextNode(t2)), this._$AH = t2;
   }
   $(t2) {
-    const { values: i3, _$litType$: s2 } = t2, e2 = "number" == typeof s2 ? this._$AC(t2) : (void 0 === s2.el && (s2.el = S.createElement(V(s2.h, s2.h[0]), this.options)), s2);
-    if (this._$AH?._$AD === e2) this._$AH.p(i3);
+    const { values: i4, _$litType$: s2 } = t2, e2 = "number" == typeof s2 ? this._$AC(t2) : (void 0 === s2.el && (s2.el = S.createElement(V(s2.h, s2.h[0]), this.options)), s2);
+    if (this._$AH?._$AD === e2) this._$AH.p(i4);
     else {
       const t3 = new R(e2, this), s3 = t3.u(this.options);
-      t3.p(i3), this.T(s3), this._$AH = t3;
+      t3.p(i4), this.T(s3), this._$AH = t3;
     }
   }
   _$AC(t2) {
-    let i3 = C.get(t2.strings);
-    return void 0 === i3 && C.set(t2.strings, i3 = new S(t2)), i3;
+    let i4 = C.get(t2.strings);
+    return void 0 === i4 && C.set(t2.strings, i4 = new S(t2)), i4;
   }
   k(t2) {
     u(this._$AH) || (this._$AH = [], this._$AR());
-    const i3 = this._$AH;
+    const i4 = this._$AH;
     let s2, e2 = 0;
-    for (const h2 of t2) e2 === i3.length ? i3.push(s2 = new k(this.O(c()), this.O(c()), this, this.options)) : s2 = i3[e2], s2._$AI(h2), e2++;
-    e2 < i3.length && (this._$AR(s2 && s2._$AB.nextSibling, e2), i3.length = e2);
+    for (const h2 of t2) e2 === i4.length ? i4.push(s2 = new k(this.O(c()), this.O(c()), this, this.options)) : s2 = i4[e2], s2._$AI(h2), e2++;
+    e2 < i4.length && (this._$AR(s2 && s2._$AB.nextSibling, e2), i4.length = e2);
   }
   _$AR(t2 = this._$AA.nextSibling, s2) {
     for (this._$AP?.(false, true, s2); t2 !== this._$AB; ) {
-      const s3 = i$2(t2).nextSibling;
-      i$2(t2).remove(), t2 = s3;
+      const s3 = i$3(t2).nextSibling;
+      i$3(t2).remove(), t2 = s3;
     }
   }
   setConnected(t2) {
@@ -421,17 +421,17 @@ class H {
   get _$AU() {
     return this._$AM._$AU;
   }
-  constructor(t2, i3, s2, e2, h2) {
-    this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t2, this.name = i3, this._$AM = e2, this.options = h2, s2.length > 2 || "" !== s2[0] || "" !== s2[1] ? (this._$AH = Array(s2.length - 1).fill(new String()), this.strings = s2) : this._$AH = A;
+  constructor(t2, i4, s2, e2, h2) {
+    this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t2, this.name = i4, this._$AM = e2, this.options = h2, s2.length > 2 || "" !== s2[0] || "" !== s2[1] ? (this._$AH = Array(s2.length - 1).fill(new String()), this.strings = s2) : this._$AH = A;
   }
-  _$AI(t2, i3 = this, s2, e2) {
+  _$AI(t2, i4 = this, s2, e2) {
     const h2 = this.strings;
     let o2 = false;
-    if (void 0 === h2) t2 = M(this, t2, i3, 0), o2 = !a(t2) || t2 !== this._$AH && t2 !== E, o2 && (this._$AH = t2);
+    if (void 0 === h2) t2 = M(this, t2, i4, 0), o2 = !a(t2) || t2 !== this._$AH && t2 !== E, o2 && (this._$AH = t2);
     else {
       const e3 = t2;
       let n3, r2;
-      for (t2 = h2[0], n3 = 0; n3 < h2.length - 1; n3++) r2 = M(this, e3[s2 + n3], i3, n3), r2 === E && (r2 = this._$AH[n3]), o2 || (o2 = !a(r2) || r2 !== this._$AH[n3]), r2 === A ? t2 = A : t2 !== A && (t2 += (r2 ?? "") + h2[n3 + 1]), this._$AH[n3] = r2;
+      for (t2 = h2[0], n3 = 0; n3 < h2.length - 1; n3++) r2 = M(this, e3[s2 + n3], i4, n3), r2 === E && (r2 = this._$AH[n3]), o2 || (o2 = !a(r2) || r2 !== this._$AH[n3]), r2 === A ? t2 = A : t2 !== A && (t2 += (r2 ?? "") + h2[n3 + 1]), this._$AH[n3] = r2;
     }
     o2 && !e2 && this.j(t2);
   }
@@ -456,11 +456,11 @@ class L extends H {
   }
 }
 class z extends H {
-  constructor(t2, i3, s2, e2, h2) {
-    super(t2, i3, s2, e2, h2), this.type = 5;
+  constructor(t2, i4, s2, e2, h2) {
+    super(t2, i4, s2, e2, h2), this.type = 5;
   }
-  _$AI(t2, i3 = this) {
-    if ((t2 = M(this, t2, i3, 0) ?? A) === E) return;
+  _$AI(t2, i4 = this) {
+    if ((t2 = M(this, t2, i4, 0) ?? A) === E) return;
     const s2 = this._$AH, e2 = t2 === A && s2 !== A || t2.capture !== s2.capture || t2.once !== s2.once || t2.passive !== s2.passive, h2 = t2 !== A && (s2 === A || e2);
     e2 && this.element.removeEventListener(this.name, this, s2), h2 && this.element.addEventListener(this.name, this, t2), this._$AH = t2;
   }
@@ -469,8 +469,8 @@ class z extends H {
   }
 }
 class Z {
-  constructor(t2, i3, s2) {
-    this.element = t2, this.type = 6, this._$AN = void 0, this._$AM = i3, this.options = s2;
+  constructor(t2, i4, s2) {
+    this.element = t2, this.type = 6, this._$AN = void 0, this._$AM = i4, this.options = s2;
   }
   get _$AU() {
     return this._$AM._$AU;
@@ -481,12 +481,12 @@ class Z {
 }
 const B = t$2.litHtmlPolyfillSupport;
 B?.(S, k), (t$2.litHtmlVersions ?? (t$2.litHtmlVersions = [])).push("3.3.2");
-const D = (t2, i3, s2) => {
-  const e2 = s2?.renderBefore ?? i3;
+const D = (t2, i4, s2) => {
+  const e2 = s2?.renderBefore ?? i4;
   let h2 = e2._$litPart$;
   if (void 0 === h2) {
     const t3 = s2?.renderBefore ?? null;
-    e2._$litPart$ = h2 = new k(i3.insertBefore(c(), t3), t3, void 0, s2 ?? {});
+    e2._$litPart$ = h2 = new k(i4.insertBefore(c(), t3), t3, void 0, s2 ?? {});
   }
   return h2._$AI(t2), h2;
 };
@@ -496,7 +496,7 @@ const D = (t2, i3, s2) => {
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const s = globalThis;
-let i$1 = class i extends y$1 {
+let i$2 = class i extends y$1 {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -519,9 +519,9 @@ let i$1 = class i extends y$1 {
     return E;
   }
 };
-i$1._$litElement$ = true, i$1["finalized"] = true, s.litElementHydrateSupport?.({ LitElement: i$1 });
+i$2._$litElement$ = true, i$2["finalized"] = true, s.litElementHydrateSupport?.({ LitElement: i$2 });
 const o$2 = s.litElementPolyfillSupport;
-o$2?.({ LitElement: i$1 });
+o$2?.({ LitElement: i$2 });
 (s.litElementVersions ?? (s.litElementVersions = [])).push("4.2.2");
 /**
  * @license
@@ -539,9 +539,9 @@ const t$1 = (t2) => (e2, o2) => {
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const o$1 = { attribute: true, type: String, converter: u$1, reflect: false, hasChanged: f$1 }, r$1 = (t2 = o$1, e2, r2) => {
-  const { kind: n3, metadata: i3 } = r2;
-  let s2 = globalThis.litPropertyMetadata.get(i3);
-  if (void 0 === s2 && globalThis.litPropertyMetadata.set(i3, s2 = /* @__PURE__ */ new Map()), "setter" === n3 && ((t2 = Object.create(t2)).wrapped = true), s2.set(r2.name, t2), "accessor" === n3) {
+  const { kind: n3, metadata: i4 } = r2;
+  let s2 = globalThis.litPropertyMetadata.get(i4);
+  if (void 0 === s2 && globalThis.litPropertyMetadata.set(i4, s2 = /* @__PURE__ */ new Map()), "setter" === n3 && ((t2 = Object.create(t2)).wrapped = true), s2.set(r2.name, t2), "accessor" === n3) {
     const { name: o2 } = r2;
     return { set(r3) {
       const n4 = e2.get.call(this);
@@ -573,17 +573,17 @@ function n2(t2) {
 function r(r2) {
   return n2({ ...r2, state: true, attribute: false });
 }
-var __defProp$b = Object.defineProperty;
-var __getOwnPropDesc$b = Object.getOwnPropertyDescriptor;
-var __decorateClass$b = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$b(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$c = Object.defineProperty;
+var __getOwnPropDesc$c = Object.getOwnPropertyDescriptor;
+var __decorateClass$c = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$c(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$b(target, key, result);
+  if (kind && result) __defProp$c(target, key, result);
   return result;
 };
-let FabCallout = class extends i$1 {
+let FabCallout = class extends i$2 {
   constructor() {
     super(...arguments);
     this.title = "";
@@ -633,7 +633,7 @@ let FabCallout = class extends i$1 {
     `;
   }
 };
-FabCallout.styles = i$4`
+FabCallout.styles = i$5`
     :host {
       /* CSS Variables for theming */
       --fab-callout-bg: #f0f9ff;
@@ -740,32 +740,32 @@ FabCallout.styles = i$4`
       height: 1rem;
     }
   `;
-__decorateClass$b([
+__decorateClass$c([
   n2()
 ], FabCallout.prototype, "title", 2);
-__decorateClass$b([
+__decorateClass$c([
   n2()
 ], FabCallout.prototype, "text", 2);
-__decorateClass$b([
+__decorateClass$c([
   n2({ attribute: "link-href" })
 ], FabCallout.prototype, "linkHref", 2);
-__decorateClass$b([
+__decorateClass$c([
   n2({ attribute: "link-text" })
 ], FabCallout.prototype, "linkText", 2);
-FabCallout = __decorateClass$b([
+FabCallout = __decorateClass$c([
   t$1("fab-callout")
 ], FabCallout);
-var __defProp$a = Object.defineProperty;
-var __getOwnPropDesc$a = Object.getOwnPropertyDescriptor;
-var __decorateClass$a = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$a(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$b = Object.defineProperty;
+var __getOwnPropDesc$b = Object.getOwnPropertyDescriptor;
+var __decorateClass$b = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$b(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$a(target, key, result);
+  if (kind && result) __defProp$b(target, key, result);
   return result;
 };
-let FabCreatorSpotlight = class extends i$1 {
+let FabCreatorSpotlight = class extends i$2 {
   constructor() {
     super(...arguments);
     this.imageUrl = "";
@@ -873,7 +873,7 @@ let FabCreatorSpotlight = class extends i$1 {
     }
   }
 };
-FabCreatorSpotlight.styles = i$4`
+FabCreatorSpotlight.styles = i$5`
     :host {
       /* CSS Variables for theming */
       --fab-spotlight-bg-start: #dbeafe;
@@ -1004,19 +1004,19 @@ FabCreatorSpotlight.styles = i$4`
       line-height: 1.5;
     }
   `;
-__decorateClass$a([
+__decorateClass$b([
   n2({ attribute: "image-url" })
 ], FabCreatorSpotlight.prototype, "imageUrl", 2);
-__decorateClass$a([
+__decorateClass$b([
   n2()
 ], FabCreatorSpotlight.prototype, "name", 2);
-__decorateClass$a([
+__decorateClass$b([
   n2()
 ], FabCreatorSpotlight.prototype, "bio", 2);
-__decorateClass$a([
+__decorateClass$b([
   n2()
 ], FabCreatorSpotlight.prototype, "links", 2);
-FabCreatorSpotlight = __decorateClass$a([
+FabCreatorSpotlight = __decorateClass$b([
   t$1("fab-creator-spotlight")
 ], FabCreatorSpotlight);
 /**
@@ -1025,14 +1025,14 @@ FabCreatorSpotlight = __decorateClass$a([
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const t = { CHILD: 2 }, e$1 = (t2) => (...e2) => ({ _$litDirective$: t2, values: e2 });
-class i2 {
+let i$1 = class i2 {
   constructor(t2) {
   }
   get _$AU() {
     return this._$AM._$AU;
   }
-  _$AT(t2, e2, i3) {
-    this._$Ct = t2, this._$AM = e2, this._$Ci = i3;
+  _$AT(t2, e2, i4) {
+    this._$Ct = t2, this._$AM = e2, this._$Ci = i4;
   }
   _$AS(t2, e2) {
     return this.update(t2, e2);
@@ -1040,15 +1040,15 @@ class i2 {
   update(t2, e2) {
     return this.render(...e2);
   }
-}
+};
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-class e extends i2 {
-  constructor(i3) {
-    if (super(i3), this.it = A, i3.type !== t.CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
+class e extends i$1 {
+  constructor(i4) {
+    if (super(i4), this.it = A, i4.type !== t.CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
   }
   render(r2) {
     if (r2 === A || null == r2) return this._t = void 0, this.it = r2;
@@ -1415,7 +1415,7 @@ function splitCells(tableRow, count) {
       return " |";
     }
   }), cells = row.split(other.splitPipe);
-  let i3 = 0;
+  let i4 = 0;
   if (!cells[0].trim()) {
     cells.shift();
   }
@@ -1429,8 +1429,8 @@ function splitCells(tableRow, count) {
       while (cells.length < count) cells.push("");
     }
   }
-  for (; i3 < cells.length; i3++) {
-    cells[i3] = cells[i3].trim().replace(other.slashPipe, "|");
+  for (; i4 < cells.length; i4++) {
+    cells[i4] = cells[i4].trim().replace(other.slashPipe, "|");
   }
   return cells;
 }
@@ -1455,15 +1455,15 @@ function findClosingBracket(str, b2) {
     return -1;
   }
   let level = 0;
-  for (let i3 = 0; i3 < str.length; i3++) {
-    if (str[i3] === "\\") {
-      i3++;
-    } else if (str[i3] === b2[0]) {
+  for (let i4 = 0; i4 < str.length; i4++) {
+    if (str[i4] === "\\") {
+      i4++;
+    } else if (str[i4] === b2[0]) {
       level++;
-    } else if (str[i3] === b2[1]) {
+    } else if (str[i4] === b2[1]) {
       level--;
       if (level < 0) {
-        return i3;
+        return i4;
       }
     }
   }
@@ -1589,18 +1589,18 @@ var _Tokenizer = class {
       while (lines.length > 0) {
         let inBlockquote = false;
         const currentLines = [];
-        let i3;
-        for (i3 = 0; i3 < lines.length; i3++) {
-          if (this.rules.other.blockquoteStart.test(lines[i3])) {
-            currentLines.push(lines[i3]);
+        let i4;
+        for (i4 = 0; i4 < lines.length; i4++) {
+          if (this.rules.other.blockquoteStart.test(lines[i4])) {
+            currentLines.push(lines[i4]);
             inBlockquote = true;
           } else if (!inBlockquote) {
-            currentLines.push(lines[i3]);
+            currentLines.push(lines[i4]);
           } else {
             break;
           }
         }
-        lines = lines.slice(i3);
+        lines = lines.slice(i4);
         const currentRaw = currentLines.join("\n");
         const currentText = currentRaw.replace(this.rules.other.blockquoteSetextReplace, "\n    $1").replace(this.rules.other.blockquoteSetextReplace2, "");
         raw = raw ? `${raw}
@@ -1789,18 +1789,18 @@ ${currentText}` : currentText;
         return;
       }
       list2.raw = list2.raw.trimEnd();
-      for (let i3 = 0; i3 < list2.items.length; i3++) {
+      for (let i4 = 0; i4 < list2.items.length; i4++) {
         this.lexer.state.top = false;
-        list2.items[i3].tokens = this.lexer.blockTokens(list2.items[i3].text, []);
+        list2.items[i4].tokens = this.lexer.blockTokens(list2.items[i4].text, []);
         if (!list2.loose) {
-          const spacers = list2.items[i3].tokens.filter((t2) => t2.type === "space");
+          const spacers = list2.items[i4].tokens.filter((t2) => t2.type === "space");
           const hasMultipleLineBreaks = spacers.length > 0 && spacers.some((t2) => this.rules.other.anyLine.test(t2.raw));
           list2.loose = hasMultipleLineBreaks;
         }
       }
       if (list2.loose) {
-        for (let i3 = 0; i3 < list2.items.length; i3++) {
-          list2.items[i3].loose = true;
+        for (let i4 = 0; i4 < list2.items.length; i4++) {
+          list2.items[i4].loose = true;
         }
       }
       return list2;
@@ -1866,21 +1866,21 @@ ${currentText}` : currentText;
         item.align.push(null);
       }
     }
-    for (let i3 = 0; i3 < headers.length; i3++) {
+    for (let i4 = 0; i4 < headers.length; i4++) {
       item.header.push({
-        text: headers[i3],
-        tokens: this.lexer.inline(headers[i3]),
+        text: headers[i4],
+        tokens: this.lexer.inline(headers[i4]),
         header: true,
-        align: item.align[i3]
+        align: item.align[i4]
       });
     }
     for (const row of rows) {
-      item.rows.push(splitCells(row, item.header.length).map((cell, i3) => {
+      item.rows.push(splitCells(row, item.header.length).map((cell, i4) => {
         return {
           text: cell,
           tokens: this.lexer.inline(cell),
           header: false,
-          align: item.align[i3]
+          align: item.align[i4]
         };
       }));
     }
@@ -2245,8 +2245,8 @@ var _Lexer = class __Lexer {
   lex(src) {
     src = src.replace(other.carriageReturn, "\n");
     this.blockTokens(src, this.tokens);
-    for (let i3 = 0; i3 < this.inlineQueue.length; i3++) {
-      const next = this.inlineQueue[i3];
+    for (let i4 = 0; i4 < this.inlineQueue.length; i4++) {
+      const next = this.inlineQueue[i4];
       this.inlineTokens(next.src, next.tokens);
     }
     this.inlineQueue = [];
@@ -2767,8 +2767,8 @@ var _Parser = class __Parser {
    */
   parse(tokens, top = true) {
     let out = "";
-    for (let i3 = 0; i3 < tokens.length; i3++) {
-      const anyToken = tokens[i3];
+    for (let i4 = 0; i4 < tokens.length; i4++) {
+      const anyToken = tokens[i4];
       if (this.options.extensions?.renderers?.[anyToken.type]) {
         const genericToken = anyToken;
         const ret = this.options.extensions.renderers[genericToken.type].call({ parser: this }, genericToken);
@@ -2818,8 +2818,8 @@ var _Parser = class __Parser {
         case "text": {
           let textToken = token;
           let body = this.renderer.text(textToken);
-          while (i3 + 1 < tokens.length && tokens[i3 + 1].type === "text") {
-            textToken = tokens[++i3];
+          while (i4 + 1 < tokens.length && tokens[i4 + 1].type === "text") {
+            textToken = tokens[++i4];
             body += "\n" + this.renderer.text(textToken);
           }
           if (top) {
@@ -2852,8 +2852,8 @@ var _Parser = class __Parser {
    */
   parseInline(tokens, renderer = this.renderer) {
     let out = "";
-    for (let i3 = 0; i3 < tokens.length; i3++) {
-      const anyToken = tokens[i3];
+    for (let i4 = 0; i4 < tokens.length; i4++) {
+      const anyToken = tokens[i4];
       if (this.options.extensions?.renderers?.[anyToken.type]) {
         const ret = this.options.extensions.renderers[anyToken.type].call({ parser: this }, anyToken);
         if (ret !== false || !["escape", "html", "link", "image", "strong", "em", "codespan", "br", "del", "text"].includes(anyToken.type)) {
@@ -3310,8 +3310,8 @@ function buildCommentaryHtml(text, cards, loading) {
     return `{{CARDMENTION${mentions.length - 1}}}`;
   });
   const html2 = marked.parse(withPlaceholders, { breaks: true, gfm: true });
-  return html2.replace(/\{\{CARDMENTION(\d+)\}\}/g, (_m, i3) => {
-    const { label, name } = mentions[Number(i3)];
+  return html2.replace(/\{\{CARDMENTION(\d+)\}\}/g, (_m, i4) => {
+    const { label, name } = mentions[Number(i4)];
     return mentionHtml(label, name, cards.get(name), loading.has(name));
   });
 }
@@ -3391,17 +3391,17 @@ function watchTheme(host) {
 function unwatchTheme(host) {
   hosts.delete(host);
 }
-var __defProp$9 = Object.defineProperty;
-var __getOwnPropDesc$9 = Object.getOwnPropertyDescriptor;
-var __decorateClass$9 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$9(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$a = Object.defineProperty;
+var __getOwnPropDesc$a = Object.getOwnPropertyDescriptor;
+var __decorateClass$a = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$a(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$9(target, key, result);
+  if (kind && result) __defProp$a(target, key, result);
   return result;
 };
-let FabSpotlightCard = class extends i$1 {
+let FabSpotlightCard = class extends i$2 {
   constructor() {
     super(...arguments);
     this.printingId = "";
@@ -3706,7 +3706,7 @@ let FabSpotlightCard = class extends i$1 {
     `;
   }
 };
-FabSpotlightCard.styles = i$4`
+FabSpotlightCard.styles = i$5`
     :host {
       /* CSS Variables for theming - Light Mode */
       --fab-spotlight-bg: #ffffff;
@@ -4212,59 +4212,59 @@ FabSpotlightCard.styles = i$4`
       filter: invert(1) hue-rotate(180deg);
     }
   `;
-__decorateClass$9([
+__decorateClass$a([
   n2({ attribute: "printing-id" })
 ], FabSpotlightCard.prototype, "printingId", 2);
-__decorateClass$9([
+__decorateClass$a([
   n2()
 ], FabSpotlightCard.prototype, "title", 2);
-__decorateClass$9([
+__decorateClass$a([
   n2()
 ], FabSpotlightCard.prototype, "commentary", 2);
-__decorateClass$9([
+__decorateClass$a([
   n2({ attribute: "api-base" })
 ], FabSpotlightCard.prototype, "apiBase", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "card", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "loading", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "error", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "cardDataMap", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "loadingCards", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "overlayImageUrl", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "overlayAlt", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "whoHasOpen", 2);
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], FabSpotlightCard.prototype, "whoHas", 2);
-FabSpotlightCard = __decorateClass$9([
+FabSpotlightCard = __decorateClass$a([
   t$1("fab-spotlight-card")
 ], FabSpotlightCard);
-var __defProp$8 = Object.defineProperty;
-var __getOwnPropDesc$8 = Object.getOwnPropertyDescriptor;
-var __decorateClass$8 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$8(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$9 = Object.defineProperty;
+var __getOwnPropDesc$9 = Object.getOwnPropertyDescriptor;
+var __decorateClass$9 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$9(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$8(target, key, result);
+  if (kind && result) __defProp$9(target, key, result);
   return result;
 };
-let FabIntro = class extends i$1 {
+let FabIntro = class extends i$2 {
   constructor() {
     super(...arguments);
     this.text = "";
@@ -4296,7 +4296,7 @@ let FabIntro = class extends i$1 {
     `;
   }
 };
-FabIntro.styles = i$4`
+FabIntro.styles = i$5`
     :host {
       /* CSS Variables for theming */
       --fab-intro-text: #475569;
@@ -4355,26 +4355,26 @@ FabIntro.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$8([
+__decorateClass$9([
   n2()
 ], FabIntro.prototype, "text", 2);
-__decorateClass$8([
+__decorateClass$9([
   n2()
 ], FabIntro.prototype, "tags", 2);
-FabIntro = __decorateClass$8([
+FabIntro = __decorateClass$9([
   t$1("fab-intro")
 ], FabIntro);
-var __defProp$7 = Object.defineProperty;
-var __getOwnPropDesc$7 = Object.getOwnPropertyDescriptor;
-var __decorateClass$7 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$7(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$8 = Object.defineProperty;
+var __getOwnPropDesc$8 = Object.getOwnPropertyDescriptor;
+var __decorateClass$8 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$8(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$7(target, key, result);
+  if (kind && result) __defProp$8(target, key, result);
   return result;
 };
-let FabByline = class extends i$1 {
+let FabByline = class extends i$2 {
   constructor() {
     super(...arguments);
     this.role = "By";
@@ -4421,7 +4421,7 @@ let FabByline = class extends i$1 {
     `;
   }
 };
-FabByline.styles = i$4`
+FabByline.styles = i$5`
     :host {
       /* CSS Variables for theming */
       --fab-byline-text: #64748b;
@@ -4491,29 +4491,29 @@ FabByline.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$7([
+__decorateClass$8([
   n2()
 ], FabByline.prototype, "role", 2);
-__decorateClass$7([
+__decorateClass$8([
   n2()
 ], FabByline.prototype, "name", 2);
-__decorateClass$7([
+__decorateClass$8([
   n2()
 ], FabByline.prototype, "link", 2);
-FabByline = __decorateClass$7([
+FabByline = __decorateClass$8([
   t$1("fab-byline")
 ], FabByline);
-var __defProp$6 = Object.defineProperty;
-var __getOwnPropDesc$6 = Object.getOwnPropertyDescriptor;
-var __decorateClass$6 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$6(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$7 = Object.defineProperty;
+var __getOwnPropDesc$7 = Object.getOwnPropertyDescriptor;
+var __decorateClass$7 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$7(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$6(target, key, result);
+  if (kind && result) __defProp$7(target, key, result);
   return result;
 };
-let FabSectionHeader = class extends i$1 {
+let FabSectionHeader = class extends i$2 {
   constructor() {
     super(...arguments);
     this.title = "";
@@ -4542,7 +4542,7 @@ let FabSectionHeader = class extends i$1 {
     `;
   }
 };
-FabSectionHeader.styles = i$4`
+FabSectionHeader.styles = i$5`
     :host {
       /* CSS Variables for theming */
       --fab-header-title: #0f172a;
@@ -4613,29 +4613,29 @@ FabSectionHeader.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$6([
+__decorateClass$7([
   n2()
 ], FabSectionHeader.prototype, "title", 2);
-__decorateClass$6([
+__decorateClass$7([
   n2()
 ], FabSectionHeader.prototype, "subtitle", 2);
-__decorateClass$6([
+__decorateClass$7([
   n2()
 ], FabSectionHeader.prototype, "level", 2);
-FabSectionHeader = __decorateClass$6([
+FabSectionHeader = __decorateClass$7([
   t$1("fab-section-header")
 ], FabSectionHeader);
-var __defProp$5 = Object.defineProperty;
-var __getOwnPropDesc$5 = Object.getOwnPropertyDescriptor;
-var __decorateClass$5 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$5(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$6 = Object.defineProperty;
+var __getOwnPropDesc$6 = Object.getOwnPropertyDescriptor;
+var __decorateClass$6 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$6(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$5(target, key, result);
+  if (kind && result) __defProp$6(target, key, result);
   return result;
 };
-let FabKeyTakeaways = class extends i$1 {
+let FabKeyTakeaways = class extends i$2 {
   constructor() {
     super(...arguments);
     this.items = "";
@@ -4688,7 +4688,7 @@ let FabKeyTakeaways = class extends i$1 {
     `;
   }
 };
-FabKeyTakeaways.styles = i$4`
+FabKeyTakeaways.styles = i$5`
     :host {
       /* CSS Variables for theming */
       --fab-takeaways-bg: #f0f9ff;
@@ -4786,26 +4786,26 @@ FabKeyTakeaways.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$5([
+__decorateClass$6([
   n2()
 ], FabKeyTakeaways.prototype, "items", 2);
-__decorateClass$5([
+__decorateClass$6([
   n2()
 ], FabKeyTakeaways.prototype, "title", 2);
-FabKeyTakeaways = __decorateClass$5([
+FabKeyTakeaways = __decorateClass$6([
   t$1("fab-key-takeaways")
 ], FabKeyTakeaways);
-var __defProp$4 = Object.defineProperty;
-var __getOwnPropDesc$4 = Object.getOwnPropertyDescriptor;
-var __decorateClass$4 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$4(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$5 = Object.defineProperty;
+var __getOwnPropDesc$5 = Object.getOwnPropertyDescriptor;
+var __decorateClass$5 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$5(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$4(target, key, result);
+  if (kind && result) __defProp$5(target, key, result);
   return result;
 };
-let FabMatchReport = class extends i$1 {
+let FabMatchReport = class extends i$2 {
   constructor() {
     super(...arguments);
     this.overlayImageUrl = null;
@@ -5079,7 +5079,7 @@ let FabMatchReport = class extends i$1 {
     `;
   }
 };
-FabMatchReport.styles = i$4`
+FabMatchReport.styles = i$5`
     :host {
       display: block;
       margin: 1.5rem 0;
@@ -5522,52 +5522,52 @@ FabMatchReport.styles = i$4`
     :host([dark]) .sideboard-card-name { color: #94a3b8; }
     :host([dark]) .inline-card-name { color: #f1f5f9; }
   `;
-__decorateClass$4([
+__decorateClass$5([
   r()
 ], FabMatchReport.prototype, "overlayImageUrl", 2);
-__decorateClass$4([
+__decorateClass$5([
   r()
 ], FabMatchReport.prototype, "overlayAlt", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabMatchReport.prototype, "round", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabMatchReport.prototype, "opponent", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabMatchReport.prototype, "hero", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2({ attribute: "hero-printing-id" })
 ], FabMatchReport.prototype, "heroPrintingId", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabMatchReport.prototype, "result", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabMatchReport.prototype, "record", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabMatchReport.prototype, "summary", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabMatchReport.prototype, "sideboard", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2({ attribute: "sideboard-cards" })
 ], FabMatchReport.prototype, "sideboardCardsJson", 2);
-__decorateClass$4([
+__decorateClass$5([
   r()
 ], FabMatchReport.prototype, "cardDataMap", 2);
-__decorateClass$4([
+__decorateClass$5([
   r()
 ], FabMatchReport.prototype, "loadingCards", 2);
-__decorateClass$4([
+__decorateClass$5([
   r()
 ], FabMatchReport.prototype, "heroCardData", 2);
-__decorateClass$4([
+__decorateClass$5([
   r()
 ], FabMatchReport.prototype, "loadingHeroCard", 2);
-FabMatchReport = __decorateClass$4([
+FabMatchReport = __decorateClass$5([
   t$1("fab-match-report")
 ], FabMatchReport);
 function resolveDecklistViewMode(saved, isNarrow) {
@@ -5729,20 +5729,20 @@ function diffDecklists(before, after) {
   const order = (x2, y3) => x2.cardName.localeCompare(y3.cardName) || (x2.pitch ?? 0) - (y3.pitch ?? 0);
   return { added: added.sort(order), removed: removed.sort(order) };
 }
-var __defProp$3 = Object.defineProperty;
-var __getOwnPropDesc$3 = Object.getOwnPropertyDescriptor;
-var __decorateClass$3 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$3(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$4 = Object.defineProperty;
+var __getOwnPropDesc$4 = Object.getOwnPropertyDescriptor;
+var __decorateClass$4 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$4(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$3(target, key, result);
+  if (kind && result) __defProp$4(target, key, result);
   return result;
 };
 const COST_CHIPS = [0, 1, 2, 3, 4, 5];
 const POWER_CHIPS = [3, 4, 5, 6, 7];
 const DEFENSE_CHIPS = [0, 2, 3, 4];
-let FabDecklistBlock = class extends i$1 {
+let FabDecklistBlock = class extends i$2 {
   constructor() {
     super(...arguments);
     this.deckId = "";
@@ -5816,7 +5816,7 @@ let FabDecklistBlock = class extends i$1 {
   _toggleFilter(stat, value) {
     const idx = this._highlightFilters.findIndex((f2) => f2.stat === stat && f2.value === value);
     if (idx >= 0) {
-      this._highlightFilters = this._highlightFilters.filter((_2, i3) => i3 !== idx);
+      this._highlightFilters = this._highlightFilters.filter((_2, i4) => i4 !== idx);
     } else {
       this._highlightFilters = [...this._highlightFilters, { stat, value }];
     }
@@ -6323,7 +6323,7 @@ let FabDecklistBlock = class extends i$1 {
     `;
   }
 };
-FabDecklistBlock.styles = i$4`
+FabDecklistBlock.styles = i$5`
     /* ===== HOST SETUP ===== */
     :host {
       display: block;
@@ -7178,52 +7178,52 @@ FabDecklistBlock.styles = i$4`
     :host([dark]) .change-title, :host([dark]) .change-list { color: #f1f5f9; }
 
   `;
-__decorateClass$3([
+__decorateClass$4([
   n2({ attribute: "deck-id" })
 ], FabDecklistBlock.prototype, "deckId", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabDecklistBlock.prototype, "sections", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2({ attribute: "export-url" })
 ], FabDecklistBlock.prototype, "exportUrl", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabDecklistBlock.prototype, "notes", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabDecklistBlock.prototype, "title", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2({ attribute: "article-public-id" })
 ], FabDecklistBlock.prototype, "articlePublicId", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2({ attribute: "hero-public-id" })
 ], FabDecklistBlock.prototype, "heroPublicId", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabDecklistBlock.prototype, "snapshot", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabDecklistBlock.prototype, "_loading", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabDecklistBlock.prototype, "_error", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabDecklistBlock.prototype, "_deckData", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabDecklistBlock.prototype, "_viewMode", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabDecklistBlock.prototype, "_highlightFilters", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabDecklistBlock.prototype, "_overlayImage", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabDecklistBlock.prototype, "_tab", 2);
-FabDecklistBlock = __decorateClass$3([
+FabDecklistBlock = __decorateClass$4([
   t$1("fab-decklist-block")
 ], FabDecklistBlock);
 function money(value) {
@@ -7263,17 +7263,17 @@ function buildPlainTextExport(heading2, rollup, cards) {
   }
   return lines.join("\n");
 }
-var __defProp$2 = Object.defineProperty;
-var __getOwnPropDesc$2 = Object.getOwnPropertyDescriptor;
-var __decorateClass$2 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$2(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+var __defProp$3 = Object.defineProperty;
+var __getOwnPropDesc$3 = Object.getOwnPropertyDescriptor;
+var __decorateClass$3 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$3(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$2(target, key, result);
+  if (kind && result) __defProp$3(target, key, result);
   return result;
 };
-let FabBuylistBlock = class extends i$1 {
+let FabBuylistBlock = class extends i$2 {
   constructor() {
     super(...arguments);
     this.tiers = "";
@@ -7327,8 +7327,8 @@ let FabBuylistBlock = class extends i$1 {
   _storageKey() {
     if (this.listId) return `fab-buylist-checked:${this.listId}`;
     let hash = 5381;
-    for (let i3 = 0; i3 < this.tiers.length; i3++) {
-      hash = (hash << 5) + hash + this.tiers.charCodeAt(i3) >>> 0;
+    for (let i4 = 0; i4 < this.tiers.length; i4++) {
+      hash = (hash << 5) + hash + this.tiers.charCodeAt(i4) >>> 0;
     }
     return `fab-buylist-checked:${hash.toString(36)}`;
   }
@@ -7571,7 +7571,7 @@ let FabBuylistBlock = class extends i$1 {
           <span class="tier-total">${this._range(tier.totals.cost)}</span>
         </div>
         ${tier.note ? b`<p class="tier-note">${tier.note}</p>` : null}
-        ${tier.groups.map((group, i3) => this._renderGroup(group, `${tierIndex}-${i3}`))}
+        ${tier.groups.map((group, i4) => this._renderGroup(group, `${tierIndex}-${i4}`))}
       </section>
     `;
   }
@@ -7607,7 +7607,7 @@ let FabBuylistBlock = class extends i$1 {
           </div>
         </div>
 
-        ${rollup.tiers.map((tier, i3) => this._renderTier(tier, i3))}
+        ${rollup.tiers.map((tier, i4) => this._renderTier(tier, i4))}
 
         <div class="footer">
           <div class="footer-note">
@@ -7640,7 +7640,7 @@ let FabBuylistBlock = class extends i$1 {
     `;
   }
 };
-FabBuylistBlock.styles = i$4`
+FabBuylistBlock.styles = i$5`
     /* ===== HOST SETUP ===== */
     :host {
       display: block;
@@ -8384,68 +8384,479 @@ FabBuylistBlock.styles = i$4`
       color: #fca5a5;
     }
   `;
-__decorateClass$2([
+__decorateClass$3([
   n2()
 ], FabBuylistBlock.prototype, "tiers", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2()
 ], FabBuylistBlock.prototype, "heading", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2()
 ], FabBuylistBlock.prototype, "note", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2()
 ], FabBuylistBlock.prototype, "prerolled", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2({ attribute: "list-id" })
 ], FabBuylistBlock.prototype, "listId", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_legacyTitle", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_loading", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_error", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_data", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_collapsed", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_adding", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_addMessage", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_addFailed", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_copyMessage", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_zoomed", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabBuylistBlock.prototype, "_checked", 2);
-FabBuylistBlock = __decorateClass$2([
+FabBuylistBlock = __decorateClass$3([
   t$1("fab-buylist-block")
 ], FabBuylistBlock);
+/**
+ * @license
+ * Copyright 2020 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const m = {}, p = (o2, t2 = m) => o2._$AH = t2;
+/**
+ * @license
+ * Copyright 2021 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const i3 = e$1(class extends i$1 {
+  constructor() {
+    super(...arguments), this.key = A;
+  }
+  render(r2, t2) {
+    return this.key = r2, t2;
+  }
+  update(r2, [t2, e2]) {
+    return t2 !== this.key && (p(r2), this.key = t2), e2;
+  }
+});
+function laneItems(steps) {
+  const items = [];
+  steps.forEach((s2, i4) => {
+    const last = items[items.length - 1];
+    const prev = steps[i4 - 1];
+    if (last && prev && s2.kind === "attack" && prev.kind === "attack" && prev.cardId === s2.cardId) {
+      last.steps.push(i4);
+      last.stack = true;
+    } else {
+      items.push({ steps: [i4], stack: false });
+    }
+  });
+  return items;
+}
+const PLAYBACK_SPEED = 1.5;
+function stepHoldMs(caption, inStack) {
+  const floor = inStack ? 1800 : 2400;
+  return Math.round(Math.max(floor, 900 + caption.length * 60) / PLAYBACK_SPEED);
+}
+function frameAt(steps, index) {
+  const atEnd = index >= steps.length;
+  const visibleUpTo = Math.min(Math.max(index, 0), steps.length - 1);
+  const biggest = laneItems(steps).filter((it) => it.stack).sort((a2, b2) => b2.steps.length - a2.steps.length)[0];
+  const counterCardId = biggest ? steps[biggest.steps[0]].cardId : null;
+  const attackCount = counterCardId ? steps.filter((s2, i4) => i4 <= visibleUpTo && s2.kind === "attack" && s2.cardId === counterCardId).length : 0;
+  return { visibleUpTo, atEnd, counterCardId, attackCount };
+}
+var __defProp$2 = Object.defineProperty;
+var __getOwnPropDesc$2 = Object.getOwnPropertyDescriptor;
+var __decorateClass$2 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$2(target, key) : target;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
+      result = (kind ? decorator(target, key, result) : decorator(result)) || result;
+  if (kind && result) __defProp$2(target, key, result);
+  return result;
+};
+const KIND_LABEL = {
+  attack: "Attack",
+  action: "Action",
+  activate: "Activate",
+  hero: "Hero ability",
+  instant: "Instant",
+  play: "Play"
+};
+const OUTCOME_LABEL = { hit: "HIT", "no-hit": "NO HIT", lethal: "GAME" };
+const PITCH_COLOR = { 1: "#e03131", 2: "#f2b705", 3: "#3b82f6" };
+const LIFE_SCALE = 40;
+let FabComboTurn = class extends i$2 {
+  constructor() {
+    super(...arguments);
+    this.snapshot = "";
+    this.captions = "";
+    this.heading = "";
+    this.frame = Number.MAX_SAFE_INTEGER;
+    this.playing = false;
+    this.bumpKey = 0;
+    this.timer = null;
+    this.observer = null;
+    this.autoplayed = false;
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+    this.stop();
+    this.observer?.disconnect();
+  }
+  firstUpdated() {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || !("IntersectionObserver" in window)) return;
+    this.observer = new IntersectionObserver((entries) => {
+      if (entries.some((e2) => e2.isIntersecting && e2.intersectionRatio >= 0.5) && !this.autoplayed) {
+        this.autoplayed = true;
+        this.observer?.disconnect();
+        this.play(true);
+      }
+    }, { threshold: [0.5] });
+    this.observer.observe(this);
+  }
+  get data() {
+    try {
+      const s2 = JSON.parse(this.snapshot);
+      return s2 && Array.isArray(s2.steps) && s2.steps.length ? s2 : null;
+    } catch {
+      return null;
+    }
+  }
+  get captionList() {
+    try {
+      const c2 = JSON.parse(this.captions || "[]");
+      return Array.isArray(c2) ? c2.map((x2) => typeof x2 === "string" ? x2 : "") : [];
+    } catch {
+      return [];
+    }
+  }
+  endText(s2) {
+    const { start, end } = s2.opponentLife;
+    const parts = [];
+    if (s2.damage.dealt != null) parts.push(`${s2.damage.dealt} damage dealt${s2.damage.threatened != null ? ` out of ${s2.damage.threatened} threatened` : ""}.`);
+    if (start != null && end != null) parts.push(`${s2.opponent.name} goes from ${start} to ${end}${s2.lethal ? " and the game ends" : ""}.`);
+    return parts.join(" ") || "End of turn.";
+  }
+  stepText(s2, i4) {
+    const cap = this.captionList[i4];
+    if (cap) return cap;
+    const st = s2.steps[i4];
+    const out = st.outcome ? ` ${OUTCOME_LABEL[st.outcome] === "GAME" ? "The game ends on this one" : st.outcome === "hit" ? "Hit" : "No hit"}.` : "";
+    const paid = st.pitched.length ? ` Pitched ${st.pitched.map((p2) => p2.name).join(", ")}.` : "";
+    return `${st.name}: ${KIND_LABEL[st.kind].toLowerCase()}.${paid}${out}`;
+  }
+  show(i4) {
+    const s2 = this.data;
+    if (!s2) return;
+    const next = Math.max(0, Math.min(s2.steps.length, i4));
+    const prev = this.frame;
+    this.frame = next;
+    if (next !== prev && next < s2.steps.length && s2.steps[next].kind === "attack") this.bumpKey++;
+    this.updateComplete.then(() => this.scrollToCurrent());
+  }
+  scrollToCurrent() {
+    if (!this.playing) return;
+    const wrap = this.renderRoot.querySelector(".lane-wrap");
+    const cur = this.renderRoot.querySelector(".item.cur");
+    if (!wrap || !cur) return;
+    wrap.scrollTo({ left: cur.offsetLeft - wrap.clientWidth / 2 + cur.clientWidth / 2, behavior: "smooth" });
+  }
+  holdFor(s2, i4) {
+    if (i4 >= s2.steps.length) return stepHoldMs(this.endText(s2), false);
+    const prev = s2.steps[i4 - 1];
+    const inStack = !!prev && prev.kind === "attack" && s2.steps[i4].kind === "attack" && prev.cardId === s2.steps[i4].cardId;
+    return stepHoldMs(this.stepText(s2, i4), inStack);
+  }
+  play(fromStart = false) {
+    const s2 = this.data;
+    if (!s2) return;
+    this.stop();
+    if (fromStart || this.frame >= s2.steps.length) this.show(0);
+    this.playing = true;
+    const tick = () => {
+      if (this.frame >= s2.steps.length) {
+        this.stop();
+        return;
+      }
+      this.show(this.frame + 1);
+      this.timer = setTimeout(tick, this.holdFor(s2, this.frame));
+    };
+    this.timer = setTimeout(tick, this.holdFor(s2, this.frame));
+  }
+  stop() {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.playing = false;
+  }
+  renderCard(ref, cls = "card") {
+    return b`<div class=${cls}>${ref.imageUrl ? b`<img src=${ref.imageUrl} alt=${ref.name} loading="lazy">` : b`<div class="noimg">${ref.name}</div>`}</div>`;
+  }
+  renderItem(s2, it, visibleUpTo, atEnd) {
+    const on = it.steps[0] <= visibleUpTo;
+    const cur = !atEnd && it.steps.includes(this.frame);
+    const first = s2.steps[it.steps[0]];
+    if (it.stack) {
+      const seen = it.steps.filter((i4) => i4 <= visibleUpTo).length;
+      const under = it.steps.slice(1).map((_2, k2) => k2 + 1).reverse();
+      return b`
+        <div class="item stack ${on ? "on" : ""} ${cur ? "cur" : ""}">
+          <div class="stackbox">
+            ${under.map((k2) => b`<div class="card under ${seen > k2 ? "on" : ""}" style="transform:translate(${k2 * 4}px,${k2 * -4}px)">${first.imageUrl ? b`<img src=${first.imageUrl} alt="">` : A}</div>`)}
+            ${this.renderCard(first, "card top")}
+            ${i3(cur ? this.bumpKey : -1, b`<span class="x ${cur ? "bump" : ""}">×${Math.max(seen, 1)}</span>`)}
+          </div>
+          <div class="pips" aria-label="${seen} of ${it.steps.length} attacks shown">
+            ${it.steps.map((i4, j) => b`<span class="pip ${s2.steps[i4].outcome ?? ""} ${j < seen ? "on" : ""}">${j + 1}</span>`)}
+          </div>
+          <div class="tag">${first.name}</div>
+        </div>`;
+    }
+    return b`
+      <div class="item ${on ? "on" : ""} ${cur ? "cur" : ""}">
+        ${this.renderCard(first)}
+        <div class="tag">${KIND_LABEL[first.kind]}</div>
+        ${first.outcome ? b`<span class="badge ${first.outcome}">${OUTCOME_LABEL[first.outcome]}</span>` : A}
+        ${first.pitched.map((p2) => b`
+          <div class="pitch"><span class="gem" style="background:${PITCH_COLOR[p2.pitch ?? 0] ?? "var(--ct-miss)"}"></span>pitch
+            ${p2.imageUrl ? b`<img src=${p2.imageUrl} alt="pitched ${p2.name}">` : b`<span>${p2.name}</span>`}</div>`)}
+      </div>`;
+  }
+  render() {
+    const s2 = this.data;
+    if (!s2) return A;
+    const total = s2.steps.length;
+    const frame = Math.min(this.frame, total);
+    const { visibleUpTo, atEnd, counterCardId, attackCount } = frameAt(s2.steps, frame);
+    const items = laneItems(s2.steps);
+    const scale = Math.max(LIFE_SCALE, s2.opponentLife.start ?? 0);
+    const life = atEnd ? s2.opponentLife.end : s2.opponentLife.start;
+    const counterName = counterCardId ? s2.steps.find((x2) => x2.cardId === counterCardId)?.name : null;
+    return b`
+      <section class="ct" aria-label=${this.heading || `Turn ${s2.turn} vs ${s2.opponent.name}`}>
+        <div class="head">
+          ${s2.opponent.imageUrl ? b`<div class="hero"><img src=${s2.opponent.imageUrl} alt=${s2.opponent.name}></div>` : A}
+          <div class="title">
+            <div class="eyebrow">Combo turn</div>
+            <h3>${this.heading || `Turn ${s2.turn} vs ${s2.opponent.name}`}</h3>
+          </div>
+          <span class="result ${s2.result}">${s2.result === "win" ? "WIN" : "LOSS"}</span>
+        </div>
+
+        <div class="gauges">
+          <div>
+            ${s2.opponentLife.start != null ? b`
+              <div class="label"><span>${s2.opponent.name.split(",")[0]} life</span>
+                <b>${atEnd && life != null ? `${s2.opponentLife.start} → ${life}` : s2.opponentLife.start}</b></div>
+              <div class="bar">
+                <div class="ghost" style="width:${s2.opponentLife.start / scale * 100}%"></div>
+                <div class="fill" style="width:${(life ?? 0) / scale * 100}%"></div>
+              </div>` : A}
+            <div class="totals">${atEnd && s2.damage.dealt != null ? b`<b>${s2.damage.dealt}</b> dealt${s2.damage.threatened != null ? b` · ${s2.damage.threatened} threatened` : A}` : "Turn totals appear at end of turn"}</div>
+          </div>
+          ${counterName ? b`
+            <div class="counter">
+              <div class="label" style="justify-content:flex-end"><span>${counterName} attacks</span></div>
+              ${i3(this.bumpKey, b`<span class="num ${!atEnd && s2.steps[frame]?.cardId === counterCardId ? "bump" : ""}">×${attackCount}</span>`)}
+            </div>` : A}
+        </div>
+
+        <div class="lane-wrap"><div class="lane">
+          ${items.map((it) => this.renderItem(s2, it, visibleUpTo, atEnd))}
+        </div></div>
+
+        <div class="caption" aria-live="polite">
+          <span class="step">${atEnd ? "END OF TURN" : `STEP ${frame + 1} OF ${total}`}</span>
+          ${atEnd ? this.endText(s2) : this.stepText(s2, frame)}
+        </div>
+
+        <div class="controls">
+          <button type="button" aria-label="Previous step" @click=${() => {
+      this.stop();
+      this.show(frame - 1);
+    }}>◀</button>
+          <button type="button" class="primary" @click=${() => this.playing ? this.stop() : this.play()}>
+            ${this.playing ? "Pause" : atEnd ? "Replay" : "Play"}</button>
+          <button type="button" aria-label="Next step" @click=${() => {
+      this.stop();
+      this.show(frame + 1);
+    }}>▶</button>
+          <div class="scrub" role="group" aria-label="Jump to step">
+            ${Array.from({ length: total + 1 }, (_2, i4) => b`
+              <button type="button" class=${i4 <= frame ? "on" : ""} aria-label=${i4 === total ? "End of turn" : `Step ${i4 + 1}`}
+                @click=${() => {
+      this.stop();
+      this.show(i4);
+    }}></button>`)}
+          </div>
+        </div>
+        <div class="source">From the Talishar game log${s2.takenAt ? ` · saved ${s2.takenAt}` : ""}</div>
+      </section>`;
+  }
+};
+FabComboTurn.styles = i$5`
+    :host {
+      display: block;
+      margin: 2rem 0;
+      --ct-surface: #ffffff;
+      --ct-line: #e2e8f0;
+      --ct-fg: #0f172a;
+      --ct-muted: #64748b;
+      --ct-track: #eef1f5;
+      --ct-accent: #e8590c;
+      --ct-accent-soft: rgba(232, 89, 12, 0.1);
+      --ct-hit: #15803d;
+      --ct-hit-soft: rgba(21, 128, 61, 0.12);
+      --ct-miss: #94a3b8;
+      --ct-life: #dc2626;
+    }
+    :host([dark]) {
+      --ct-surface: #1e293b;
+      --ct-line: #334155;
+      --ct-fg: #e2e8f0;
+      --ct-muted: #94a3b8;
+      --ct-track: #2b3648;
+      --ct-accent: #fb8a3c;
+      --ct-accent-soft: rgba(251, 138, 60, 0.14);
+      --ct-hit: #4ade80;
+      --ct-hit-soft: rgba(74, 222, 128, 0.14);
+      --ct-miss: #64748b;
+      --ct-life: #f87171;
+    }
+
+    .ct { background: var(--ct-surface); color: var(--ct-fg); border: 1px solid var(--ct-line); border-radius: 0.75rem; overflow: hidden; }
+    .head { display: flex; align-items: center; gap: 0.875rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--ct-line); }
+    .hero { width: 48px; flex: none; aspect-ratio: 5 / 7; border-radius: 6px; overflow: hidden; background: var(--ct-track); }
+    .hero img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; display: block; }
+    .title { min-width: 0; flex: 1; }
+    .eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ct-accent); }
+    h3 { margin: 0.125rem 0 0; font-size: 1.2rem; line-height: 1.25; color: var(--ct-fg); text-wrap: balance; }
+    .result { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; flex: none; }
+    .result.win { background: var(--ct-hit-soft); color: var(--ct-hit); }
+    .result.loss { background: var(--ct-track); color: var(--ct-muted); }
+
+    .gauges { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: end; padding: 0.875rem 1.25rem 0.25rem; }
+    .label { font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ct-muted); display: flex; justify-content: space-between; gap: 0.5rem; }
+    .label b { color: var(--ct-fg); font-variant-numeric: tabular-nums; text-transform: none; }
+    .bar { height: 10px; border-radius: 999px; background: var(--ct-track); margin-top: 0.375rem; position: relative; overflow: hidden; }
+    .bar .ghost, .bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--ct-life); }
+    .bar .ghost { opacity: 0.22; }
+    .bar .fill { transition: width 0.9s cubic-bezier(0.3, 0.7, 0.2, 1); }
+    .totals { font-size: 0.75rem; color: var(--ct-muted); margin-top: 0.375rem; min-height: 1.2em; font-variant-numeric: tabular-nums; }
+    .totals b { color: var(--ct-fg); }
+    .counter { text-align: right; }
+    .counter .num { font-size: 2.4rem; font-weight: 800; line-height: 0.95; color: var(--ct-accent); font-variant-numeric: tabular-nums; display: inline-block; }
+    .bump { animation: bump 0.35s ease-out; }
+    @keyframes bump { from { transform: scale(1.35); } to { transform: scale(1); } }
+
+    .lane-wrap { overflow-x: auto; padding: 0.875rem 1.25rem 0.5rem; scrollbar-width: thin; }
+    .lane { display: flex; gap: 0.625rem; align-items: flex-start; width: max-content; }
+    .item { width: 88px; flex: none; display: grid; gap: 0.375rem; justify-items: center; opacity: 0.18; transform: translateY(6px); transition: opacity 0.35s, transform 0.35s; }
+    .item.on { opacity: 1; transform: none; }
+    .card { width: 88px; aspect-ratio: 5 / 7; border-radius: 6px; overflow: hidden; position: relative; background: var(--ct-track); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+    .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card .noimg { padding: 0.4rem; font-size: 0.7rem; color: var(--ct-muted); }
+    .item.cur .card.top, .item.cur > .card { outline: 3px solid var(--ct-accent); outline-offset: 2px; }
+    .tag { font-size: 0.66rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ct-muted); text-align: center; line-height: 1.25; }
+    .badge { font-size: 0.62rem; font-weight: 700; padding: 0.125rem 0.375rem; border-radius: 4px; }
+    .badge.hit { background: var(--ct-hit-soft); color: var(--ct-hit); }
+    .badge.no-hit { background: var(--ct-track); color: var(--ct-muted); }
+    .badge.lethal { background: var(--ct-accent-soft); color: var(--ct-accent); }
+    .pitch { display: flex; align-items: center; gap: 0.25rem; font-size: 0.6rem; color: var(--ct-muted); }
+    .pitch img { width: 32px; aspect-ratio: 5 / 7; border-radius: 3px; transform: rotate(-8deg); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
+    .gem { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+
+    .item.stack { width: auto; min-width: 124px; }
+    .stackbox { position: relative; width: 100px; aspect-ratio: 5 / 7; }
+    .stackbox .card { position: absolute; inset: 0; width: 100%; }
+    .stackbox .card.under { opacity: 0; transition: opacity 0.3s; }
+    .stackbox .card.under.on { opacity: 0.5; }
+    .x { position: absolute; right: -10px; top: -10px; z-index: 3; background: var(--ct-accent); color: #fff; font-weight: 800; font-size: 1.1rem; line-height: 1; padding: 0.3rem 0.45rem 0.25rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+    .pips { display: flex; gap: 0.3rem; }
+    .pip { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--ct-line); display: grid; place-items: center; font-size: 0.55rem; font-weight: 700; color: transparent; transition: background 0.25s, border-color 0.25s, color 0.25s; }
+    .pip.on.hit { background: var(--ct-hit); border-color: var(--ct-hit); color: #fff; }
+    .pip.on.no-hit { background: var(--ct-track); border-color: var(--ct-miss); color: var(--ct-muted); }
+    .pip.on.lethal { background: var(--ct-accent); border-color: var(--ct-accent); color: #fff; }
+
+    .caption { margin: 0.25rem 1.25rem 0; padding: 0.625rem 0.75rem; border-left: 3px solid var(--ct-accent); background: var(--ct-accent-soft); border-radius: 0 6px 6px 0; min-height: 3.2em; font-size: 0.92rem; line-height: 1.5; }
+    .caption .step { display: block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; color: var(--ct-accent); }
+
+    .controls { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem 1rem; flex-wrap: wrap; }
+    button { font: inherit; font-size: 0.78rem; font-weight: 700; border: 1px solid var(--ct-line); background: var(--ct-surface); color: var(--ct-fg); border-radius: 6px; padding: 0.375rem 0.7rem; cursor: pointer; }
+    button:hover { border-color: var(--ct-accent); }
+    button:focus-visible { outline: 2px solid var(--ct-accent); outline-offset: 2px; }
+    button.primary { background: var(--ct-accent); border-color: var(--ct-accent); color: #fff; min-width: 80px; }
+    .scrub { flex: 1; min-width: 120px; display: flex; gap: 3px; }
+    .scrub button { flex: 1; height: 8px; padding: 0; border: none; border-radius: 2px; background: var(--ct-track); min-width: 0; }
+    .scrub button.on { background: var(--ct-accent); }
+    .source { font-size: 0.7rem; color: var(--ct-muted); padding: 0 1.25rem 0.875rem; }
+
+    @media (max-width: 520px) {
+      .gauges { grid-template-columns: 1fr; }
+      .counter { text-align: left; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .item, .bar .fill, .pip, .stackbox .card.under { transition: none; }
+      .bump { animation: none; }
+    }
+  `;
+__decorateClass$2([
+  n2({ type: String })
+], FabComboTurn.prototype, "snapshot", 2);
+__decorateClass$2([
+  n2({ type: String })
+], FabComboTurn.prototype, "captions", 2);
+__decorateClass$2([
+  n2({ type: String })
+], FabComboTurn.prototype, "heading", 2);
+__decorateClass$2([
+  r()
+], FabComboTurn.prototype, "frame", 2);
+__decorateClass$2([
+  r()
+], FabComboTurn.prototype, "playing", 2);
+__decorateClass$2([
+  r()
+], FabComboTurn.prototype, "bumpKey", 2);
+FabComboTurn = __decorateClass$2([
+  t$1("fab-combo-turn")
+], FabComboTurn);
 var __defProp$1 = Object.defineProperty;
 var __getOwnPropDesc$1 = Object.getOwnPropertyDescriptor;
 var __decorateClass$1 = (decorators, target, key, kind) => {
   var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$1(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
   if (kind && result) __defProp$1(target, key, result);
   return result;
 };
-let FabVideo = class extends i$1 {
+let FabVideo = class extends i$2 {
   constructor() {
     super(...arguments);
     this.videoId = "";
@@ -8514,7 +8925,7 @@ let FabVideo = class extends i$1 {
     `;
   }
 };
-FabVideo.styles = i$4`
+FabVideo.styles = i$5`
     :host {
       /* CSS Variables for theming */
       --fab-video-bg: #fef2f2;
@@ -8646,13 +9057,13 @@ var __defProp2 = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
   var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;
-  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
-    if (decorator = decorators[i3])
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
   if (kind && result) __defProp2(target, key, result);
   return result;
 };
-let FabOpportunityCard = class extends i$1 {
+let FabOpportunityCard = class extends i$2 {
   constructor() {
     super(...arguments);
     this.printingId = "";
@@ -8860,7 +9271,7 @@ let FabOpportunityCard = class extends i$1 {
     return code ? foilingMap[code] || "" : "";
   }
 };
-FabOpportunityCard.styles = i$4`
+FabOpportunityCard.styles = i$5`
     :host {
       display: block;
       margin: 1.5rem 0;
@@ -9194,6 +9605,7 @@ export {
   FabBuylistBlock,
   FabByline,
   FabCallout,
+  FabComboTurn,
   FabCreatorSpotlight,
   FabDecklistBlock,
   FabIntro,

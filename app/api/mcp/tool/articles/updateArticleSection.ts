@@ -1,5 +1,7 @@
 // app/api/mcp/tool/articles/updateArticleSection.ts - MCP tool for updating existing article sections
 import { withDecklistSnapshots, deckFetcher, describeSection } from '@/lib/articles/decklist-snapshot';
+import { withComboTurnSnapshots, comboTurnIO, describeComboTurn } from '@/lib/articles/combo-turn-snapshot';
+import { resolveOwnedDeck } from '../listResults';
 
 export const updateArticleSectionTool = {
   name: 'update_article_section',
@@ -23,6 +25,7 @@ Update an existing section in an article by its index. Replaces the entire secti
 • opportunity-card: Trading opportunities
 • spotlight-card: Featured card highlights. In its commentary, **Card Name** adds a card thumbnail; **shown words|Card Name** tags any wording ("**Hyper Drivers|Hyper Driver**", "**Assembly|Assembly Module**").
 • decklist-block: A decklist. Pass deckId + snapshotLabel (e.g. "Week of Calling: Atlanta") to freeze the list as it is now — readers see that snapshot first, with the live list and what changed one click away. deckId alone = always-live list.
+• combo-turn: Replays one turn of YOUR game, step by step (animated). Pass deckName + resultId (from list_results) + turn (number), optionally captions: [one string per step]. Preview first: it lists the numbered steps to write captions against. The turn is frozen into the article; to change captions later, update the section with its stored snapshot + new captions.
 
 🔄 TWO-STEP PROCESS:
 1. mode: "preview" - Show what will be updated (default)
@@ -66,7 +69,7 @@ Update an existing section in an article by its index. Replaces the entire secti
         properties: {
           type: {
             type: 'string',
-            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block'],
+            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block', 'combo-turn'],
             description: 'Section type'
           }
         },
@@ -131,13 +134,17 @@ Update an existing section in an article by its index. Replaces the entire secti
       let prepared: any;
       try {
         [prepared] = await withDecklistSnapshots([section], deckFetcher(API_BASE_URL, tokenToUse));
+        // combo-turn + deckName/resultId/turn → freeze that game turn now.
+        [prepared] = await withComboTurnSnapshots([prepared], comboTurnIO(API_BASE_URL, tokenToUse, resolveOwnedDeck));
       } catch (e) {
-        return { success: false, error: e instanceof Error ? e.message : 'Could not snapshot the deck' };
+        return { success: false, error: e instanceof Error ? e.message : 'Could not snapshot the section' };
       }
 
       // Preview mode - don't make the API call
       if (mode === 'preview') {
-        let sectionPreview = prepared.type === 'decklist-block' ? describeSection(prepared) : `Type: ${section.type}`;
+        let sectionPreview = prepared.type === 'decklist-block' ? describeSection(prepared)
+          : prepared.type === 'combo-turn' ? describeComboTurn(prepared)
+          : `Type: ${section.type}`;
 
         if (section.type === 'text' && section.content) {
           const preview = section.content.substring(0, 100).replace(/\n/g, ' ');

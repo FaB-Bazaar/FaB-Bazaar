@@ -1,6 +1,7 @@
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { ARTICLE_MDX_OPTIONS } from '@/lib/articles/mdx-options';
 import { decklistBlockAttrs } from '@/lib/articles/decklist-attrs';
+import { comboTurnBlockAttrs } from '@/lib/articles/combo-turn';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
@@ -337,6 +338,14 @@ export default async function HeroArticlePage({ params }: { params: { publicId: 
                       sideboard: section.sideboard,
                       'sideboard-cards': heroSideboardCardsJson,
                     })}
+                  />
+                );
+
+              case 'combo-turn':
+                return (
+                  <div
+                    key={index}
+                    dangerouslySetInnerHTML={createSafeInnerHTML('fab-combo-turn', comboTurnBlockAttrs(section))}
                   />
                 );
 

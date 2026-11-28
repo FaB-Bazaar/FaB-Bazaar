@@ -22,6 +22,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   mockQuery.mockReset();
+  mockQuery.mockResolvedValue({ rows: [] } as any); // any un-staged query (e.g. a fallback pass) finds nothing
 });
 
 describe('GET /api/cards/by-talishar-id', () => {
@@ -111,6 +112,22 @@ describe('POST /api/cards/by-talishar-id', () => {
     const res = await POST(postReq({ ids: ['crown_of_providence', 'nope'] }));
     const body = await res.json();
     expect(Object.keys(body.data)).toEqual(['crown_of_providence']);
+  });
+
+  it('falls back to the logged-state forms when the exact id misses (nitro_mechanoidc → nitro_mechanoid)', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] } as any)
+      .mockResolvedValueOnce({ rows: [makeRow({ display_name: 'Nitro Mechanoid', talishar_card_id: 'nitro_mechanoid' })] } as any);
+    const res = await POST(postReq({ ids: ['nitro_mechanoidc'] }));
+    const body = await res.json();
+    expect(body.data.nitro_mechanoidc).toMatchObject({ displayName: 'Nitro Mechanoid', talisharCardId: 'nitro_mechanoid' });
+    expect(mockQuery.mock.calls[1]![1]![0]).toEqual(['nitro_mechanoid']);
+  });
+
+  it('skips the fallback query when every id resolves exactly', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [makeRow()] } as any);
+    await POST(postReq({ ids: ['crown_of_providence'] }));
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   it('rejects non-string entries silently', async () => {

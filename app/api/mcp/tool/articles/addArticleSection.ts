@@ -1,5 +1,7 @@
 // app/api/mcp/tool/articles/addArticleSection.ts - MCP tool for appending sections to articles
 import { withDecklistSnapshots, deckFetcher, describeSection } from '@/lib/articles/decklist-snapshot';
+import { withComboTurnSnapshots, comboTurnIO, describeComboTurn } from '@/lib/articles/combo-turn-snapshot';
+import { resolveOwnedDeck } from '../listResults';
 
 export const addArticleSectionTool = {
   name: 'add_article_section',
@@ -23,6 +25,7 @@ Append new sections to the end of an article. Supports all section types includi
 • opportunity-card: Trading opportunities
 • spotlight-card: Featured card highlights. In its commentary, **Card Name** adds a card thumbnail; **shown words|Card Name** tags any wording ("**Hyper Drivers|Hyper Driver**", "**Assembly|Assembly Module**").
 • decklist-block: A decklist. Pass deckId + snapshotLabel (e.g. "Week of Calling: Atlanta") to freeze the list as it is now — readers see that snapshot first, with the live list and what changed one click away. deckId alone = always-live list.
+• combo-turn: Replays one turn of YOUR game, step by step (animated). Pass deckName + resultId (from list_results) + turn (number), optionally captions: [one string per step]. Preview first: it lists the numbered steps to write captions against. The turn is frozen into the article; to change captions later, update the section with its stored snapshot + new captions.
 
 🔄 TWO-STEP PROCESS:
 1. mode: "preview" - Show what will be added (default)
@@ -61,7 +64,7 @@ Append new sections to the end of an article. Supports all section types includi
         properties: {
           type: {
             type: 'string',
-            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block'],
+            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block', 'combo-turn'],
             description: 'Section type'
           }
         }
@@ -74,7 +77,7 @@ Append new sections to the end of an article. Supports all section types includi
           properties: {
             type: {
               type: 'string',
-              enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block']
+              enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block', 'decklist-block', 'combo-turn']
             }
           }
         }
@@ -146,8 +149,10 @@ Append new sections to the end of an article. Supports all section types includi
       let prepared: any[];
       try {
         prepared = await withDecklistSnapshots(sectionsToAdd, deckFetcher(API_BASE_URL, tokenToUse));
+        // combo-turn + deckName/resultId/turn → freeze that game turn now.
+        prepared = await withComboTurnSnapshots(prepared, comboTurnIO(API_BASE_URL, tokenToUse, resolveOwnedDeck));
       } catch (e) {
-        return { success: false, error: e instanceof Error ? e.message : 'Could not snapshot the deck' };
+        return { success: false, error: e instanceof Error ? e.message : 'Could not snapshot the section' };
       }
 
       // Preview mode - don't make the API call
@@ -162,7 +167,7 @@ Append new sections to the end of an article. Supports all section types includi
             type: sec.type,
             preview: sec.type === 'text'
               ? (sec.content?.substring(0, 100) || 'No content')
-              : describeSection(sec)
+              : sec.type === 'combo-turn' ? describeComboTurn(sec) : describeSection(sec)
           })),
           next_step: "Call again with mode='confirm' to execute"
         };

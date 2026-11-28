@@ -480,6 +480,13 @@ export default function EditArticlePage() {
             onChange={(updates) => updateSection(index, updates)}
           />
         );
+      case 'combo-turn':
+        return (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Combo turn{section.snapshot ? ` — turn ${section.snapshot.turn} vs ${section.snapshot.opponent?.name}, ${section.snapshot.steps?.length} steps` : ''}.
+            Built from a game log; add or edit it (and its captions) with the MCP article tools.
+          </p>
+        );
       default:
         return <p>Unknown section type: {section.type}</p>;
     }
