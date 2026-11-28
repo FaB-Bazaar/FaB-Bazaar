@@ -105,6 +105,47 @@ function dateLabel(asOfDate: string): string {
     : `as of ${asOfDate}`;
 }
 
+/** "2026-11-16" → "Nov 16" (dates are pipeline run days, so read them as UTC). */
+function shortDate(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+const DAY_SIGNALS: ReadonlySet<SignalType> = new Set(["top_gainer", "top_decliner"]);
+
+/**
+ * A steady riser that is just still on the list — the 30-day signal keeps a
+ * card there for weeks after its price stopped moving — and nothing else.
+ */
+function isStillClimbing(m: { signalType: SignalType; isNews?: boolean }, signals: SignalType[] = [m.signalType]): boolean {
+  return m.isNews === false && signals.every((s) => s === "steady_riser");
+}
+
+/** One compact line per repeat steady riser: name, streak, flat price. */
+function StillClimbing({ movers }: { movers: Array<{ printingId: string; displayName: string; pAtSignal: number; streakDays?: number; flatSince?: string | null }> }) {
+  if (movers.length === 0) return null;
+  return (
+    <div data-testid="still-climbing" className="mt-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 px-3 py-2">
+      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+        Still climbing <span className="font-normal text-gray-600 dark:text-gray-400">— already on the 30-day list, price unchanged lately</span>
+      </p>
+      <ul className="mt-1 space-y-0.5 text-sm text-gray-700 dark:text-gray-300">
+        {movers.map((m) => (
+          <li key={m.printingId}>
+            <Link href={`/printing/${m.printingId}`} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm">
+              {m.displayName}
+            </Link>
+            <span className="text-gray-600 dark:text-gray-400">
+              {m.streakDays ? ` · day ${m.streakDays}` : ""}
+              {` · flat at ${formatPrice(m.pAtSignal)}`}
+              {m.flatSince ? ` since ${shortDate(m.flatSince)}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function impactColor(v: number): string {
   if (v > 0) return "text-emerald-600 dark:text-emerald-400";
   if (v < 0) return "text-rose-600 dark:text-rose-400";
@@ -453,7 +494,10 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
   const current = available.find((l) => l.signal === active) ?? available[0];
   if (!current) return null;
 
-  const matching = filterMarketMovers(current.movers, filters);
+  const filtered = filterMarketMovers(current.movers, filters);
+  // Steady risers repeat for weeks once a card qualifies: only news gets a row.
+  const repeats = filtered.filter((m) => isStillClimbing(m));
+  const matching = filtered.filter((m) => !isStillClimbing(m));
   const sorted = sortMarketMovers(matching, toMarketSort(sortChoice, current.signal));
   const rows = expanded ? sorted : sorted.slice(0, MARKET_PAGE_SIZE);
   const hidden = sorted.length - rows.length;
@@ -519,7 +563,7 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
           ))}
         </div>
       </div>
-      {rows.length === 0 ? (
+      {rows.length === 0 && repeats.length > 0 ? null : rows.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
           No cards match these filters.
         </p>
@@ -539,6 +583,7 @@ function MarketMovers({ lists }: { lists: Array<{ signal: SignalType; movers: Ma
           Show {hidden} more
         </button>
       )}
+      <StillClimbing movers={repeats} />
       {preview && (
         <div
           data-testid="card-preview"
@@ -593,6 +638,10 @@ export function DailyMoversView({
   // "mover_compact_*", busy days "mover_*". Keep both so the analytics series continue.
   const sparse = userMovers != null && userMovers.totalCount > 0 && userMovers.totalCount < 6;
   const mergedMovers = userMovers ? mergeMovers(userMovers) : [];
+  // Last night's moves lead; 30-day signals follow; repeat steady risers collapse.
+  const lastNight = mergedMovers.filter((m) => m.signals.some((s) => DAY_SIGNALS.has(s)));
+  const stillClimbing = mergedMovers.filter((m) => isStillClimbing(m, m.signals));
+  const trends = mergedMovers.filter((m) => !lastNight.includes(m) && !stillClimbing.includes(m));
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -603,12 +652,16 @@ export function DailyMoversView({
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Daily Movers</h1>
           {signedIn && userMovers && (
             <p data-testid="movers-summary" className="mt-2 flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
-              <span className={`text-2xl font-bold tabular-nums ${impactColor(userMovers.totalImpact)}`}>
-                {formatImpact(userMovers.totalImpact)}
-              </span>
-              {mergedMovers.length === 0
-                ? "— none of your cards moved yesterday"
-                : `across ${mergedMovers.length} card${mergedMovers.length === 1 ? "" : "s"} in your collection`}
+              {userMovers.dayCount > 0 ? (
+                <>
+                  <span className={`text-2xl font-bold tabular-nums ${impactColor(userMovers.dayImpact)}`}>
+                    {formatImpact(userMovers.dayImpact)}
+                  </span>
+                  {`last night across ${userMovers.dayCount} card${userMovers.dayCount === 1 ? "" : "s"} in your collection`}
+                </>
+              ) : (
+                "Your cards were quiet last night."
+              )}
             </p>
           )}
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{dateLabel(asOfDate)}</p>
@@ -653,11 +706,31 @@ export function DailyMoversView({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
-                {mergedMovers.map((m) => (
-                  <MergedMoverRow key={m.printingId} m={m} featurePrefix={sparse ? "mover_compact_" : "mover_"} />
-                ))}
-              </div>
+              <>
+                {lastNight.length > 0 && (
+                  <>
+                    <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Last night</h2>
+                    <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                      {lastNight.map((m) => (
+                        <MergedMoverRow key={m.printingId} m={m} featurePrefix={sparse ? "mover_compact_" : "mover_"} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                {trends.length > 0 && (
+                  <>
+                    <h2 className={`mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 ${lastNight.length > 0 ? "mt-6" : ""}`}>
+                      Over the last 30 days
+                    </h2>
+                    <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                      {trends.map((m) => (
+                        <MergedMoverRow key={m.printingId} m={m} featurePrefix={sparse ? "mover_compact_" : "mover_"} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                <StillClimbing movers={stillClimbing} />
+              </>
             )}
           </div>
         )}

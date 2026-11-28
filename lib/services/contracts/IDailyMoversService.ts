@@ -50,6 +50,15 @@ export interface DailyMoverDTO {
 
   // The user's own (non-system) decks containing this printing (any category)
   decks: DeckMembershipDTO[];
+
+  // Steady risers only (a 30-day signal that repeats for weeks once a card
+  // qualifies) — see lib/daily/steady-riser-news.ts. Undefined on other signals.
+  /** Consecutive pipeline runs the card has been a steady riser. */
+  streakDays?: number;
+  /** New to the list this run, or its price moved since the previous run. */
+  isNews?: boolean;
+  /** For a repeat: the run its price went flat. Null when news. */
+  flatSince?: string | null;
 }
 
 /** A mover without inventory context — the site-wide market view. */
@@ -64,6 +73,11 @@ export interface MoversInCollectionDTO {
   // Net movement across the user's holdings: Σ dollarChange × quantity over
   // distinct inventory rows (a printing appearing in two signals counts once).
   totalImpact: number;
+  // Last night only: Σ dollarChange × quantity over the 24-hour signals
+  // (gainers / decliners), and how many distinct printings that covers. The
+  // headline uses this — totalImpact mixes in 30-day signals.
+  dayImpact: number;
+  dayCount: number;
   gainers: DailyMoverDTO[];
   decliners: DailyMoverDTO[];
   breakouts: DailyMoverDTO[];

@@ -23,6 +23,8 @@ const service = new PostgresDailyMoversService();
 
 // Use a unique-to-this-test as_of_date so we don't collide with real pipeline data.
 const TEST_AS_OF = '2099-12-31';
+// An earlier pipeline run, for steady-riser streaks.
+const PREV_RUN = '2099-12-30';
 
 let printingA: string;
 let printingB: string;
@@ -92,7 +94,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   // dailyMovers has no FK to users, so explicit cleanup needed.
-  await db.delete(dailyMovers).where(eq(dailyMovers.asOfDate, TEST_AS_OF));
+  await db.delete(dailyMovers).where(sql`${dailyMovers.asOfDate} IN (${TEST_AS_OF}, ${PREV_RUN})`);
   await db.delete(users).where(eq(users.id, testUserId));
   for (const id of extraUserIds) {
     await db.delete(users).where(eq(users.id, id));
@@ -267,5 +269,53 @@ describe('PostgresDailyMoversService.getMarketMovers', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.gainers.map((g) => g.printingId)).toEqual([printingC, printingA]);
+  });
+});
+
+// Headline = last night only: the 24-hour signals (gainers / decliners). A
+// steady riser is a 30-day trend and must not inflate it — Shelter from the
+// Storm read "+$136.82" for days while its price sat at $347.00.
+describe('day impact and steady-riser news', () => {
+  const ownC = () => db.insert(inventoryItems).values({
+    id: crypto.randomUUID(), userId: testUserId, binderId, printingId: printingC,
+    quantity: 2, condition: 'NM', language: 'EN', forTrade: false, forSale: false,
+  });
+  const steady = (asOfDate: string, price: string) => ({
+    asOfDate, signalType: 'steady_riser', printingId: printingC,
+    pAtSignal: price, refPrice: '280.00', dollarChange: '67.00', pctChange: '24.00', rankInSignal: 1,
+  });
+
+  it('dayImpact counts only gainers and decliners', async () => {
+    await ownC();
+    await db.insert(dailyMovers).values(steady(TEST_AS_OF, '347.00'));
+    const result = await service.getMoversInUserCollection(testUserId, TEST_AS_OF);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.dayImpact).toBe(7.5);   // printingA gainer: +2.50 × 3
+    expect(result.data.dayCount).toBe(1);
+    expect(result.data.steadyRisers).toHaveLength(1);
+  });
+
+  it('a steady riser repeated at the same price is marked as a repeat (user and market)', async () => {
+    await ownC();
+    await db.insert(dailyMovers).values([steady(PREV_RUN, '347.00'), steady(TEST_AS_OF, '347.00')]);
+
+    const mine = await service.getMoversInUserCollection(testUserId, TEST_AS_OF);
+    expect(mine.success).toBe(true);
+    if (!mine.success) return;
+    expect(mine.data.steadyRisers[0]).toMatchObject({ streakDays: 2, isNews: false, flatSince: PREV_RUN });
+
+    const market = await service.getMarketMovers(TEST_AS_OF);
+    expect(market.success).toBe(true);
+    if (!market.success) return;
+    expect(market.data.steadyRisers[0]).toMatchObject({ streakDays: 2, isNews: false, flatSince: PREV_RUN });
+  });
+
+  it('a steady riser new to the list is news', async () => {
+    await db.insert(dailyMovers).values(steady(TEST_AS_OF, '347.00'));
+    const market = await service.getMarketMovers(TEST_AS_OF);
+    expect(market.success).toBe(true);
+    if (!market.success) return;
+    expect(market.data.steadyRisers[0]).toMatchObject({ streakDays: 1, isNews: true, flatSince: null });
   });
 });

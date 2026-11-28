@@ -96,6 +96,8 @@ describe('/daily sparse-day compact rows', () => {
     asOfDate: '2026-09-18',
     totalCount: 1,
     totalImpact: 5,
+    dayImpact: 5,
+    dayCount: 1,
     gainers: [userMover()],
     decliners: [],
     breakouts: [],
@@ -119,6 +121,8 @@ describe('/daily your movers — one row per card', () => {
     asOfDate: '2026-09-18',
     totalCount: 7,
     totalImpact: 20,
+    dayImpact: -30,
+    dayCount: 5,
     gainers: [
       userMover({ printingId: 'call', displayName: 'Call to the Grave', binderId: 'b1', binderName: 'Pirate' }),
       ...['a', 'b', 'c'].map((id) => userMover({ printingId: id, displayName: `Card ${id}`, binderId: 'b1' })),
@@ -222,6 +226,8 @@ describe('/daily around the market — tabs over one list', () => {
 describe('/daily your movers — a row reads as a sentence', () => {
   const one = (m: DailyMoverDTO): MoversInCollectionDTO => ({
     asOfDate: '2026-09-18', totalCount: 1, totalImpact: m.dollarImpact ?? 0,
+    dayImpact: m.signalType === 'top_gainer' || m.signalType === 'top_decliner' ? m.dollarImpact ?? 0 : 0,
+    dayCount: m.signalType === 'top_gainer' || m.signalType === 'top_decliner' ? 1 : 0,
     gainers: m.signalType === 'top_gainer' ? [m] : [], breakouts: m.signalType === 'breakout' ? [m] : [],
     steadyRisers: [], decliners: m.signalType === 'top_decliner' ? [m] : [],
   })
@@ -491,3 +497,67 @@ describe('/daily market list — "Sort by"', () => {
     expect((screen.getByRole('combobox', { name: 'Sort by' }) as HTMLSelectElement).value).toBe('default')
   })
 })
+
+// The headline is last night only, and a steady riser that is just still on the
+// list (a 30-day signal: Shelter from the Storm sat at $347.00 for two weeks and
+// headlined every day) is collapsed instead of shown as news.
+describe('/daily — last night first, repeats collapsed', () => {
+  const shelterRepeat = userMover({
+    printingId: 'shelter', displayName: 'Shelter from the Storm', signalType: 'steady_riser',
+    pAtSignal: 347, refPrice: 278.59, dollarChange: 68.41, pctChange: 24.6, dollarImpact: 136.82,
+    streakDays: 10, isNews: false, flatSince: '2026-11-16',
+  })
+  const onlyRepeat: MoversInCollectionDTO = {
+    asOfDate: '2026-11-27', totalCount: 1, totalImpact: 136.82, dayImpact: 0, dayCount: 0,
+    gainers: [], decliners: [], breakouts: [], steadyRisers: [shelterRepeat],
+  }
+
+  it('says your cards were quiet last night instead of headlining a 30-day number', () => {
+    render(<DailyMoversView signedIn={true} userMovers={onlyRepeat} market={marketDto([])} error={null} />)
+    const summary = screen.getByTestId('movers-summary').textContent ?? ''
+    expect(summary).toMatch(/quiet last night/i)
+    expect(summary).not.toContain('136.82')
+  })
+
+  it('headlines last night\'s change across the cards that moved', () => {
+    const day: MoversInCollectionDTO = { ...onlyRepeat, totalCount: 2, dayImpact: 7.5, dayCount: 1, gainers: [userMover({ dollarImpact: 7.5 })] }
+    render(<DailyMoversView signedIn={true} userMovers={day} market={marketDto([])} error={null} />)
+    expect(screen.getByTestId('movers-summary').textContent).toMatch(/\+\$7\.50\s*last night across 1 card in your collection/)
+  })
+
+  it('collapses a repeat steady riser into "Still climbing" with its streak and flat price', () => {
+    render(<DailyMoversView signedIn={true} userMovers={onlyRepeat} market={marketDto([])} error={null} />)
+    expect(screen.queryAllByTestId('mover-row')).toHaveLength(0)
+    const still = screen.getByTestId('still-climbing')
+    expect(still.textContent).toContain('Still climbing')
+    expect(still.textContent).toContain('Shelter from the Storm')
+    expect(still.textContent).toMatch(/day 10/)
+    expect(still.textContent).toMatch(/flat at \$347\.00 since Nov 16/)
+  })
+
+  it('splits your cards into last night and the last 30 days', () => {
+    const both: MoversInCollectionDTO = {
+      ...onlyRepeat, totalCount: 2, dayImpact: 5, dayCount: 1,
+      gainers: [userMover()],
+      breakouts: [userMover({ printingId: 'vig', displayName: 'Vigor', signalType: 'breakout' })],
+    }
+    render(<DailyMoversView signedIn={true} userMovers={both} market={marketDto([])} error={null} />)
+    expect(screen.getByRole('heading', { name: 'Last night' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Over the last 30 days' })).toBeTruthy()
+  })
+
+  it('in the market Steady Risers tab, news stays a row and repeats collapse', () => {
+    const market: MarketMoversDTO = {
+      asOfDate: '2026-11-27', totalCount: 2, gainers: [], decliners: [], breakouts: [],
+      steadyRisers: [
+        marketMover({ printingId: 'new', displayName: 'Fresh Riser', signalType: 'steady_riser', streakDays: 1, isNews: true, flatSince: null }),
+        marketMover({ printingId: 'old', displayName: 'Old Riser', signalType: 'steady_riser', pAtSignal: 40, streakDays: 7, isNews: false, flatSince: '2026-11-20' }),
+      ],
+    }
+    render(<DailyMoversView signedIn={false} userMovers={null} market={market} error={null} />)
+    expect(screen.getAllByRole('link', { name: /Fresh Riser/ }).length).toBeGreaterThan(0)
+    const still = screen.getByTestId('still-climbing')
+    expect(still.textContent).toContain('Old Riser')
+    expect(still.textContent).toMatch(/day 7/)
+  })
+});

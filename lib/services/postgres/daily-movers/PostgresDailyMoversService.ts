@@ -27,6 +27,7 @@ import type {
   SignalType,
 } from '@/lib/services/contracts/IDailyMoversService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
+import { steadyRiserNews, type SteadyRiserNews } from '@/lib/daily/steady-riser-news';
 
 const EMPTY_GROUPS = (): Record<SignalType, never[]> => ({
   top_gainer: [],
@@ -46,6 +47,8 @@ export class PostgresDailyMoversService implements IDailyMoversService {
         asOfDate: effectiveDate ?? '',
         totalCount: 0,
         totalImpact: 0,
+        dayImpact: 0,
+        dayCount: 0,
         gainers: [],
         decliners: [],
         breakouts: [],
@@ -171,12 +174,22 @@ export class PostgresDailyMoversService implements IDailyMoversService {
         groups.breakout.length +
         groups.steady_riser.length;
 
+      // Last night only (24-hour signals). A printing is a gainer or a
+      // decliner, never both, so summing rows counts each holding once.
+      const dayRows = [...groups.top_gainer, ...groups.top_decliner];
+      const dayImpact = Math.round(dayRows.reduce((s, m) => s + (m.dollarImpact ?? 0), 0) * 100) / 100;
+      const dayCount = new Set(dayRows.map((m) => m.printingId)).size;
+
+      await this.attachSteadyRiserNews(effectiveDate, groups.steady_riser);
+
       return {
         success: true,
         data: {
           asOfDate: effectiveDate,
           totalCount,
           totalImpact: totalImpactRounded,
+          dayImpact,
+          dayCount,
           gainers: groups.top_gainer,
           decliners: groups.top_decliner,
           breakouts: groups.breakout,
@@ -252,6 +265,7 @@ export class PostgresDailyMoversService implements IDailyMoversService {
       for (const k of Object.keys(groups) as SignalType[]) {
         groups[k].sort((a, b) => (a.rankInSignal ?? 999) - (b.rankInSignal ?? 999));
       }
+      await this.attachSteadyRiserNews(effectiveDate, groups.steady_riser);
 
       return {
         success: true,
@@ -269,6 +283,42 @@ export class PostgresDailyMoversService implements IDailyMoversService {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
+    }
+  }
+
+  /**
+   * Marks each steady riser as news or a repeat (streak, flat-since) from the
+   * last RUNS_BACK pipeline runs. Runs are distinct as_of_dates, so a night the
+   * pipeline skipped doesn't break a streak. One query for the whole list.
+   */
+  private async attachSteadyRiserNews(
+    effectiveDate: string,
+    rows: Array<{ printingId: string; streakDays?: number; isNews?: boolean; flatSince?: string | null }>,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const RUNS_BACK = 40; // the signal's window is 30 days; a little margin
+    const runRows = await db
+      .selectDistinct({ d: dailyMovers.asOfDate })
+      .from(dailyMovers)
+      .where(sql`${dailyMovers.asOfDate} <= ${effectiveDate}`)
+      .orderBy(sql`${dailyMovers.asOfDate} DESC`)
+      .limit(RUNS_BACK);
+    const runs = runRows.map((r) => String(r.d));
+    const history = await db
+      .select({ printingId: dailyMovers.printingId, asOfDate: dailyMovers.asOfDate, pAtSignal: dailyMovers.pAtSignal })
+      .from(dailyMovers)
+      .where(and(
+        eq(dailyMovers.signalType, 'steady_riser'),
+        inArray(dailyMovers.asOfDate, runs),
+        inArray(dailyMovers.printingId, [...new Set(rows.map((r) => r.printingId))]),
+      ));
+    const news: Map<string, SteadyRiserNews> = steadyRiserNews(
+      history.map((h) => ({ printingId: h.printingId, asOfDate: String(h.asOfDate), pAtSignal: parseFloat(h.pAtSignal) })),
+      runs,
+    );
+    for (const r of rows) {
+      const n = news.get(r.printingId);
+      if (n) Object.assign(r, n);
     }
   }
 
