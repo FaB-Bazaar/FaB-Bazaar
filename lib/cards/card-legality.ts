@@ -47,6 +47,15 @@ export function isCcLegalRow(card: Flags): boolean {
   return card.future_release === true && !types.includes('young');
 }
 
+/**
+ * Silver Age legality of a search row as the site treats it: `silver_age_legal`,
+ * or a spoiler-season card that would be Silver Age legal (`future_silver_age`,
+ * projected by the search API). Talishar validates at play time.
+ */
+export function isSilverAgeLegalRow(card: Flags): boolean {
+  return card.silver_age_legal === true || card.future_silver_age === true;
+}
+
 /** Returns [] when the row carries no legality flags at all (nothing to show). */
 export function formatLegalityRows(card: Flags): LegalityRow[] {
   const rows: LegalityRow[] = [];
@@ -54,7 +63,9 @@ export function formatLegalityRows(card: Flags): LegalityRow[] {
   for (const { key, format, short } of FORMATS) {
     // Spoiler-season cards (printed in an unreleased set, `future_release` from
     // the search API) are CC-legal site-wide; Talishar validates at play time.
-    const legal = key === 'cc' && isCcLegalRow(card) ? true : asBool(card[`${key}_legal`]);
+    const legal = key === 'cc' && isCcLegalRow(card) ? true
+      : key === 'silver_age' && isSilverAgeLegalRow(card) ? true
+      : asBool(card[`${key}_legal`]);
     const banned = asBool(card[`${key}_banned`]);
     const suspended = asBool(card[`${key}_suspended`]);
     const restricted = key === 'll' ? asBool(card.ll_restricted) : undefined;
@@ -90,6 +101,10 @@ export function deckLegalityVerdict(
   // that isn't CC-legal yet but is printed in an unreleased set
   // (`future_release`, projected by the search API) counts as legal there.
   if (row?.key === 'cc' && row.status === 'not-legal' && asBool(card?.future_release)) {
+    return { ...row, status: 'legal' };
+  }
+  // Silver Age likewise takes spoiler-season cards that would be Silver Age legal.
+  if (row?.key === 'silver_age' && row.status === 'not-legal' && asBool(card?.future_silver_age)) {
     return { ...row, status: 'legal' };
   }
   return row;

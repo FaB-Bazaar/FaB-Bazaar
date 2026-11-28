@@ -123,12 +123,15 @@ describe('PostgresPrintingsService — hero legality admin', () => {
       expect(result.data.every(h => h.ccLegal === true || h.futureCcLegal === true)).toBe(true);
     });
 
-    it('with legalIn=silver_age returns only heroes where silverAgeLegal is true', async () => {
+    // Silver Age also takes young heroes from unreleased sets (2026-11-28):
+    // a listed hero is either silverAgeLegal already or a future young hero.
+    it('with legalIn=silver_age returns Silver Age legal heroes plus unreleased young ones', async () => {
       const result = await service.listHeroCards({ legalIn: 'silver_age' });
       expect(result.success).toBe(true);
       if (!result.success) return;
       expect(result.data.length).toBeGreaterThan(0);
-      expect(result.data.every(h => h.silverAgeLegal === true)).toBe(true);
+      expect(result.data.every(h => h.silverAgeLegal === true || h.futureSilverAgeLegal === true)).toBe(true);
+      expect(result.data.filter(h => !h.silverAgeLegal).every(h => h.types.includes('young'))).toBe(true);
     });
 
     it('rejects an unknown legalIn value', async () => {

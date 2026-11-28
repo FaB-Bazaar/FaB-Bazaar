@@ -58,7 +58,7 @@ import type { AsyncResult, PaginationOptions } from '../../contracts/common';
 import { pickLanguageVariant } from '@/lib/deck/language-variant';
 import { computeArchetypeConsensus, type ConsensusDeck } from '@/lib/deck/analytics';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
-import { isFutureReleaseCard } from '../future-release';
+import { isFutureReleaseCard, isFutureSilverAgeCard } from '../future-release';
 import {
   validateCardForHero,
   validateCopyLimit,
@@ -2178,6 +2178,7 @@ export class PostgresDeckService implements IDeckService {
           silverAgeLegal: cards.silverAgeLegal,
           ccLegal: cards.ccLegal,
           futureCcLegal: sql<boolean>`(${cards.ccLegal} OR ${isFutureReleaseCard(cards.cardUniqueId)})`,
+          futureSilverAgeLegal: sql<boolean>`(${cards.silverAgeLegal} OR ${isFutureSilverAgeCard(cards.cardUniqueId, cards.types)})`,
           blitzLegal: cards.blitzLegal,
           commonerLegal: cards.commonerLegal,
           llLegal: cards.llLegal,

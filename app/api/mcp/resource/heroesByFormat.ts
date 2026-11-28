@@ -31,7 +31,8 @@ const isYoung = (r: HeroLegalityRow) => (r.types ?? []).includes('young');
 const FORMAT_FLAGS: Array<[HeroFormatKey, (r: HeroLegalityRow) => boolean]> = [
   ['cc', r => r.ccLegal === true || (r.futureCcLegal === true && !isYoung(r))],
   ['blitz', r => r.blitzLegal === true],
-  ['silver_age', r => r.silverAgeLegal === true],
+  // Silver Age also takes a young hero from an unreleased set (2026-11-28).
+  ['silver_age', r => r.silverAgeLegal === true || (r.futureSilverAgeLegal === true && isYoung(r))],
   ['commoner', r => r.commonerLegal === true],
   ['ll', r => r.llLegal === true],
 ];

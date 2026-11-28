@@ -39,3 +39,22 @@ export function isFutureReleaseCard(cardUniqueId: PgColumn | SQL): SQL<boolean> 
       AND fs.category <> 'excluded'
   ))`;
 }
+
+/**
+ * Silver Age takes spoiler-season cards too (owner call 2026-11-28; young OBK
+ * heroes before 2027-02-12): a future-release card that WOULD be Silver Age
+ * legal — ever printed at common / rare / basic / token (TRP 7.4: "a card is a
+ * common card for silver age if it has ever been printed with basic- or
+ * common-rarity") and not an adult hero. Bans and benches still apply on top.
+ *
+ * Both subqueries are uncorrelated, like isFutureReleaseCard, so Postgres
+ * hashes each id set once instead of re-running per candidate row.
+ */
+export function isFutureSilverAgeCard(cardUniqueId: PgColumn | SQL, types: PgColumn | SQL): SQL<boolean> {
+  return sql<boolean>`(${isFutureReleaseCard(cardUniqueId)}
+    AND ${cardUniqueId} IN (
+      SELECT lp.card_unique_id FROM ${printings} lp
+      WHERE lower(lp.rarity) IN ('c', 'r', 'b', 't')
+    )
+    AND NOT ('hero' = ANY(${types}) AND NOT ('young' = ANY(${types}))))`;
+}

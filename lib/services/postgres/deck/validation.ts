@@ -83,6 +83,8 @@ type FormatLegalFields = {
   ccLegal?: boolean;
   /** Derived: ccLegal OR printed in a not-yet-released set (lib/services/postgres/future-release.ts). */
   futureCcLegal?: boolean;
+  /** Derived: silverAgeLegal OR an unreleased card that would be Silver Age legal. */
+  futureSilverAgeLegal?: boolean;
   blitzLegal?: boolean;
   commonerLegal?: boolean;
   llLegal?: boolean;
@@ -101,7 +103,10 @@ export function validateFormatLegal(card: FormatLegalFields, format: string): Pr
   if (!field) return { ok: true };
   // CC decks also take spoiler-season cards (printed in a set not released
   // yet) — Future CC was folded into CC; Talishar decides at play time.
-  const flag = format === 'Classic Constructed' ? (card.futureCcLegal ?? card.ccLegal) : card[field];
+  // Silver Age takes them too when they'd be Silver Age legal (2026-11-28).
+  const flag = format === 'Classic Constructed' ? (card.futureCcLegal ?? card.ccLegal)
+    : format === 'Silver Age' ? (card.futureSilverAgeLegal || card.silverAgeLegal)
+    : card[field];
   if (flag === undefined) return { ok: true }; // missing data — skip rather than reject
   if (flag === false) return { ok: false, reason: `not legal in ${format}` };
   return { ok: true };

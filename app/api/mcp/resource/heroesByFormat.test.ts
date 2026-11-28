@@ -133,3 +133,13 @@ describe('heroesByFormatResource', () => {
     expect(typeof ttl).toBe('number');
   });
 });
+
+describe('groupHeroesByFormat — spoiler-season young heroes', () => {
+  it('lists an unreleased young hero under silver_age.young', () => {
+    const grouped = groupHeroesByFormat([
+      row({ name: 'huxley', displayName: 'Huxley', types: ['hero', 'young'], futureSilverAgeLegal: true }),
+    ]);
+    expect(grouped.silver_age.young.map(h => h.name)).toContain('huxley');
+    expect(grouped.blitz.young.map(h => h.name)).not.toContain('huxley');
+  });
+});

@@ -159,3 +159,12 @@ describe('deriveFormatFromHero — spoiler-season heroes (Future CC folded into 
     expect(formatShortLabel('Classic Constructed')).toBe('CC')
   })
 })
+
+describe('deriveFormatFromHero — spoiler-season young heroes', () => {
+  // OBK heroes before 2027-02-12: no legality flag yet, but Silver Age takes
+  // spoiler-season young heroes (owner call 2026-11-28). A young hero is never CC.
+  it('defaults an unreleased young hero to Silver Age', () => {
+    const spoiled = hero({ blitzLegal: false, silverAgeLegal: false, commonerLegal: false, futureSilverAgeLegal: true })
+    expect(deriveFormatFromHero(spoiled)).toBe('Silver Age')
+  })
+})

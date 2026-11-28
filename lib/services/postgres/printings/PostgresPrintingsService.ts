@@ -8,7 +8,7 @@
 import { eq, and, or, sql, inArray, notInArray, isNull, desc, asc, gte, lte, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { printings, cards, bannedCards, cardTranslations, cardFacetTags, cardFacetTagVotes, facetTagDefinitions, sets, tcgGroups, inventoryItems } from '@/lib/postgres/schema';
-import { isFutureReleaseCard } from '../future-release';
+import { isFutureReleaseCard, isFutureSilverAgeCard } from '../future-release';
 import { parsePrintCode, pickPrintingForCode, printCodeFromImageUrl } from '@/lib/import/print-code';
 import type {
   IPrintingsService,
@@ -1536,6 +1536,8 @@ export class PostgresPrintingsService implements IPrintingsService {
       // .as() — the groupByCard path re-selects this from a subquery, and drizzle
       // needs an alias to reference a raw SQL field there.
       futureRelease: isFutureReleaseCard(cards.cardUniqueId).as('future_release'),
+      // Silver Age's spoiler-season input (future release AND Silver Age eligible).
+      futureSilverAge: isFutureSilverAgeCard(cards.cardUniqueId, cards.types).as('future_silver_age'),
       cardCreatedAt: cards.createdAt,
     };
   }
@@ -2106,6 +2108,14 @@ export class PostgresPrintingsService implements IPrintingsService {
           eq(cards.ccLegal, true),
           and(isFutureReleaseCard(cards.cardUniqueId), sql`NOT ('young' = ANY(${cards.types}))`),
         )!);
+      } else if (filters.format === 'silver_age') {
+        // Silver Age also takes spoiler-season cards that would be Silver Age
+        // legal (owner call 2026-11-28); Talishar / Cintari validate at play
+        // time. Bans below are Silver Age's.
+        conditions.push(or(
+          eq(cards.silverAgeLegal, true),
+          isFutureSilverAgeCard(cards.cardUniqueId, cards.types),
+        )!);
       } else if (legalField) {
         conditions.push(eq(legalField, true));
       }
@@ -2549,6 +2559,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       blitz_legal: row.blitzLegal || false,
       cc_legal: row.ccLegal || false,
       future_release: row.futureRelease === true,
+      future_silver_age: row.futureSilverAge === true,
       ...(row.ownedQuantity != null ? { owned_quantity: Number(row.ownedQuantity) } : {}),
       commoner_legal: row.commonerLegal || false,
       ll_legal: row.llLegal || false,
@@ -2618,6 +2629,14 @@ export class PostgresPrintingsService implements IPrintingsService {
             and(isFutureReleaseCard(cards.cardUniqueId), sql`NOT ('young' = ANY(${cards.types}))`),
           )!,
         );
+      } else if (opts?.legalIn === 'silver_age') {
+        // Plus young heroes from unreleased sets (OBK before its release day).
+        whereConditions.push(
+          or(
+            eq(cards.silverAgeLegal, true),
+            isFutureSilverAgeCard(cards.cardUniqueId, cards.types),
+          )!,
+        );
       } else if (opts?.legalIn) {
         whereConditions.push(eq(FORMAT_TO_COLUMN[opts.legalIn], true));
       }
@@ -2631,6 +2650,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           classes: cards.classes,
           ccLegal: cards.ccLegal,
           futureRelease: isFutureReleaseCard(cards.cardUniqueId),
+          futureSilverAge: isFutureSilverAgeCard(cards.cardUniqueId, cards.types),
           blitzLegal: cards.blitzLegal,
           silverAgeLegal: cards.silverAgeLegal,
           commonerLegal: cards.commonerLegal,
@@ -2676,6 +2696,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           klass: (r.classes && r.classes[0]) || null,
           ccLegal: r.ccLegal,
           futureCcLegal: r.ccLegal || r.futureRelease === true,
+          futureSilverAgeLegal: r.silverAgeLegal || r.futureSilverAge === true,
           blitzLegal: r.blitzLegal,
           silverAgeLegal: r.silverAgeLegal,
           commonerLegal: r.commonerLegal,

@@ -97,3 +97,20 @@ describe('isCcLegalRow', () => {
     expect(isCcLegalRow({ cc_legal: false, future_release: false })).toBe(false);
   });
 });
+
+describe('Silver Age spoiler-season cards (future_silver_age)', () => {
+  const spoiler = { silver_age_legal: false, future_silver_age: true, cc_legal: false, future_release: true, types: ['action'] };
+
+  it('shows SA legal on the badge row', () => {
+    expect(formatLegalityRows(spoiler).find(r => r.key === 'silver_age')?.status).toBe('legal');
+  });
+
+  it('counts as legal in a Silver Age deck', () => {
+    expect(deckLegalityVerdict(formatLegalityRows(spoiler), 'Silver Age', spoiler)?.status).toBe('legal');
+  });
+
+  it('a Silver Age ban still wins', () => {
+    const banned = { ...spoiler, silver_age_banned: true };
+    expect(formatLegalityRows(banned).find(r => r.key === 'silver_age')?.status).toBe('banned');
+  });
+});

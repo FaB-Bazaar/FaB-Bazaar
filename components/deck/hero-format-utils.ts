@@ -10,6 +10,9 @@ export function deriveFormatFromHero(hero: HeroLegalityRow | undefined): string 
   if (!hero) return 'Classic Constructed'
   if (hero.ccLegal) return 'Classic Constructed'
   if (hero.silverAgeLegal) return 'Silver Age'
+  // A young hero from an unreleased set (OBK before 2027-02-12) — Silver Age
+  // takes spoiler-season young heroes; a young hero is never CC.
+  if (hero.futureSilverAgeLegal) return 'Silver Age'
   if (hero.blitzLegal) return 'Blitz'
   if (hero.commonerLegal) return 'Commoner'
   if (hero.llLegal) return 'Living Legend'

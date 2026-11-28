@@ -263,3 +263,13 @@ describe('Classic Constructed takes spoiler-season cards (Future CC folded in, 2
     expect(validateCopyLimit(4, 'Future Classic Constructed', {}).ok).toBe(false);
   });
 });
+
+describe('validateFormatLegal — Silver Age spoiler-season cards', () => {
+  it('a Silver Age deck takes a card that is only future-Silver-Age legal', () => {
+    expect(validateFormatLegal({ silverAgeLegal: false, futureSilverAgeLegal: true }, 'Silver Age')).toEqual({ ok: true });
+  });
+
+  it('still rejects a card that is neither', () => {
+    expect(validateFormatLegal({ silverAgeLegal: false, futureSilverAgeLegal: false }, 'Silver Age').ok).toBe(false);
+  });
+});

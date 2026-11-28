@@ -44,7 +44,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //        outside a nightly run
 //   v14 — migration 0137 made six young heroes Silver Age legal (three also
 //        Commoner) outside a nightly run
-const SEARCH_CACHE_VERSION = 'v14';
+//   v15 — the silver_age filter takes spoiler-season cards that would be
+//        Silver Age legal (young OBK heroes before release)
+const SEARCH_CACHE_VERSION = 'v15';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')

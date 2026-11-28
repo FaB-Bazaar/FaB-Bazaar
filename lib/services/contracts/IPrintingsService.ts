@@ -164,6 +164,8 @@ export interface PrintingDTO {
   cc_legal: boolean;
   /** Printed in a set whose release date is still ahead — Future Classic Constructed input (derived; see lib/services/postgres/future-release.ts). */
   future_release?: boolean;
+  /** Future release that would be Silver Age legal (ever common/rare/basic, not an adult hero) — Silver Age's spoiler-season input (derived; see future-release.ts). */
+  future_silver_age?: boolean;
   /** "Your collection" searches only: copies of this CARD across every printing the user owns. */
   owned_quantity?: number;
   commoner_legal: boolean;
@@ -646,6 +648,8 @@ export interface HeroLegalityRow {
   ccLegal: boolean;
   /** cc_legal OR printed in a set whose release date is still ahead (Future Classic Constructed). Derived, not a DB flag. */
   futureCcLegal: boolean;
+  /** silver_age_legal OR an unreleased card that would be Silver Age legal (young heroes before release). Derived, not a DB flag. */
+  futureSilverAgeLegal?: boolean;
   blitzLegal: boolean;
   silverAgeLegal: boolean;
   commonerLegal: boolean;
