@@ -42,6 +42,7 @@ export default function CardCatalogPanel({
   heroClasses,
   heroTalents,
   heroEssences = [],
+  heroName,
   onAddCard,
   isAddingCard
 }: CardCatalogPanelProps) {
@@ -97,6 +98,9 @@ export default function CardCatalogPanel({
           searchFilters.format = apiFormatCode;
         }
       }
+
+      // Other heroes' specialization cards drop out (same as the Add Card dialog)
+      if (heroName) searchFilters.specializationHero = heroName
 
       // Add search query (user typing) - uses debounced value
       if (debouncedSearchQuery) {
@@ -211,7 +215,7 @@ export default function CardCatalogPanel({
       setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroClassesKey, heroTalentsKey, heroEssences.join(','), debouncedSearchQuery, filters.pitchValues, filters.types, filters.rarities, filters.foilings, filters.costs, filters.powerMin, filters.powerMax, filters.defenseMin, filters.defenseMax, filters.priceMin, filters.priceMax, limit])
+  }, [heroClassesKey, heroTalentsKey, heroEssences.join(','), heroName, debouncedSearchQuery, filters.pitchValues, filters.types, filters.rarities, filters.foilings, filters.costs, filters.powerMin, filters.powerMax, filters.defenseMin, filters.defenseMax, filters.priceMin, filters.priceMax, limit])
 
   // Fetch cards when filters or page changes
   useEffect(() => {

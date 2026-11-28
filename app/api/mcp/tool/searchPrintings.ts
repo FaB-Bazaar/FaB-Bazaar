@@ -1,7 +1,7 @@
 // app/api/mcp/tool/searchPrintings.ts
 import { printingsService } from '@/lib/services';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
-import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
+import { getHeroInfo, heroSpecializationName, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
 import { sortPrintings, normalizeSetCode } from '@/lib/fab-constants/sets';
 import { buildOptSearchUrl } from '@/lib/search/filters-to-opt-url';
 import { RETIRED_CARD_FLAGS, retiredFlagReplacement } from '@/lib/search/retired-card-flags';
@@ -326,6 +326,10 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
       (f as any).heroClasses = [...allClasses];
       (f as any).heroTalents = [...allTalents];
       if (allEssences.size > 0) (f as any).heroEssences = [...allEssences];
+      // Other heroes' specializations drop out (Huxley can't play Dash's Spark
+      // of Genius). One name only — several heroes can't share the rule.
+      const specName = names.length === 1 ? heroSpecializationName(names[0]) : null;
+      if (specName) f.specializationHero = specName;
     }
   }
 

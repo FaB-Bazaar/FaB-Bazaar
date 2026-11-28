@@ -16,6 +16,7 @@ import {
 import { groupSearchPrintings, hasMoreSearchPages } from "@/lib/deck/search-pagination";
 import { GENERIC_CHIP } from "@/lib/search/card-filter-chips";
 import { availableTypeChips } from "@/lib/deck/available-type-chips";
+import { deckHeroName } from "@/lib/deck/brew";
 import { useHeroPoolTypes } from "@/hooks/deck/useHeroPoolTypes";
 import { resolveMobileAddCategory, pickRemovalSlot, type MobileAddZone } from "@/lib/deck/mobile-add-zone";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
@@ -181,6 +182,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   const heroFilterKey = JSON.stringify(resolvedHeroFilter);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const heroFilter = useMemo(() => resolvedHeroFilter, [heroFilterKey]);
+  const heroName = deckHeroName(deck);
   // Type options narrowed to the hero's legal pool (same rule as the desktop
   // Add Card dialog); null while loading = every type.
   const poolTypes = useHeroPoolTypes(heroFilter, deck.format, true);
@@ -202,6 +204,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
       parsed: { filters: parsed.filters, nameText: parsed.remainingText ?? "" },
       kitPrintingIds,
       heroFilter,
+      heroName,
       formatCode,
     });
 
@@ -228,7 +231,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroFilter, formatCode, effectiveFilters.source, effectiveFilters.pitches, effectiveFilters.type, kitIdsKey]);
+  }, [heroFilter, heroName, formatCode, effectiveFilters.source, effectiveFilters.pitches, effectiveFilters.type, kitIdsKey]);
 
   // Fetch the next page with the same filters and merge into the grid.
   // Selected printings and optimistic deltas survive — only a NEW search resets them.

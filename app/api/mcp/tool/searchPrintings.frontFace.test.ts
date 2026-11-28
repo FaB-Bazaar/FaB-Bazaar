@@ -102,3 +102,23 @@ describe('search_printings — a back shared by several fronts', () => {
     expect(result.message).toMatch(/back face of Viserai, the Forsaken \/ Viserai, Between Worlds/);
   });
 });
+
+// heroLegal also brings the hero's specialization rule: Huxley is class-legal
+// for Spark of Genius (Mechanologist) but it is a Dash specialization.
+describe('search_printings — heroLegal specializations', () => {
+  it('passes the resolved full hero name as specializationHero', async () => {
+    expect((await filtersSeenByService({ filters: { heroLegal: 'huxley, racketeer' } })).specializationHero).toBe('huxley, racketeer');
+  });
+
+  it('"huxley" is young Huxley\'s own roster key (keys resolve before nicknames)', async () => {
+    expect((await filtersSeenByService({ filters: { heroLegal: 'huxley' } })).specializationHero).toBe('huxley');
+  });
+
+  it('resolves a young hero by its own key', async () => {
+    expect((await filtersSeenByService({ filters: { heroLegal: 'emperor, dracai of aesir' } })).specializationHero).toBe('emperor, dracai of aesir');
+  });
+
+  it('skips it for several heroes at once (one specialization name per search)', async () => {
+    expect(await filtersSeenByService({ filters: { heroLegal: ['huxley', 'dash'] } })).not.toHaveProperty('specializationHero');
+  });
+});

@@ -110,3 +110,19 @@ describe('buildMobileSearchFilters', () => {
     expect(f.pitch).toEqual([2]);
   });
 });
+
+describe('buildMobileSearchFilters — hero specializations', () => {
+  it("passes the deck hero's name so other heroes' specializations drop out", () => {
+    const f = build(state({ source: 'all' }), { heroName: 'Gravy Bones, Shipwrecked Looter' });
+    expect(f.specializationHero).toBe('Gravy Bones, Shipwrecked Looter');
+  });
+
+  it('kits source skips it like the other hero scoping', () => {
+    const f = build(state({ source: 'kits' }), { heroName: 'Gravy Bones, Shipwrecked Looter' });
+    expect(f).not.toHaveProperty('specializationHero');
+  });
+
+  it('omits it when the deck has no hero', () => {
+    expect(build(state({ source: 'all' }))).not.toHaveProperty('specializationHero');
+  });
+});

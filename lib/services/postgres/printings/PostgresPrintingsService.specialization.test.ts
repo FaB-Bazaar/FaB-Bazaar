@@ -43,4 +43,17 @@ describe('specializationHero', () => {
   it('leaves non-specialization cards alone', async () => {
     expect(await namesFor({ name: 'Sink Below', exact: true, specializationHero: "maxx 'the hype' nitro" })).toContain('sink below');
   });
+
+  // A heroLegal name resolves to the hero's classes/talents AND its
+  // specializations: Huxley (Assassin / Mechanologist) is class-legal for
+  // Spark of Genius, but it is a Dash specialization.
+  it('heroLegal drops other heroes\' specializations (Huxley cannot play Spark of Genius)', async () => {
+    expect(await namesFor({ name: 'Spark of Genius', exact: true, heroLegal: 'huxley' })).toEqual([]);
+    expect(await namesFor({ name: 'Spark of Genius', exact: true, heroLegal: 'huxley, racketeer' })).toEqual([]);
+  });
+
+  it('heroLegal keeps the hero\'s own specializations (Dash keeps Spark of Genius)', async () => {
+    expect(await namesFor({ name: 'Spark of Genius', exact: true, heroLegal: 'dash, inventor extraordinaire' })).toContain('spark of genius');
+    expect(await namesFor({ name: 'Spark of Genius', exact: true, heroLegal: 'dash i/o' })).toContain('spark of genius');
+  });
 });

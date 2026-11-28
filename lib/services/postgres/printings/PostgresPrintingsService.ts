@@ -32,10 +32,28 @@ import type {
 import { HERO_LEGALITY_FLAGS, HERO_FORMATS } from '@/lib/services/contracts/IPrintingsService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
-import { getHeroInfo } from '@/lib/fab-constants/heroes';
+import { getHeroInfo, heroSpecializationName } from '@/lib/fab-constants/heroes';
 import { KEYWORDS } from '@/lib/fab-constants/keywords';
 import { rarityRank } from '../rarity-rank';
 import { OFFICIAL_TALENTS } from '@/lib/talent-constants';
+
+/**
+ * Hero specializations: keywords carry "<name> specialization" (Singularity →
+ * "teklovossen specialization"; "dromai or fai specialization" names two). A
+ * card is legal only for the hero whose full name IS <name> or starts with
+ * <name> + " " / "," — this drops every specialization no name part matches.
+ */
+function specializationCondition(heroName: string) {
+  const hero = heroName.toLowerCase();
+  return sql`NOT EXISTS (
+    SELECT 1 FROM unnest(${cards.keywords}) AS kw
+    WHERE kw LIKE '% specialization'
+      AND NOT EXISTS (
+        SELECT 1 FROM unnest(string_to_array(regexp_replace(kw, ' specialization$', ''), ' or ')) AS who
+        WHERE ${hero} = who OR ${hero} LIKE who || ' %' OR ${hero} LIKE who || ',%'
+      )
+  )`;
+}
 
 export class PostgresPrintingsService implements IPrintingsService {
   /**
@@ -1713,17 +1731,8 @@ export class PostgresPrintingsService implements IPrintingsService {
     // "teklovossen specialization"; "dromai or fai specialization" names two).
     // A card is legal only for the hero whose full name IS <name> or starts with
     // <name> + " " / "," — so drop every specialization no name part matches.
-    if (filters.specializationHero) {
-      const hero = filters.specializationHero.toLowerCase();
-      conditions.push(sql`NOT EXISTS (
-        SELECT 1 FROM unnest(${cards.keywords}) AS kw
-        WHERE kw LIKE '% specialization'
-          AND NOT EXISTS (
-            SELECT 1 FROM unnest(string_to_array(regexp_replace(kw, ' specialization$', ''), ' or ')) AS who
-            WHERE ${hero} = who OR ${hero} LIKE who || ' %' OR ${hero} LIKE who || ',%'
-          )
-      )`);
-    }
+    // (A heroLegal name sets the same rule further down, where it resolves.)
+    if (filters.specializationHero) conditions.push(specializationCondition(filters.specializationHero));
 
     // Class and talent are both card affiliations. By default each constrains
     // independently (AND). With classTalentUnion set (the search UI), they OR
@@ -2170,6 +2179,11 @@ export class PostgresPrintingsService implements IPrintingsService {
           heroEssences: [...allEssences, ...(filters.heroEssences || []).map(e => e.toLowerCase())],
           heroLegal: undefined,
         };
+        // One named hero → its specialization rule too (Huxley is class-legal
+        // for Spark of Genius, a Dash specialization). Several heroes at once
+        // can't share one name, so the rule is skipped for them.
+        const specName = names.length === 1 ? heroSpecializationName(names[0]) : null;
+        if (specName && !filters.specializationHero) conditions.push(specializationCondition(specName));
       }
     }
 

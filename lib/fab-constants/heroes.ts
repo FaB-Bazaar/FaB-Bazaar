@@ -205,6 +205,14 @@ export function classifyHeroName(name: string): { age: HeroAge; canonical: strin
   return { age: 'unknown', canonical: lower };
 }
 
+// Full roster name for a hero given by name / nickname / shortName, for the
+// specialization rule ("dash specialization" matches heroes named "dash…").
+// null when the hero isn't in the roster — callers then skip the rule.
+export function heroSpecializationName(name: string): string | null {
+  const { age, canonical } = classifyHeroName(name);
+  return age === 'unknown' ? null : canonical;
+}
+
 const FORMAT_HERO_REQUIREMENT: Record<string, HeroAge> = {
   silver_age: 'young',
   blitz: 'young',

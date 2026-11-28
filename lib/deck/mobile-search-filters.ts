@@ -38,9 +38,11 @@ export function buildMobileSearchFilters(opts: {
   parsed: { filters: object; nameText: string };
   kitPrintingIds: string[];
   heroFilter: { heroClasses: string[]; heroTalents: string[]; heroEssences: string[] } | null;
+  /** Deck hero's full name — other heroes' specialization cards drop out. */
+  heroName?: string;
   formatCode?: string;
 }): Record<string, unknown> {
-  const { state, parsed, kitPrintingIds, heroFilter, formatCode } = opts;
+  const { state, parsed, kitPrintingIds, heroFilter, heroName, formatCode } = opts;
   const f: Record<string, unknown> = { ...parsed.filters };
   if (parsed.nameText.trim()) f.name = parsed.nameText.trim();
 
@@ -64,6 +66,7 @@ export function buildMobileSearchFilters(opts: {
       f.heroTalents = heroFilter.heroTalents;
       if (heroFilter.heroEssences.length > 0) f.heroEssences = heroFilter.heroEssences;
     }
+    if (heroName) f.specializationHero = heroName;
     if (formatCode) f.format = formatCode;
   }
 
