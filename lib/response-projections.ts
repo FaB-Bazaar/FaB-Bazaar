@@ -132,8 +132,6 @@ export const RESPONSE_PROJECTIONS = {
     is_equipment: 1,
     is_weapon: 1,
     is_hero: 1,
-    is_mentor: 1,
-    is_token: 1,
     
     // Class boolean flags
     is_generic: 1,
@@ -142,16 +140,9 @@ export const RESPONSE_PROJECTIONS = {
     is_mechanologist: 1,
     is_ranger: 1,
     is_runeblade: 1,
-    is_assassin: 1,
     is_warrior: 1,
     is_ninja: 1,
     is_wizard: 1,
-    is_merchant: 1,
-    is_bard: 1,
-    is_adjudicator: 1,
-    is_illusionist: 1,
-    is_thief: 1,
-    is_shapeshifter: 1,
     is_necromancer: 1,
     
     // Talent/essence boolean flags
@@ -176,7 +167,6 @@ export const RESPONSE_PROJECTIONS = {
     has_talent_only: 1,
     
     image_url: 1,
-    played_horizontally: 1,
     expansion_slot: 1
   },
   

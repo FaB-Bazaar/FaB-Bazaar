@@ -21,7 +21,6 @@ export interface FABCard {
     functional_text: string;
     functional_text_plain: string;
     type_text: string;
-    played_horizontally: boolean;
     
     // Format legality
     blitz_legal: boolean;

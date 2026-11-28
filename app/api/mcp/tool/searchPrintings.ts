@@ -4,6 +4,7 @@ import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
 import { sortPrintings, normalizeSetCode } from '@/lib/fab-constants/sets';
 import { buildOptSearchUrl } from '@/lib/search/filters-to-opt-url';
+import { RETIRED_CARD_FLAGS, retiredFlagReplacement } from '@/lib/search/retired-card-flags';
 import { normalizeResponseLanguage, localizeSearchOutput } from './localizeResults';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 
@@ -280,11 +281,10 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
     'colorNot', 'raritiesNot', 'setsNot', 'foilingsNot', 'editionsNot',
     'typesNot', 'classesNot', 'keywordsNot', 'textNot', 'talentsNot',
     'isAction', 'isAttack', 'isDefenseReaction', 'isInstant', 'isEquipment',
-    'isWeapon', 'isHero', 'isMentor', 'isToken',
+    'isWeapon', 'isHero',
     'isGeneric', 'isBrute', 'isGuardian', 'isMechanologist', 'isRanger',
-    'isRuneblade', 'isAssassin', 'isWarrior', 'isNinja', 'isWizard',
-    'isMerchant', 'isBard', 'isAdjudicator', 'isIllusionist', 'isThief',
-    'isShapeshifter', 'isNecromancer',
+    'isRuneblade', 'isWarrior', 'isNinja', 'isWizard',
+    'isNecromancer',
     'hasChaos', 'hasLight', 'hasRoyal', 'hasDraconic', 'hasLightning',
     'hasShadow', 'hasEarth', 'hasMystic', 'hasRevered', 'hasIce',
     'hasReviled', 'hasPirate', 'hasElemental',
@@ -438,6 +438,23 @@ export function warnOnMisplacedDescriptorKeys(cards: Array<Record<string, any>>)
   }
   if (misplaced.size === 0) return null;
   return `⚠️ Ignored unknown card-level key${misplaced.size > 1 ? 's' : ''}: ${[...misplaced].join(', ')}. Filter fields must go INSIDE filters, e.g. { cards: [{ filters: { name: "...", ${[...misplaced][0]}: ... } }] }.`;
+}
+
+/**
+ * Retired card flags (see lib/search/retired-card-flags.ts) are dropped by
+ * convertMCPFilters. Log each use so we can confirm nobody relies on them
+ * before the columns are dropped, and tell the model the array-filter
+ * equivalent so it re-asks correctly. Returns the warning, or null.
+ */
+export function warnOnRetiredFlags(cards: Array<{ filters?: Record<string, unknown> }>): string | null {
+  const used = RETIRED_CARD_FLAGS.filter(flag => cards.some(c => c.filters?.[flag] != null));
+  if (used.length === 0) return null;
+  console.warn('[retired-card-flag]', { tool: 'search_printings', flags: used });
+  const hints = used.map(flag => {
+    const replacement = retiredFlagReplacement(flag);
+    return replacement ? `${flag} → use filters { ${replacement} }` : `${flag} (no replacement)`;
+  });
+  return `⚠️ Retired filter${used.length > 1 ? 's' : ''} ignored: ${hints.join('; ')}.`;
 }
 
 // Deckbuilding searches (heroLegal / format) default to returning card text so
@@ -812,11 +829,12 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
     // Misplaced-key feedback (e.g. priceMax outside filters): tell the model
     // so it self-corrects instead of silently searching unconstrained.
     const misplacedWarning = warnOnMisplacedDescriptorKeys(cards);
+    const retiredWarning = warnOnRetiredFlags(cards);
 
     return {
       success: true,
       optSearchLink,
-      message: `${misplacedWarning ? misplacedWarning + '\n\n' : ''}Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
+      message: `${misplacedWarning ? misplacedWarning + '\n\n' : ''}${retiredWarning ? retiredWarning + '\n\n' : ''}Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
       results: output.map(r => {
         const sorted = r.printings.length > 0 ? sortPrintings(r.printings) : [];
         const cardPriceField = cards[r.index]?.filters?.priceField as PriceField | undefined;

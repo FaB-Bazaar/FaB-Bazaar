@@ -1472,25 +1472,15 @@ export class PostgresPrintingsService implements IPrintingsService {
       isEquipment: cards.isEquipment,
       isWeapon: cards.isWeapon,
       isHero: cards.isHero,
-      isMentor: cards.isMentor,
-      isToken: cards.isToken,
-      playedHorizontally: cards.playedHorizontally,
       isGeneric: cards.isGeneric,
       isBrute: cards.isBrute,
       isGuardian: cards.isGuardian,
       isMechanologist: cards.isMechanologist,
       isRanger: cards.isRanger,
       isRuneblade: cards.isRuneblade,
-      isAssassin: cards.isAssassin,
       isWarrior: cards.isWarrior,
       isNinja: cards.isNinja,
       isWizard: cards.isWizard,
-      isMerchant: cards.isMerchant,
-      isBard: cards.isBard,
-      isAdjudicator: cards.isAdjudicator,
-      isIllusionist: cards.isIllusionist,
-      isThief: cards.isThief,
-      isShapeshifter: cards.isShapeshifter,
       isNecromancer: cards.isNecromancer,
       hasChaos: cards.hasChaos,
       hasLight: cards.hasLight,
@@ -2010,8 +2000,6 @@ export class PostgresPrintingsService implements IPrintingsService {
     if (filters.isEquipment !== undefined) conditions.push(eq(cards.isEquipment, filters.isEquipment));
     if (filters.isWeapon !== undefined) conditions.push(eq(cards.isWeapon, filters.isWeapon));
     if (filters.isHero !== undefined) conditions.push(eq(cards.isHero, filters.isHero));
-    if (filters.isMentor !== undefined) conditions.push(eq(cards.isMentor, filters.isMentor));
-    if (filters.isToken !== undefined) conditions.push(eq(cards.isToken, filters.isToken));
 
     // ===== BOOLEAN FLAGS - CLASS =====
     if (filters.isGeneric !== undefined) conditions.push(eq(cards.isGeneric, filters.isGeneric));
@@ -2021,17 +2009,9 @@ export class PostgresPrintingsService implements IPrintingsService {
       conditions.push(eq(cards.isMechanologist, filters.isMechanologist));
     if (filters.isRanger !== undefined) conditions.push(eq(cards.isRanger, filters.isRanger));
     if (filters.isRuneblade !== undefined) conditions.push(eq(cards.isRuneblade, filters.isRuneblade));
-    if (filters.isAssassin !== undefined) conditions.push(eq(cards.isAssassin, filters.isAssassin));
     if (filters.isWarrior !== undefined) conditions.push(eq(cards.isWarrior, filters.isWarrior));
     if (filters.isNinja !== undefined) conditions.push(eq(cards.isNinja, filters.isNinja));
     if (filters.isWizard !== undefined) conditions.push(eq(cards.isWizard, filters.isWizard));
-    if (filters.isMerchant !== undefined) conditions.push(eq(cards.isMerchant, filters.isMerchant));
-    if (filters.isBard !== undefined) conditions.push(eq(cards.isBard, filters.isBard));
-    if (filters.isAdjudicator !== undefined) conditions.push(eq(cards.isAdjudicator, filters.isAdjudicator));
-    if (filters.isIllusionist !== undefined) conditions.push(eq(cards.isIllusionist, filters.isIllusionist));
-    if (filters.isThief !== undefined) conditions.push(eq(cards.isThief, filters.isThief));
-    if (filters.isShapeshifter !== undefined)
-      conditions.push(eq(cards.isShapeshifter, filters.isShapeshifter));
     if (filters.isNecromancer !== undefined)
       conditions.push(eq(cards.isNecromancer, filters.isNecromancer));
 
@@ -2497,24 +2477,15 @@ export class PostgresPrintingsService implements IPrintingsService {
       is_equipment: row.isEquipment || false,
       is_weapon: row.isWeapon || false,
       is_hero: row.isHero || false,
-      is_mentor: row.isMentor || false,
-      is_token: row.isToken || false,
       is_generic: row.isGeneric || false,
       is_brute: row.isBrute || false,
       is_guardian: row.isGuardian || false,
       is_mechanologist: row.isMechanologist || false,
       is_ranger: row.isRanger || false,
       is_runeblade: row.isRuneblade || false,
-      is_assassin: row.isAssassin || false,
       is_warrior: row.isWarrior || false,
       is_ninja: row.isNinja || false,
       is_wizard: row.isWizard || false,
-      is_merchant: row.isMerchant || false,
-      is_bard: row.isBard || false,
-      is_adjudicator: row.isAdjudicator || false,
-      is_illusionist: row.isIllusionist || false,
-      is_thief: row.isThief || false,
-      is_shapeshifter: row.isShapeshifter || false,
       is_necromancer: row.isNecromancer || false,
       has_chaos: row.hasChaos || false,
       has_light: row.hasLight || false,
@@ -2578,7 +2549,6 @@ export class PostgresPrintingsService implements IPrintingsService {
       commoner_suspended: row.commonerSuspended || false,
       ll_restricted: row.llRestricted || false,
       silver_age_suspended: row.silverAgeSuspended || false,
-      played_horizontally: row.playedHorizontally || false,
       expansion_slot: row.expansionSlot || false,
       other_face_printing_id: row.otherFacePrintingId ?? null,
       is_front_face: row.isFrontFace ?? true,

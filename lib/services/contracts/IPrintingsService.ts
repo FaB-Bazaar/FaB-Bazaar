@@ -96,8 +96,6 @@ export interface PrintingDTO {
   is_equipment: boolean;
   is_weapon: boolean;
   is_hero: boolean;
-  is_mentor: boolean;
-  is_token: boolean;
 
   // Class flags
   is_generic: boolean;
@@ -106,16 +104,9 @@ export interface PrintingDTO {
   is_mechanologist: boolean;
   is_ranger: boolean;
   is_runeblade: boolean;
-  is_assassin: boolean;
   is_warrior: boolean;
   is_ninja: boolean;
   is_wizard: boolean;
-  is_merchant: boolean;
-  is_bard: boolean;
-  is_adjudicator: boolean;
-  is_illusionist: boolean;
-  is_thief: boolean;
-  is_shapeshifter: boolean;
   is_necromancer: boolean;
 
   // Talent flags
@@ -203,7 +194,6 @@ export interface PrintingDTO {
   foil_inset_round: string | null;
 
   // Other
-  played_horizontally: boolean;
   expansion_slot: boolean;
   other_face_printing_id?: string | null;
   is_front_face: boolean;
@@ -368,8 +358,6 @@ export interface PrintingsSearchFilters {
   // Hero age filter, OR-combined: ['adult'] = non-young heroes, ['young'] = young
   // heroes, both = all heroes. 'adult' = isHero AND NOT 'young' in types.
   heroAges?: Array<'adult' | 'young'>;
-  isMentor?: boolean;
-  isToken?: boolean;
 
   // Class boolean filters
   isGeneric?: boolean;
@@ -378,16 +366,9 @@ export interface PrintingsSearchFilters {
   isMechanologist?: boolean;
   isRanger?: boolean;
   isRuneblade?: boolean;
-  isAssassin?: boolean;
   isWarrior?: boolean;
   isNinja?: boolean;
   isWizard?: boolean;
-  isMerchant?: boolean;
-  isBard?: boolean;
-  isAdjudicator?: boolean;
-  isIllusionist?: boolean;
-  isThief?: boolean;
-  isShapeshifter?: boolean;
   isNecromancer?: boolean;
 
   // Talent boolean filters
